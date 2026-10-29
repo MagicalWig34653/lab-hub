@@ -1,0 +1,28 @@
+# Overlay: PostgreSQL im Stack (ein Knoten, lokales Volume). Zusammen mit stack.yaml deployen:
+#   docker stack deploy -c swarm/stack.yaml -c swarm/stack.db.yaml <stack>
+# Das Volume liegt auf dem Knoten, auf dem der Dienst zuerst läuft; die Platzierungsbedingung hält ihn dort.
+# Für Hochverfügbarkeit eine externe, replizierte Datenbank nutzen (stack.yaml allein).
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: ${DB_NAME:-labhub}
+      POSTGRES_USER: ${DB_USER:-labhub}
+      POSTGRES_PASSWORD_FILE: /run/secrets/lh_db_password
+    secrets: [lh_db_password]
+    volumes:
+      - labhub-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-labhub} -d ${DB_NAME:-labhub}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    deploy:
+      replicas: 1
+      placement:
+        constraints: ["node.labels.labhub-db == true"]
+      restart_policy: { condition: on-failure }
+      resources:
+        limits: { cpus: "2.0", memory: 1G }
+volumes:
+  labhub-db:

@@ -1,0 +1,6 @@
+.env
+.build/
+*.xcodeproj
+node_modules/
+pwa/build/
+.DS_Store

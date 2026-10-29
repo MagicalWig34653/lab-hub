@@ -1,0 +1,63 @@
+# Produktions-Stack (Entwurf): Backend mit Repliken + einmaliger Migrationsjob. Datenbank und Objektspeicher gehören
+# nicht zu diesem Stack (extern oder eigener Stack). Passwörter und Schlüssel nur als Docker-Secrets (<NAME>_FILE).
+# Ablauf: deploy/setup.sh erzeugt .env und Secrets; Deploy mit stack.yaml (externe DB) oder stack.yaml + stack.db.yaml
+# (Postgres im Stack). Erst-Deploy mit BACKEND_REPLICAS=0, dann migrate abwarten, dann hochskalieren (macht update.sh/setup.sh).
+services:
+  migrate:
+    image: ${LABHUB_IMAGE:?LABHUB_IMAGE setzen}
+    command: ["migrate", "--yes", "--env", "production"]
+    environment:
+      DB_HOST: ${DB_HOST:?DB_HOST setzen}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_NAME: ${DB_NAME:-labhub}
+      DB_USER: ${DB_USER:-labhub}
+      DB_PASSWORD_FILE: /run/secrets/lh_db_password
+      DB_TLS: ${DB_TLS:-required}
+      AUTO_MIGRATE: "false"
+    secrets: [lh_db_password]
+    read_only: true
+    tmpfs: [/tmp]
+    deploy:
+      mode: replicated-job
+      replicas: 1
+      restart_policy: { condition: none }
+      resources:
+        limits: { cpus: "1.0", memory: 512M }
+
+  backend:
+    image: ${LABHUB_IMAGE:?LABHUB_IMAGE setzen}
+    environment:
+      DB_HOST: ${DB_HOST:?DB_HOST setzen}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_NAME: ${DB_NAME:-labhub}
+      DB_USER: ${DB_USER:-labhub}
+      DB_PASSWORD_FILE: /run/secrets/lh_db_password
+      DB_TLS: ${DB_TLS:-required}
+      AUTO_MIGRATE: "false"
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:?PUBLIC_BASE_URL setzen}
+      WEBAUTHN_RP_ID: ${WEBAUTHN_RP_ID:?WEBAUTHN_RP_ID setzen}
+      SECRET_KEY_FILE: /run/secrets/lh_secret_key
+    secrets: [lh_db_password, lh_secret_key]
+    read_only: true
+    tmpfs: [/tmp]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/ready"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 20s
+    ports:
+      - { target: 8080, published: 8080, mode: host }
+    deploy:
+      replicas: ${BACKEND_REPLICAS:-2}
+      update_config: { order: start-first, parallelism: 1, failure_action: rollback }
+      rollback_config: { order: start-first }
+      restart_policy: { condition: on-failure }
+      resources:
+        limits: { cpus: "1.0", memory: 512M }
+
+secrets:
+  lh_db_password:
+    external: true
+  lh_secret_key:
+    external: true

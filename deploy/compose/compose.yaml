@@ -1,0 +1,68 @@
+# Einzelner Docker-Host ohne Swarm: Postgres + Migration + Backend. Start über deploy/setup.sh oder:
+#   docker compose --env-file deploy/.env -f deploy/compose/compose.yaml up -d
+# Secrets liegen als Dateien (Modus 0600) in deploy/compose/secrets/ (von setup.sh erzeugt, nicht im Git).
+name: ${LABHUB_STACK:-labhub}
+services:
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-labhub}
+      POSTGRES_USER: ${DB_USER:-labhub}
+      POSTGRES_PASSWORD_FILE: /run/secrets/lh_db_password
+    secrets: [lh_db_password]
+    volumes:
+      - labhub-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-labhub} -d ${DB_NAME:-labhub}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  migrate:
+    image: ${LABHUB_IMAGE:?LABHUB_IMAGE setzen}
+    command: ["migrate", "--yes", "--env", "production"]
+    depends_on:
+      db: { condition: service_healthy }
+    environment: &dbenv
+      DB_HOST: ${DB_HOST:-db}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_NAME: ${DB_NAME:-labhub}
+      DB_USER: ${DB_USER:-labhub}
+      DB_PASSWORD_FILE: /run/secrets/lh_db_password
+      DB_TLS: ${DB_TLS:-off}
+      AUTO_MIGRATE: "false"
+    secrets: [lh_db_password]
+    read_only: true
+    tmpfs: [/tmp]
+    restart: "no"
+
+  backend:
+    image: ${LABHUB_IMAGE:?LABHUB_IMAGE setzen}
+    restart: unless-stopped
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    environment:
+      <<: *dbenv
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:?PUBLIC_BASE_URL setzen}
+      WEBAUTHN_RP_ID: ${WEBAUTHN_RP_ID:?WEBAUTHN_RP_ID setzen}
+      SECRET_KEY_FILE: /run/secrets/lh_secret_key
+    secrets: [lh_db_password, lh_secret_key]
+    read_only: true
+    tmpfs: [/tmp]
+    ports:
+      - "${BACKEND_BIND:-127.0.0.1}:${BACKEND_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/ready"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 20s
+
+secrets:
+  lh_db_password:
+    file: ./secrets/lh_db_password
+  lh_secret_key:
+    file: ./secrets/lh_secret_key
+volumes:
+  labhub-db:
