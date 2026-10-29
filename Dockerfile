@@ -1,5 +1,5 @@
 # Mehrstufiges Image (Entwurf): baut das Backend und startet es mit read-only Root; Entrypoint liest <NAME>_FILE-Secrets.
-FROM swift:6.0-jammy AS build
+FROM swift:6.2-jammy AS build
 WORKDIR /src
 COPY backend/ ./
 RUN swift build -c release --product App --static-swift-stdlib

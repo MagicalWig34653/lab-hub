@@ -13,7 +13,7 @@
 #   --save-generated   erzeugte Geheimnisse zusätzlich in dieses Verzeichnis schreiben (Modus 0600), z. B. für den Passwortmanager
 #
 # Umgebungsvariablen für --non-interactive: LH_MODE (1|2|3), LH_STACK, LH_IMAGE, LH_DOMAIN, LH_HTTPS (yes|no),
-#   LH_REPLICAS, LH_DB_HOST, LH_DB_PORT, LH_DB_NAME, LH_DB_USER, LH_DB_TLS (required|off), LH_DB_PASSWORD_FILE (externe DB),
+#   LH_REPLICAS, LH_DB_HOST, LH_DB_PORT, LH_DB_NAME, LH_DB_USER, LH_DB_TLS (require|disable), LH_DB_PASSWORD_FILE (externe DB),
 #   LH_START (yes|no).
 # Geheimnisse werden nie ausgegeben und nie als Kommandozeilenargument übergeben; Docker-Secrets laufen über stdin.
 set -euo pipefail
@@ -74,21 +74,21 @@ ask DOMAIN "Öffentliche Domain (z. B. hub.example.org, ohne https://)" "localho
 [[ "$DOMAIN" =~ ^[A-Za-z0-9.-]+$ ]] || die "Domain ungültig"
 if [ "$DOMAIN" = "localhost" ]; then HTTPS_DEFAULT=n; else HTTPS_DEFAULT=y; fi
 if confirm "Wird die Domain über HTTPS (Reverse Proxy mit TLS) erreicht?" "$HTTPS_DEFAULT" LH_HTTPS; then SCHEME=https; else SCHEME=http; fi
-PUBLIC_BASE_URL="$SCHEME://$DOMAIN"
+PUBLIC_URL="$SCHEME://$DOMAIN"
 WEBAUTHN_RP_ID="$DOMAIN"
 say "  Hinweis: Die Passkey-Domain ($WEBAUTHN_RP_ID) lässt sich später nicht ändern, ohne alle Passkeys zu entwerten."
 
 REPLICAS=1
 if [ "$MODE" != 3 ]; then ask REPLICAS "Anzahl Backend-Repliken" "2" LH_REPLICAS; [[ "$REPLICAS" =~ ^[0-9]+$ ]] || die "Repliken: Zahl"; fi
 
-DB_NAME=labhub; DB_USER=labhub; DB_PORT=5432; DB_TLS=off; DB_HOST=db; EXT_DB_PASSWORD_FILE=""
+DB_NAME=labhub; DB_USER=labhub; DB_PORT=5432; DB_TLS=disable; DB_HOST=db; EXT_DB_PASSWORD_FILE=""
 ask DB_NAME "Datenbankname" "$DB_NAME" LH_DB_NAME; validate_name "Datenbankname" "$DB_NAME"
 ask DB_USER "Datenbankbenutzer" "$DB_USER" LH_DB_USER; validate_name "Datenbankbenutzer" "$DB_USER"
 if [ "$MODE" = 2 ]; then
   ask DB_HOST "Host der externen Datenbank" "" LH_DB_HOST; [ -n "$DB_HOST" ] || die "Datenbank-Host fehlt"
   ask DB_PORT "Port" "5432" LH_DB_PORT; [[ "$DB_PORT" =~ ^[0-9]+$ ]] || die "Port: Zahl"
-  ask DB_TLS "TLS zur Datenbank (required|off)" "required" LH_DB_TLS
-  case "$DB_TLS" in required|off) ;; *) die "TLS: required oder off" ;; esac
+  ask DB_TLS "TLS zur Datenbank (require|disable)" "require" LH_DB_TLS
+  case "$DB_TLS" in require|disable) ;; *) die "TLS: require oder disable" ;; esac
   ask EXT_DB_PASSWORD_FILE "Datei mit dem vorhandenen DB-Passwort (leer = neues Passwort erzeugen)" "" LH_DB_PASSWORD_FILE
 fi
 
@@ -98,7 +98,7 @@ if [ -n "$EXT_DB_PASSWORD_FILE" ]; then [ -f "$EXT_DB_PASSWORD_FILE" ] || die "P
 say ""
 say "Zusammenfassung"
 say "  Betriebsart:      $MODE   Stack: $STACK   Image: $IMAGE"
-say "  Adresse:          $PUBLIC_BASE_URL   (Passkey-Domain: $WEBAUTHN_RP_ID)"
+say "  Adresse:          $PUBLIC_URL   (Passkey-Domain: $WEBAUTHN_RP_ID)"
 say "  Repliken:         $REPLICAS"
 say "  Datenbank:        $DB_USER@$DB_HOST:$DB_PORT/$DB_NAME   TLS: $DB_TLS   Passwort: $DB_PASSWORD_SOURCE"
 say "  Dateien:          $ENV_FILE$( [ "$MODE" = 3 ] && echo ", $HERE/compose/secrets/" || echo ", Docker-Secrets lh_db_password und lh_secret_key" )"
@@ -136,7 +136,7 @@ cat > "$ENV_FILE" <<EOF
 LABHUB_MODE=$MODE
 LABHUB_STACK=$STACK
 LABHUB_IMAGE=$IMAGE
-PUBLIC_BASE_URL=$PUBLIC_BASE_URL
+PUBLIC_URL=$PUBLIC_URL
 WEBAUTHN_RP_ID=$WEBAUTHN_RP_ID
 BACKEND_REPLICAS=$REPLICAS
 DB_HOST=$DB_HOST
@@ -163,7 +163,7 @@ set +a
 case "$MODE" in
   3)
     docker compose --env-file "$ENV_FILE" -f "$HERE/compose/compose.yaml" up -d
-    say "Gestartet: $PUBLIC_BASE_URL (lokal ${BACKEND_BIND:-127.0.0.1}:${BACKEND_PORT:-8080}); Reverse Proxy mit TLS davorschalten." ;;
+    say "Gestartet: $PUBLIC_URL (lokal ${BACKEND_BIND:-127.0.0.1}:${BACKEND_PORT:-8080}); Reverse Proxy mit TLS davorschalten." ;;
   1|2)
     FILES=(-c "$HERE/swarm/stack.yaml"); [ "$MODE" = 1 ] && FILES+=(-c "$HERE/swarm/stack.db.yaml")
     [ "$MODE" = 1 ] && say "Hinweis: Der Datenbankdienst braucht einen Knoten mit Label: docker node update --label-add labhub-db=true <knoten>"
@@ -177,5 +177,5 @@ case "$MODE" in
     done
     case "${state:-}" in Complete*) ;; *) die "Migration nicht abgeschlossen (Zeitüberschreitung): docker service logs ${STACK}_migrate" ;; esac
     docker service scale "${STACK}_backend=$REPLICAS"
-    say "Gestartet: $PUBLIC_BASE_URL (Reverse Proxy auf Port 8080 eines Knotens richten)." ;;
+    say "Gestartet: $PUBLIC_URL (Reverse Proxy auf Port 8080 eines Knotens richten)." ;;
 esac

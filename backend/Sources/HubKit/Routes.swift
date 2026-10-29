@@ -1,4 +1,5 @@
 import Vapor
+import Foundation
 
 /// Module registrieren ihre Routen über den Kern; der Kern kennt keine Fachlogik.
 /// `/health`: Prozess lebt. `/ready`: Instanz darf Anfragen bekommen (später: Schema aktuell, Datenbank erreichbar).
@@ -24,6 +25,14 @@ extension Application {
     }
 }
 
-public func configure(_ app: Application) throws {
+/// Liest die Konfiguration aus der Umgebung. Ohne `DB_HOST` läuft nur im Entwicklungs-/Testmodus ohne Datenbank.
+public func configure(_ app: Application, environment: [String: String] = ProcessInfo.processInfo.environment) throws {
+    if let config = try HubConfig.fromEnvironment(environment) {
+        try configureDatabase(app, config)
+        app.hubReadiness = Readiness(check: { [unowned app] in await schemaIsCurrent(app) })
+    } else if app.environment == .production {
+        throw ConfigError(description: "DB_HOST fehlt")
+    }
+    app.asyncCommands.use(MigrateCommand(), as: "migrate")
     try routes(app)
 }

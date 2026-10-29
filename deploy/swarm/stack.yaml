@@ -5,14 +5,14 @@
 services:
   migrate:
     image: ${LABHUB_IMAGE:?LABHUB_IMAGE setzen}
-    command: ["migrate", "--yes", "--env", "production"]
+    command: ["migrate", "--env", "production"]
     environment:
       DB_HOST: ${DB_HOST:?DB_HOST setzen}
       DB_PORT: ${DB_PORT:-5432}
       DB_NAME: ${DB_NAME:-labhub}
       DB_USER: ${DB_USER:-labhub}
       DB_PASSWORD_FILE: /run/secrets/lh_db_password
-      DB_TLS: ${DB_TLS:-required}
+      DB_TLS: ${DB_TLS:-require}
       AUTO_MIGRATE: "false"
     secrets: [lh_db_password]
     read_only: true
@@ -32,9 +32,9 @@ services:
       DB_NAME: ${DB_NAME:-labhub}
       DB_USER: ${DB_USER:-labhub}
       DB_PASSWORD_FILE: /run/secrets/lh_db_password
-      DB_TLS: ${DB_TLS:-required}
+      DB_TLS: ${DB_TLS:-require}
       AUTO_MIGRATE: "false"
-      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:?PUBLIC_BASE_URL setzen}
+      PUBLIC_URL: ${PUBLIC_URL:?PUBLIC_URL setzen}
       WEBAUTHN_RP_ID: ${WEBAUTHN_RP_ID:?WEBAUTHN_RP_ID setzen}
       SECRET_KEY_FILE: /run/secrets/lh_secret_key
     secrets: [lh_db_password, lh_secret_key]

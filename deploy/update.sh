@@ -39,7 +39,7 @@ die() { echo "[$(elapsed)] Fehler: $*" >&2; exit 1; }
 
 get() { sed -n "s/^$1=//p" "$ENV_FILE" | tail -n 1 | tr -d "\"'"; }
 MODE="$(get LABHUB_MODE)"; STACK="$(get LABHUB_STACK)"; CURRENT="$(get LABHUB_IMAGE)"
-BASE="$(get PUBLIC_BASE_URL)"
+BASE="$(get PUBLIC_URL)"
 case "$MODE" in 1|2|3) ;; *) die "LABHUB_MODE in $ENV_FILE ungültig" ;; esac
 [ -n "$STACK" ] && [ -n "$CURRENT" ] || die "LABHUB_STACK/LABHUB_IMAGE fehlen in $ENV_FILE"
 TARGET="${NEW_IMAGE:-$CURRENT}"
