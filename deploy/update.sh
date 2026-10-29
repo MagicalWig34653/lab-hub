@@ -66,8 +66,10 @@ if [ "$TARGET" != "$CURRENT" ]; then
   sed "s#^LABHUB_IMAGE=.*#LABHUB_IMAGE=$TARGET#" "$ENV_FILE.bak" > "$ENV_FILE"; chmod 600 "$ENV_FILE"
   say "LABHUB_IMAGE aktualisiert (alte Datei: $ENV_FILE.bak)"
 fi
+set -a
 # shellcheck disable=SC1090
-set -a; . "$ENV_FILE"; set +a
+. "$ENV_FILE"
+set +a
 
 wait_ready() {
   local url="$1"

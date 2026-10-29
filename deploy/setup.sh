@@ -156,8 +156,10 @@ if [ "$MODE" = 2 ] && [ -z "$EXT_DB_PASSWORD_FILE" ]; then
 fi
 
 confirm "Jetzt starten?" y LH_START || { say "Später starten: siehe deploy/README.md"; exit 0; }
+set -a
 # shellcheck disable=SC1090
-set -a; . "$ENV_FILE"; set +a
+. "$ENV_FILE"
+set +a
 case "$MODE" in
   3)
     docker compose --env-file "$ENV_FILE" -f "$HERE/compose/compose.yaml" up -d
