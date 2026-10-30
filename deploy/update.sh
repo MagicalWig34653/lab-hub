@@ -85,7 +85,11 @@ wait_ready() {
 case "$MODE" in
   3)
     COMPOSE=(docker compose --env-file "$ENV_FILE" -f "$HERE/compose/compose.yaml")
-    say "Image ziehen …"; "${COMPOSE[@]}" pull migrate backend
+    say "Image ziehen …"
+    if ! "${COMPOSE[@]}" pull migrate backend; then
+      docker image inspect "$TARGET" >/dev/null 2>&1 || die "Image $TARGET weder ladbar noch lokal vorhanden (.env ggf. aus $ENV_FILE.bak zurückholen)"
+      say "Hinweis: Pull nicht möglich, lokales Image $TARGET wird verwendet."
+    fi
     say "Migration …"; "${COMPOSE[@]}" run --rm migrate || die "Migration fehlgeschlagen; Backend wurde nicht angefasst. Alte Version läuft weiter."
     say "Backend neu erstellen …"; "${COMPOSE[@]}" up -d --no-deps backend
     wait_ready "http://${BACKEND_BIND:-127.0.0.1}:${BACKEND_PORT:-8080}" || die "Backend meldet nicht /ready: ${COMPOSE[*]} logs backend"

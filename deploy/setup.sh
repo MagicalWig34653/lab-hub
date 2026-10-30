@@ -14,7 +14,7 @@
 #
 # Umgebungsvariablen für --non-interactive: LH_MODE (1|2|3), LH_STACK, LH_IMAGE, LH_DOMAIN, LH_HTTPS (yes|no),
 #   LH_REPLICAS, LH_DB_HOST, LH_DB_PORT, LH_DB_NAME, LH_DB_USER, LH_DB_TLS (require|disable), LH_DB_PASSWORD_FILE (externe DB),
-#   LH_START (yes|no).
+#   LH_BACKEND_PORT, LH_BACKEND_BIND (nur Betriebsart 3: lokaler Port/Adresse des Backends), LH_START (yes|no).
 # Geheimnisse werden nie ausgegeben und nie als Kommandozeilenargument übergeben; Docker-Secrets laufen über stdin.
 set -euo pipefail
 umask 077
@@ -92,6 +92,12 @@ if [ "$MODE" = 2 ]; then
   ask EXT_DB_PASSWORD_FILE "Datei mit dem vorhandenen DB-Passwort (leer = neues Passwort erzeugen)" "" LH_DB_PASSWORD_FILE
 fi
 
+BACKEND_PORT=8080; BACKEND_BIND=127.0.0.1
+if [ "$MODE" = 3 ]; then
+  ask BACKEND_PORT "Lokaler Port des Backends" "$BACKEND_PORT" LH_BACKEND_PORT; [[ "$BACKEND_PORT" =~ ^[0-9]+$ ]] || die "Port: Zahl"
+  ask BACKEND_BIND "Lokale Adresse des Backends" "$BACKEND_BIND" LH_BACKEND_BIND; [[ "$BACKEND_BIND" =~ ^[0-9A-Za-z.:-]+$ ]] || die "Adresse ungültig"
+fi
+
 DB_PASSWORD_SOURCE="erzeugt"
 if [ -n "$EXT_DB_PASSWORD_FILE" ]; then [ -f "$EXT_DB_PASSWORD_FILE" ] || die "Passwortdatei nicht gefunden"; DB_PASSWORD_SOURCE="aus Datei"; fi
 
@@ -144,6 +150,7 @@ DB_PORT=$DB_PORT
 DB_NAME=$DB_NAME
 DB_USER=$DB_USER
 DB_TLS=$DB_TLS
+$( [ "$MODE" = 3 ] && printf 'BACKEND_BIND=%s\nBACKEND_PORT=%s' "$BACKEND_BIND" "$BACKEND_PORT" )
 EOF
 chmod 600 "$ENV_FILE"
 say "Konfiguration geschrieben: $ENV_FILE"
