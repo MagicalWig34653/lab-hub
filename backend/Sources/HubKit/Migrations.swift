@@ -3,10 +3,11 @@ import Fluent
 import SQLKit
 
 enum HubMigrations {
-    static let all: [any Migration] = [CreateSchemaVersion(), CreateCounters(), CreateIdempotencyKeys(), CreateJobs(), CreateFiles()]
+    static let all: [any Migration] = [CreateSchemaVersion(), CreateCounters(), CreateIdempotencyKeys(), CreateJobs(), CreateFiles(),
+        CreateUsers(), CreatePasskeyCredentials(), CreateSessions(), CreateInvitations(), CreateRecoveryCodes(), CreateAuditLog(), CreateAuthSupport()]
 }
 
-private func run(_ db: any Database, _ stmts: [String]) async throws {
+func run(_ db: any Database, _ stmts: [String]) async throws {
     guard let s = db as? any SQLDatabase else { throw Abort(.internalServerError) }
     for st in stmts { try await s.raw(SQLQueryString(st)).run() }
 }

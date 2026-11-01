@@ -98,8 +98,9 @@ final class ContractTests: XCTestCase {
 
     /// AK-K4-1: eine entfernte Route (nur im Vertrag) wird erkannt.
     func testAKK4_1_MissingRouteIsDetected() throws {
+        // WP-K1: der Vertrag wächst mit jedem WP; "actual" ist daher der dokumentierte Stand ohne die erfundene Route.
         let d = OpenAPIContract.diff(documented: try OpenAPIContract.operations().union(["GET /nope"]),
-                                     actual: ["GET /health", "GET /ready", "GET /api/version"])
+                                     actual: try OpenAPIContract.operations())
         XCTAssertEqual(d.missingInServer, ["GET /nope"])
     }
 

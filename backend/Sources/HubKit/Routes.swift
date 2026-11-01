@@ -10,6 +10,7 @@ public func routes(_ app: Application) throws {
         return .ok
     }
     registerVersionRoute(app)
+    registerAuthRoutes(app)
 }
 
 public struct Readiness: Sendable {
@@ -31,6 +32,7 @@ public func configure(_ app: Application, environment: [String: String] = Proces
     if let config = try HubConfig.fromEnvironment(environment) {
         try configureDatabase(app, config)
         app.hubReadiness = Readiness(check: { [unowned app] in await schemaIsCurrent(app) })
+        app.authSettings = AuthSettings.from(config)
     } else if app.environment == .production {
         throw ConfigError(description: "DB_HOST fehlt")
     }

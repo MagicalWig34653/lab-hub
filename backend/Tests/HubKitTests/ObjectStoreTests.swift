@@ -222,7 +222,7 @@ final class PostgresObjectStoreTests: XCTestCase {
         do { _ = try await (app.db(.psql) as! any SQLDatabase).raw("SELECT 1").all() }
         catch { try await app.asyncShutdown(); app = nil; throw XCTSkip("Keine Postgres-Datenbank erreichbar") }
         db = (app.db(.psql) as! any SQLDatabase)
-        for t in ["object_chunks", "files", "jobs", "idempotency_keys", "counters", "schema_version", "_fluent_migrations"] {
+        for t in HubTestDB.tables {  // WP-K1: enthält zusätzlich die Auth-Tabellen
             try await db.raw("DROP TABLE IF EXISTS \(unsafeRaw: t)").run()
         }
         try await migrateWithLock(app)
@@ -255,6 +255,10 @@ final class PostgresObjectStoreTests: XCTestCase {
         XCTAssertEqual(id1, id2)
         let n = try await db.raw("SELECT count(*) AS n FROM files WHERE tenant_id = \(bind: t)").first()!.decode(column: "n", as: Int64.self)
         XCTAssertEqual(n, 1)
+        // WP-K1: Migrationen nach `files` (Auth, 006-012) zuerst zurücknehmen, damit der Stand dieses Tests (Version 5) gilt.
+        let later: [any AsyncMigration] = [CreateUsers(), CreatePasskeyCredentials(), CreateSessions(), CreateInvitations(),
+                                           CreateRecoveryCodes(), CreateAuditLog(), CreateAuthSupport()]
+        for m in later.reversed() { try await m.revert(on: app.db(.psql)) }
         var v = try await db.raw("SELECT version FROM schema_version").first()!.decode(column: "version", as: Int.self)
         XCTAssertEqual(v, 5)
         try await CreateFiles().revert(on: app.db(.psql))
@@ -263,5 +267,6 @@ final class PostgresObjectStoreTests: XCTestCase {
         let gone = try await db.raw("SELECT to_regclass('files')::text AS t").first()!.decode(column: "t", as: String?.self)
         XCTAssertNil(gone)
         try await CreateFiles().prepare(on: app.db(.psql))   // re-apply works
+        for m in later { try await m.prepare(on: app.db(.psql)) }
     }
 }

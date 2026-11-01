@@ -22,4 +22,12 @@ grep -rlE "Licensed under the Apache" $D | wc -l
 grep -rlE "Permission to use, copy, modify" $D | wc -l
 ```
 
-Schluss: Der Befund ist **nicht erledigt**. Rückfalloption (1) aus F-03 („neuere `swift-nio-ssl`-Version“) entfällt, weil 2.37.5 bereits die neueste Version ist. Offen bleiben (2) TLS nur am Reverse Proxy und BoringSSL-freier Build (Machbarkeit zu verifizieren; Vapor/NIO ziehen `swift-nio-ssl` transitiv) und (3) AGPL-§7-Zusatzerlaubnis der Urheber mit juristischer Prüfung. Entscheidung durch den Nutzer; bis dahin keine Aussage in Doku/Releases, dass der Befund erledigt ist.
+## Neue Abhängigkeiten WP-K1 (01.11.2026, geprüft anhand der Lizenzdateien der Checkouts, keine Rechtsberatung)
+
+| Paket | Fixierung | Lizenz | Hinweis |
+| --- | --- | --- | --- |
+| `swift-server/webauthn-swift` | Commit `909cf4193cde7d64196553c4245ab647a68aaaca` (1.0.0-beta.1), `revision:`-Pin in `Package.swift` | Apache-2.0 (mit NOTICE) | Beta (F-04); nur über `PasskeyService` genutzt. Apache-2.0 ist mit AGPLv3 kompatibel. |
+| `unrelentingtech/SwiftCBOR` | Commit `fd929a6d8f7651ce0f63fc99397fd5762358cc29` (0.6.0) | Unlicense (gemeinfrei) | Transitiv von webauthn-swift; direkt genutzt für die Bindung der attestierten Credential-ID. |
+| `apple/swift-crypto` | Bereich `3.8.1..<5.0.0`, aufgelöst 4.5.2 (vorher transitiv 5.0.3) | Apache-2.0 | Direkte Abhängigkeit (SHA-256, Tests: P-256); webauthn-swift verlangt `<5.0.0`, daher Rückstufung von 5.0.3. |
+
+Schluss BoringSSL: Der Befund ist **nicht erledigt**. Rückfalloption (1) aus F-03 („neuere `swift-nio-ssl`-Version“) entfällt, weil 2.37.5 bereits die neueste Version ist. Offen bleiben (2) TLS nur am Reverse Proxy und BoringSSL-freier Build (Machbarkeit zu verifizieren; Vapor/NIO ziehen `swift-nio-ssl` transitiv) und (3) AGPL-§7-Zusatzerlaubnis der Urheber mit juristischer Prüfung. Entscheidung durch den Nutzer; bis dahin keine Aussage in Doku/Releases, dass der Befund erledigt ist.

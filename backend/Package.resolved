@@ -1,5 +1,5 @@
 {
-  "originHash" : "77b0285c5228668097ede2aeedbb4b64c2223157aa3e2be896622aabad6a01ae",
+  "originHash" : "d73846ba3c53b7a07b3b2dff7417904fc918231be52abb2bfe173f8c622aa226",
   "pins" : [
     {
       "identity" : "async-http-client",
@@ -168,8 +168,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-crypto.git",
       "state" : {
-        "revision" : "c2cbadd7263439d8015189668f96ff5b5be565ce",
-        "version" : "5.0.3"
+        "revision" : "da9d28d69ebe3894b18376c8f2395c2f37b8448f",
+        "version" : "4.5.2"
       }
     },
     {
@@ -299,12 +299,28 @@
       }
     },
     {
+      "identity" : "swiftcbor",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/unrelentingtech/SwiftCBOR.git",
+      "state" : {
+        "revision" : "fd929a6d8f7651ce0f63fc99397fd5762358cc29"
+      }
+    },
+    {
       "identity" : "vapor",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/vapor/vapor.git",
       "state" : {
         "revision" : "48852309b11230e62a89b41a9c578c93f4d2d916",
         "version" : "4.122.3"
+      }
+    },
+    {
+      "identity" : "webauthn-swift",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/swift-server/webauthn-swift.git",
+      "state" : {
+        "revision" : "909cf4193cde7d64196553c4245ab647a68aaaca"
       }
     },
     {

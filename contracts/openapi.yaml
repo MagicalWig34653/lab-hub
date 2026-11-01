@@ -47,7 +47,294 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/VersionInfo"
+  /api/v1/auth/bootstrap/options:
+    post:
+      operationId: bootstrapOptions
+      summary: Erster Nutzer, Schritt 1 (nur mit Setup-Token, nur solange es keinen Nutzer gibt)
+      description: Ohne konfiguriertes SETUP_TOKEN oder wenn bereits ein Nutzer existiert 404. Falsches Token 403 setup_token_invalid. Rate-limitiert.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BootstrapOptionsRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/PasskeyOptions" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "429": { $ref: "#/components/responses/Problem" }
+  /api/v1/auth/bootstrap/verify:
+    post:
+      operationId: bootstrapVerify
+      summary: Erster Nutzer, Schritt 2 (Passkey bestaetigen, Sitzung beginnt)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PasskeyVerifyRequest" }
+      responses:
+        "201": { $ref: "#/components/responses/Session" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "429": { $ref: "#/components/responses/Problem" }
+  /api/v1/auth/register/options:
+    post:
+      operationId: registerOptions
+      summary: Registrierung per Einladung, Schritt 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RegisterOptionsRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/PasskeyOptions" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "410": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "429": { $ref: "#/components/responses/Problem" }
+  /api/v1/auth/register/verify:
+    post:
+      operationId: registerVerify
+      summary: Registrierung per Einladung, Schritt 2 (Einladung wird atomar eingeloest)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PasskeyVerifyRequest" }
+      responses:
+        "201": { $ref: "#/components/responses/Session" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "410": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "429": { $ref: "#/components/responses/Problem" }
+  /api/v1/auth/login/options:
+    post:
+      operationId: loginOptions
+      summary: Anmeldung per Passkey, Schritt 1 (ohne Benutzername)
+      responses:
+        "200": { $ref: "#/components/responses/PasskeyOptions" }
+        "429": { $ref: "#/components/responses/Problem" }
+  /api/v1/auth/login/verify:
+    post:
+      operationId: loginVerify
+      summary: Anmeldung per Passkey, Schritt 2
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PasskeyVerifyRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/Session" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "429": { $ref: "#/components/responses/Problem" }
+  /api/v1/auth/recovery/login:
+    post:
+      operationId: recoveryLogin
+      summary: Anmeldung mit Recovery-Code (einmalig; Ergebnis ist eine eingeschraenkte Notfall-Sitzung)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RecoveryLoginRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/Session" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "429": { $ref: "#/components/responses/Problem" }
+  /api/v1/auth/session:
+    get:
+      operationId: getSession
+      summary: Aktuelle Sitzung (auch Notfall-Sitzung)
+      security: [{ bearer: [] }, { cookie: [] }]
+      responses:
+        "200": { $ref: "#/components/responses/Session" }
+        "401": { $ref: "#/components/responses/Problem" }
+  /api/v1/auth/logout:
+    post:
+      operationId: logout
+      summary: Aktuelle Sitzung beenden
+      security: [{ bearer: [] }, { cookie: [] }]
+      responses:
+        "204": { description: Abgemeldet }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+  /api/v1/auth/logout-all:
+    post:
+      operationId: logoutAll
+      summary: Alle Geraete abmelden (alle Sitzungen des Nutzers)
+      security: [{ bearer: [] }, { cookie: [] }]
+      responses:
+        "200":
+          description: Anzahl widerrufener Sitzungen
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [revoked]
+                properties:
+                  revoked: { type: integer }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+  /api/v1/auth/sessions:
+    get:
+      operationId: listSessions
+      summary: Aktive Sitzungen des Nutzers
+      security: [{ bearer: [] }, { cookie: [] }]
+      responses:
+        "200":
+          description: Sitzungen
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/SessionInfo" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+  /api/v1/auth/sessions/{id}:
+    delete:
+      operationId: revokeSession
+      summary: Eine eigene Sitzung beenden (fremde ID liefert 404)
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204": { description: Beendet }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /api/v1/invitations:
+    post:
+      operationId: createInvitation
+      summary: Einladung (Einmal-Link) erzeugen; nur Administratoren
+      description: Der Klartext-Token wird nur in dieser Antwort geliefert.
+      security: [{ bearer: [] }, { cookie: [] }]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                expires_in_hours: { type: integer, minimum: 1, maximum: 720 }
+      responses:
+        "201":
+          description: Einladung
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id, token, expires_at]
+                properties:
+                  id: { type: string, format: uuid }
+                  token: { type: string }
+                  expires_at: { type: string, format: date-time }
+                  link: { type: string }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/me/recovery-codes:
+    get:
+      operationId: getRecoveryCodeStatus
+      summary: Anzahl unbenutzter Recovery-Codes
+      security: [{ bearer: [] }, { cookie: [] }]
+      responses:
+        "200":
+          description: Status
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [remaining]
+                properties:
+                  remaining: { type: integer }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+    post:
+      operationId: generateRecoveryCodes
+      summary: Neue Recovery-Codes erzeugen (ersetzt alte; Klartext nur in dieser Antwort)
+      security: [{ bearer: [] }, { cookie: [] }]
+      responses:
+        "201":
+          description: Codes
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [codes]
+                properties:
+                  codes: { type: array, items: { type: string } }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+  /api/v1/me/passkeys:
+    get:
+      operationId: listPasskeys
+      summary: Eigene Passkeys
+      security: [{ bearer: [] }, { cookie: [] }]
+      responses:
+        "200":
+          description: Passkeys
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/PasskeyInfo" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+  /api/v1/me/passkeys/options:
+    post:
+      operationId: addPasskeyOptions
+      summary: Weiteren Passkey anlegen, Schritt 1 (auch in Notfall-Sitzung)
+      security: [{ bearer: [] }, { cookie: [] }]
+      responses:
+        "200": { $ref: "#/components/responses/PasskeyOptions" }
+        "401": { $ref: "#/components/responses/Problem" }
+  /api/v1/me/passkeys/verify:
+    post:
+      operationId: addPasskeyVerify
+      summary: Weiteren Passkey anlegen, Schritt 2 (stuft eine Notfall-Sitzung zur normalen hoch)
+      security: [{ bearer: [] }, { cookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PasskeyVerifyRequest" }
+      responses:
+        "201":
+          description: Angelegter Passkey
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PasskeyInfo" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/me/passkeys/{id}:
+    delete:
+      operationId: revokePasskey
+      summary: Eigenen Passkey widerrufen (der letzte bleibt erhalten; fremde ID liefert 404)
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204": { description: Widerrufen }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
 components:
+  securitySchemes:
+    bearer: { type: http, scheme: bearer, description: "Sitzungstoken fuer Apps (Header X-Auth-Transport: bearer bei der Anmeldung)" }
+    cookie: { type: apiKey, in: cookie, name: lh_session, description: "HttpOnly-Cookie der PWA; schreibende Methoden brauchen X-CSRF-Token" }
   headers:
     XRequestId:
       description: Korrelations-ID der Anfrage; eine gueltige eingehende ID wird uebernommen.
@@ -83,7 +370,85 @@ components:
         application/problem+json:
           schema:
             $ref: "#/components/schemas/Problem"
+    PasskeyOptions:
+      description: WebAuthn-Optionen fuer navigator.credentials.create/get plus challenge_id (Challenge einmalig, 5 Minuten gueltig)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/PasskeyOptionsResponse" }
+    Session:
+      description: Sitzung. Bei Anmeldung wird das Cookie lh_session gesetzt (HttpOnly, SameSite=Lax), mit Header X-Auth-Transport bearer stattdessen token im Body.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/SessionResponse" }
   schemas:
+    PasskeyOptionsResponse:
+      type: object
+      required: [challenge_id, public_key]
+      properties:
+        challenge_id: { type: string, format: uuid }
+        public_key: { type: object, description: "PublicKeyCredentialCreationOptions bzw. RequestOptions (JSON)" }
+    PasskeyVerifyRequest:
+      type: object
+      required: [challenge_id, credential]
+      properties:
+        challenge_id: { type: string, format: uuid }
+        credential: { type: object, description: "Ergebnis von navigator.credentials.create/get (Base64URL-Felder)" }
+        name: { type: string, minLength: 1, maxLength: 80, description: "Nur beim Anlegen weiterer Passkeys" }
+    BootstrapOptionsRequest:
+      type: object
+      required: [setup_token, handle, display_name]
+      properties:
+        setup_token: { type: string }
+        handle: { type: string, pattern: "^[a-z0-9][a-z0-9._-]{2,31}$" }
+        display_name: { type: string, minLength: 1, maxLength: 80 }
+    RegisterOptionsRequest:
+      type: object
+      required: [invite_token, handle, display_name]
+      properties:
+        invite_token: { type: string }
+        handle: { type: string, pattern: "^[a-z0-9][a-z0-9._-]{2,31}$" }
+        display_name: { type: string, minLength: 1, maxLength: 80 }
+    RecoveryLoginRequest:
+      type: object
+      required: [handle, code]
+      properties:
+        handle: { type: string }
+        code: { type: string }
+    SessionResponse:
+      type: object
+      required: [user, kind, expires_at, csrf_token]
+      properties:
+        user:
+          type: object
+          required: [id, handle, display_name, is_admin]
+          properties:
+            id: { type: string, format: uuid }
+            handle: { type: string }
+            display_name: { type: string }
+            is_admin: { type: boolean }
+        kind: { type: string, enum: [normal, recovery] }
+        expires_at: { type: string, format: date-time }
+        csrf_token: { type: string }
+        token: { type: string, description: "Nur bei Anmeldung mit X-Auth-Transport bearer" }
+    SessionInfo:
+      type: object
+      required: [id, kind, created_at, last_seen_at, expires_at, current]
+      properties:
+        id: { type: string, format: uuid }
+        kind: { type: string, enum: [normal, recovery] }
+        created_at: { type: string, format: date-time }
+        last_seen_at: { type: string, format: date-time }
+        expires_at: { type: string, format: date-time }
+        current: { type: boolean }
+    PasskeyInfo:
+      type: object
+      required: [id, name, created_at, last_used_at, backed_up]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        created_at: { type: string, format: date-time }
+        last_used_at: { type: [string, "null"], format: date-time }
+        backed_up: { type: boolean }
     VersionInfo:
       type: object
       required: [server, api, schema]
@@ -110,19 +475,28 @@ components:
           enum:
             - bad_request
             - conflict
+            - csrf_invalid
             - forbidden
+            - handle_taken
             - idempotency_in_progress
             - idempotency_key_required
             - idempotency_key_reused
             - internal_error
             - invalid_cursor
             - invalid_limit
+            - invitation_invalid
+            - last_passkey
+            - login_failed
             - method_not_allowed
             - not_found
+            - passkey_invalid
             - payload_too_large
             - precondition_failed
+            - recovery_session_restricted
             - service_unavailable
+            - setup_token_invalid
             - tenant_required
+            - too_many_requests
             - unauthorized
             - validation_failed
         detail: { type: string }

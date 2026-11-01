@@ -19,6 +19,8 @@ public struct HubConfig: Sendable {
     public var autoMigrate: Bool
     public var publicURL: String?
     public var webAuthnRPID: String?
+    /// Einmaliges Geheimnis für den ersten Nutzer (WP-K1). Ohne Wert gibt es kein Bootstrap-Fenster.
+    public var setupToken: String?
 
     public static func value(_ name: String, _ env: [String: String]) throws -> String? {
         if let path = env[name + "_FILE"], !path.isEmpty {
@@ -54,6 +56,7 @@ public struct HubConfig: Sendable {
             secretKey: try value("SECRET_KEY", env),
             autoMigrate: ["1", "true", "yes"].contains(auto),
             publicURL: try value("PUBLIC_URL", env),
-            webAuthnRPID: try value("WEBAUTHN_RP_ID", env))
+            webAuthnRPID: try value("WEBAUTHN_RP_ID", env),
+            setupToken: try value("SETUP_TOKEN", env))
     }
 }

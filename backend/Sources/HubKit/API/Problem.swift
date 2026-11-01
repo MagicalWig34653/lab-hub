@@ -6,8 +6,9 @@ public struct HubError: Error, Sendable {
     public let code: String
     public let detail: String?
     public let errors: [FieldError]
-    public init(_ status: HTTPResponseStatus, _ code: String, detail: String? = nil, errors: [FieldError] = []) {
-        self.status = status; self.code = code; self.detail = detail; self.errors = errors
+    public let headers: HTTPHeaders
+    public init(_ status: HTTPResponseStatus, _ code: String, detail: String? = nil, errors: [FieldError] = [], headers: HTTPHeaders = [:]) {
+        self.status = status; self.code = code; self.detail = detail; self.errors = errors; self.headers = headers
     }
 }
 
@@ -47,6 +48,15 @@ public enum ProblemCatalog {
         "idempotency_key_reused": "Der Idempotency-Key wurde bereits mit einer anderen Anfrage verwendet.",
         "idempotency_in_progress": "Eine Anfrage mit diesem Idempotency-Key wird noch verarbeitet.",
         "tenant_required": "Mandant fehlt oder ist ungültig.",
+        "setup_token_invalid": "Das Einrichtungs-Token ist ungültig.",
+        "invitation_invalid": "Die Einladung ist ungültig, abgelaufen oder bereits verwendet.",
+        "passkey_invalid": "Der Passkey konnte nicht bestätigt werden.",
+        "login_failed": "Die Anmeldung ist fehlgeschlagen.",
+        "handle_taken": "Dieser Benutzername ist bereits vergeben.",
+        "last_passkey": "Der letzte Passkey kann nicht entfernt werden.",
+        "csrf_invalid": "Das CSRF-Token fehlt oder ist ungültig.",
+        "recovery_session_restricted": "Diese Aktion ist in einer Notfall-Sitzung nicht erlaubt.",
+        "too_many_requests": "Zu viele Anfragen. Bitte später erneut versuchen.",
         "service_unavailable": "Der Dienst ist vorübergehend nicht verfügbar.",
         "internal_error": "Interner Fehler. Bitte später erneut versuchen."
     ]
@@ -64,6 +74,7 @@ public enum ProblemCatalog {
         case 412: "precondition_failed"
         case 413: "payload_too_large"
         case 422: "validation_failed"
+        case 429: "too_many_requests"
         case 503: "service_unavailable"
         default: status.code >= 500 ? "internal_error" : "bad_request"
         }
@@ -86,7 +97,7 @@ public struct ProblemMiddleware: AsyncMiddleware {
         var headers = HTTPHeaders()
         switch error {
         case let e as HubError:
-            status = e.status; code = e.code; detail = e.detail; fields = e.errors
+            status = e.status; code = e.code; detail = e.detail; fields = e.errors; headers = e.headers
         case let e as IdempotencyError:
             switch e {
             case .keyReusedWithDifferentRequest: status = .unprocessableEntity; code = "idempotency_key_reused"

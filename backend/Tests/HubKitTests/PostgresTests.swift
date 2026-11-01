@@ -24,7 +24,7 @@ final class PostgresTests: XCTestCase {
         }
         db = (app.db(.psql) as! any SQLDatabase)
         // sauberer Zustand
-        for t in ["object_chunks", "files", "jobs", "idempotency_keys", "counters", "schema_version", "_fluent_migrations"] {
+        for t in HubTestDB.tables {  // enthält seit WP-K1 auch die Auth-Tabellen (Abhängigkeitsreihenfolge)
             try await db.raw("DROP TABLE IF EXISTS \(unsafeRaw: t)").run()
         }
     }
