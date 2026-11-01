@@ -9,6 +9,7 @@ public func routes(_ app: Application) throws {
         guard await app.hubReadiness.isReady() else { throw Abort(.serviceUnavailable) }
         return .ok
     }
+    registerVersionRoute(app)
 }
 
 public struct Readiness: Sendable {
@@ -34,5 +35,9 @@ public func configure(_ app: Application, environment: [String: String] = Proces
         throw ConfigError(description: "DB_HOST fehlt")
     }
     app.asyncCommands.use(MigrateCommand(), as: "migrate")
+    // WP-K4: X-Request-Id außen, Problem-Details-Fehler statt Vapors Standard-ErrorMiddleware
+    app.middleware = Middlewares()
+    app.middleware.use(RequestIdMiddleware())
+    app.middleware.use(ProblemMiddleware())
     try routes(app)
 }

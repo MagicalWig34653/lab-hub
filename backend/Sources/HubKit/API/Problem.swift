@@ -1,0 +1,115 @@
+import Vapor
+
+/// Fachlicher Fehler mit stabilem Code (WP-K4, RFC 9457). Die deutsche Meldung kommt aus `ProblemCatalog`, `detail` ist optional.
+public struct HubError: Error, Sendable {
+    public let status: HTTPResponseStatus
+    public let code: String
+    public let detail: String?
+    public let errors: [FieldError]
+    public init(_ status: HTTPResponseStatus, _ code: String, detail: String? = nil, errors: [FieldError] = []) {
+        self.status = status; self.code = code; self.detail = detail; self.errors = errors
+    }
+}
+
+public struct FieldError: Content, Equatable {
+    public let field: String
+    public let code: String
+    public init(field: String, code: String) { self.field = field; self.code = code }
+}
+
+/// RFC 9457 Problem Details plus `code`, `request_id`, `errors`. Schema: `contracts/openapi.yaml` (`Problem`).
+public struct ProblemDetails: Content, Equatable {
+    public let type: String
+    public let title: String
+    public let status: Int
+    public let code: String
+    public let detail: String?
+    public let request_id: String
+    public let errors: [FieldError]?
+}
+
+/// Stabile Fehlercodes mit deutscher Meldung (Nutzertext). Unbekannte Codes fallen auf eine allgemeine Meldung zurück.
+public enum ProblemCatalog {
+    public static let typeBase = "https://hub.example.org/errors/"
+    static let messages: [String: String] = [
+        "bad_request": "Die Anfrage ist ungültig.",
+        "unauthorized": "Anmeldung erforderlich.",
+        "forbidden": "Dafür fehlt die Berechtigung.",
+        "not_found": "Die angeforderte Ressource wurde nicht gefunden.",
+        "method_not_allowed": "Diese Methode ist hier nicht erlaubt.",
+        "conflict": "Die Anfrage steht im Konflikt mit dem aktuellen Stand.",
+        "precondition_failed": "Das Objekt wurde zwischenzeitlich geändert.",
+        "payload_too_large": "Die Anfrage ist zu groß.",
+        "validation_failed": "Die Eingaben sind ungültig.",
+        "invalid_cursor": "Der Seiten-Cursor ist ungültig.",
+        "invalid_limit": "Der Wert für limit ist ungültig.",
+        "idempotency_key_required": "Der Header Idempotency-Key ist erforderlich.",
+        "idempotency_key_reused": "Der Idempotency-Key wurde bereits mit einer anderen Anfrage verwendet.",
+        "idempotency_in_progress": "Eine Anfrage mit diesem Idempotency-Key wird noch verarbeitet.",
+        "tenant_required": "Mandant fehlt oder ist ungültig.",
+        "service_unavailable": "Der Dienst ist vorübergehend nicht verfügbar.",
+        "internal_error": "Interner Fehler. Bitte später erneut versuchen."
+    ]
+    public static func message(_ code: String) -> String { messages[code] ?? "Ein Fehler ist aufgetreten." }
+    public static var codes: [String] { messages.keys.sorted() }
+
+    static func code(for status: HTTPResponseStatus) -> String {
+        switch status.code {
+        case 400: "bad_request"
+        case 401: "unauthorized"
+        case 403: "forbidden"
+        case 404: "not_found"
+        case 405: "method_not_allowed"
+        case 409: "conflict"
+        case 412: "precondition_failed"
+        case 413: "payload_too_large"
+        case 422: "validation_failed"
+        case 503: "service_unavailable"
+        default: status.code >= 500 ? "internal_error" : "bad_request"
+        }
+    }
+}
+
+/// Wandelt jeden Fehler in `application/problem+json`. 5xx-Details werden nie nach außen gegeben (nur geloggt, ohne Nutzdaten).
+public struct ProblemMiddleware: AsyncMiddleware {
+    public init() {}
+
+    public func respond(to request: Request, chainingTo next: any AsyncResponder) async throws -> Response {
+        do { return try await next.respond(to: request) } catch {
+            return ProblemMiddleware.response(for: error, request: request)
+        }
+    }
+
+    static func response(for error: any Error, request: Request) -> Response {
+        let status: HTTPResponseStatus, code: String
+        var detail: String?, fields: [FieldError] = []
+        var headers = HTTPHeaders()
+        switch error {
+        case let e as HubError:
+            status = e.status; code = e.code; detail = e.detail; fields = e.errors
+        case let e as IdempotencyError:
+            switch e {
+            case .keyReusedWithDifferentRequest: status = .unprocessableEntity; code = "idempotency_key_reused"
+            case .inProgress: status = .conflict; code = "idempotency_in_progress"
+            }
+        case let e as any AbortError:
+            status = e.status; code = ProblemCatalog.code(for: e.status)
+            headers = e.headers
+        case is DecodingError:
+            status = .unprocessableEntity; code = "validation_failed"
+        default:
+            status = .internalServerError; code = "internal_error"
+        }
+        if status.code >= 500 {
+            request.logger.error("request failed", metadata: ["code": .string(code), "error": .string(String(describing: type(of: error)))])
+        }
+        let body = ProblemDetails(type: ProblemCatalog.typeBase + code, title: ProblemCatalog.message(code), status: Int(status.code),
+                                  code: code, detail: status.code >= 500 ? nil : detail, request_id: request.requestId,
+                                  errors: fields.isEmpty ? nil : fields)
+        headers.remove(name: .contentLength)
+        let response = Response(status: status, headers: headers)
+        do { try response.content.encode(body, as: .json) } catch { response.body = .init(string: "{}") }
+        response.headers.contentType = HTTPMediaType(type: "application", subType: "problem+json")
+        return response
+    }
+}

@@ -1,0 +1,141 @@
+openapi: 3.1.0
+info:
+  title: lab-hub API
+  version: "1"
+  description: |
+    Vertrag des lab-hub-Backends (WP-K4). Quelle fuer TypeScript- und Swift-Client.
+    Jede Route des Servers muss hier stehen und umgekehrt (Vertragstest AK-K4-1).
+    Fehler sind immer application/problem+json (AK-K4-2).
+    Hinweis zum Test-Parser: Pfade stehen auf Einrueckung 2, Methoden auf Einrueckung 4.
+servers:
+  - url: https://hub.example.org
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      summary: Prozess lebt
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status: { type: string, enum: [ok] }
+  /ready:
+    get:
+      operationId: getReady
+      summary: Instanz darf Anfragen bekommen (Datenbank erreichbar, Schema aktuell)
+      responses:
+        "200":
+          description: Bereit
+        "503":
+          $ref: "#/components/responses/Problem"
+  /api/version:
+    get:
+      operationId: getVersion
+      summary: Server-, API- und Schema-Version
+      responses:
+        "200":
+          description: Versionen
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/XRequestId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VersionInfo"
+components:
+  headers:
+    XRequestId:
+      description: Korrelations-ID der Anfrage; eine gueltige eingehende ID wird uebernommen.
+      schema: { type: string, maxLength: 64, pattern: "^[A-Za-z0-9._-]+$" }
+  parameters:
+    Limit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+    Cursor:
+      name: cursor
+      in: query
+      description: Opaker Cursor aus next_cursor der vorigen Seite.
+      schema: { type: string }
+    Count:
+      name: count
+      in: query
+      description: Gesamtzahl nur auf Anforderung (teuer).
+      schema: { type: boolean, default: false }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Pflicht bei finalisierenden POSTs. Gleicher Key + gleicher Request = gespeicherte Antwort; anderer Request = 422 idempotency_key_reused.
+      schema: { type: string, minLength: 1, maxLength: 255 }
+  responses:
+    Problem:
+      description: Fehler (RFC 9457)
+      headers:
+        X-Request-Id:
+          $ref: "#/components/headers/XRequestId"
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+  schemas:
+    VersionInfo:
+      type: object
+      required: [server, api, schema]
+      properties:
+        server: { type: string }
+        api: { type: string }
+        schema: { type: [integer, "null"] }
+    FieldError:
+      type: object
+      required: [field, code]
+      properties:
+        field: { type: string }
+        code: { type: string }
+    Problem:
+      type: object
+      required: [type, title, status, code, request_id]
+      properties:
+        type: { type: string, format: uri }
+        title: { type: string, description: Deutsche Meldung }
+        status: { type: integer }
+        code:
+          type: string
+          description: Stabiler maschinenlesbarer Code
+          enum:
+            - bad_request
+            - conflict
+            - forbidden
+            - idempotency_in_progress
+            - idempotency_key_required
+            - idempotency_key_reused
+            - internal_error
+            - invalid_cursor
+            - invalid_limit
+            - method_not_allowed
+            - not_found
+            - payload_too_large
+            - precondition_failed
+            - service_unavailable
+            - tenant_required
+            - unauthorized
+            - validation_failed
+        detail: { type: string }
+        request_id: { type: string }
+        errors:
+          type: array
+          items:
+            $ref: "#/components/schemas/FieldError"
+    PageEnvelope:
+      type: object
+      description: Muster fuer Listen (items je Ressource konkretisieren).
+      required: [items, next_cursor]
+      properties:
+        items: { type: array, items: {} }
+        next_cursor: { type: [string, "null"] }
+        total: { type: [integer, "null"] }
