@@ -29,9 +29,10 @@ enum OpenAPIContract {
 
     /// Werte der Aufzählung unter `schemas.Problem.properties.code.enum`.
     static func problemCodes() throws -> Set<String> {
-        var result = Set<String>(), inProblem = false, inEnum = false
+        var result = Set<String>(), inProblem = false, inEnum = false, inSchemas = false
         for line in try lines() {
-            if line.hasPrefix("    Problem:") { inProblem = true; continue }
+            if line.hasPrefix("  schemas:") { inSchemas = true; continue }
+            if inSchemas, line.hasPrefix("    Problem:") { inProblem = true; continue }
             if inProblem, line.hasPrefix("    "), !line.hasPrefix("     ") { break }
             guard inProblem else { continue }
             if line.contains("enum:") { inEnum = true; continue }
@@ -45,9 +46,10 @@ enum OpenAPIContract {
 
     /// Pflichtfelder von `Problem` (Zeile `required: [a, b]`).
     static func problemRequired() throws -> Set<String> {
-        var inProblem = false
+        var inProblem = false, inSchemas = false
         for line in try lines() {
-            if line.hasPrefix("    Problem:") { inProblem = true; continue }
+            if line.hasPrefix("  schemas:") { inSchemas = true; continue }
+            if inSchemas, line.hasPrefix("    Problem:") { inProblem = true; continue }
             if inProblem, line.contains("required:") {
                 let inner = line.split(separator: "[").last?.dropLast() ?? ""
                 return Set(inner.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) })

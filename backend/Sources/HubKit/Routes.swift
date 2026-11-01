@@ -36,6 +36,7 @@ public func configure(_ app: Application, environment: [String: String] = Proces
     }
     app.asyncCommands.use(MigrateCommand(), as: "migrate")
     // WP-K4: X-Request-Id außen, Problem-Details-Fehler statt Vapors Standard-ErrorMiddleware
+    ContentConfiguration.global.use(decoder: JSONDecoder(), for: HTTPMediaType(type: "application", subType: "problem+json"))
     app.middleware = Middlewares()
     app.middleware.use(RequestIdMiddleware())
     app.middleware.use(ProblemMiddleware())

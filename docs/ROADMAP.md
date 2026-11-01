@@ -14,7 +14,7 @@ Ausgangsstand (vorhanden, getestet laut `deploy/README.md`/Tests): `migrate`, `s
 | | K1 | Auth: Nutzer, Passkeys, Sitzungen, Einladung, Audit | K0 | L | P K4, D1 | offen |
 | | K2 | Mandanten, Mitgliedschaft, Rollen, Berechtigungen | K1 | M | | offen |
 | | K3 | Modul-System (`HubModule`, Aktivierung, Guard) | K2 | M | P K4, K6 | offen |
-| | K4 | OpenAPI-Vertrag, Fehlerformat, Pagination, Vertragstest | K0 | M | P K1, D1 | offen |
+| | K4 | OpenAPI-Vertrag, Fehlerformat, Pagination, Vertragstest | K0 | M | P K1, D1 | erledigt (Branch wp-K4, Handoff docs/handoff/WP-K4.md) |
 | | K5 | Kontakte und `links` | K2, K4 | M | P K6, K7 | offen |
 | | K6 | Zähler-Erweiterung (transaktional, Schlüsselraum) | K0 | S | P K3, K5 | umgesetzt (Branch wp-K6, `docs/handoff/WP-K6.md`) |
 | | K7 | Events/Outbox, Webhooks | K3 | M | P K5 | offen |
