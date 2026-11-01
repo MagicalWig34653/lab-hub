@@ -21,7 +21,8 @@ final class AuthTests: AuthTestCase {
         let me = try await call(app2, .GET, "api/v1/auth/session", token: s.token)
         XCTAssertEqual(me.status, .ok)
         XCTAssertEqual((me.json["user"] as? [String: Any])?["handle"] as? String, "alice")
-        XCTAssertEqual((me.json["user"] as? [String: Any])?["is_admin"] as? Bool, true)
+        XCTAssertEqual((me.json["user"] as? [String: Any])?["is_operator"] as? Bool, true)  // WP-K2: ersetzt is_admin
+        XCTAssertEqual((me.json["memberships"] as? [[String: Any]])?.first?["role"] as? String, "owner")
 
         // Kein offenes Fenster mehr: mit korrektem Token trotzdem 404, auch auf der zweiten Instanz.
         for app in [app1!, app2!] {
@@ -142,7 +143,8 @@ final class AuthTests: AuthTestCase {
         let bobKey = VirtualAuthenticator()
         let reg = try await register(app1, bobKey, invite: token, handle: "bobby")
         XCTAssertEqual(reg.status, .created, "\(reg.json)")
-        XCTAssertEqual((reg.json["user"] as? [String: Any])?["is_admin"] as? Bool, false)
+        XCTAssertEqual((reg.json["user"] as? [String: Any])?["is_operator"] as? Bool, false)  // WP-K2: ersetzt is_admin
+        XCTAssertEqual((reg.json["memberships"] as? [[String: Any]])?.first?["role"] as? String, "member")
         // zweite Verwendung scheitert
         let again = try await call(app2, .POST, "api/v1/auth/register/options", json: ["invite_token": token, "handle": "carol", "display_name": "C"])
         XCTAssertEqual(again.status, .gone); XCTAssertEqual(again.problemCode, "invitation_invalid")
@@ -455,9 +457,10 @@ final class AuthTests: AuthTestCase {
 
     func testMigrationsSetSchemaVersionAndRevert() async throws {
         let v = try await scalar("SELECT max(version)::bigint AS v FROM schema_version", as: Int64.self)
-        XCTAssertEqual(v, 12)
+        XCTAssertEqual(v, 13)
         let authMigrations: [any Migration] = [CreateUsers(), CreatePasskeyCredentials(), CreateSessions(), CreateInvitations(), CreateRecoveryCodes(), CreateAuditLog(), CreateAuthSupport()]
         let database = app1.db(.psql)
+        try await CreateTenants().revert(on: database)  // WP-K2 hängt an users/invitations
         for m in authMigrations.reversed() { try await m.revert(on: database).get() }
         let reverted = try await scalar("SELECT max(version)::bigint AS v FROM schema_version", as: Int64.self)
         XCTAssertEqual(reverted, 5)
@@ -467,7 +470,8 @@ final class AuthTests: AuthTestCase {
             """, as: Int64.self)
         XCTAssertEqual(leftovers, 0)
         for m in authMigrations { try await m.prepare(on: database).get() }
+        try await CreateTenants().prepare(on: database)
         let again = try await scalar("SELECT max(version)::bigint AS v FROM schema_version", as: Int64.self)
-        XCTAssertEqual(again, 12)
+        XCTAssertEqual(again, 13)
     }
 }

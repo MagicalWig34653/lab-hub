@@ -4,7 +4,7 @@ import SQLKit
 
 enum HubMigrations {
     static let all: [any Migration] = [CreateSchemaVersion(), CreateCounters(), CreateIdempotencyKeys(), CreateJobs(), CreateFiles(),
-        CreateUsers(), CreatePasskeyCredentials(), CreateSessions(), CreateInvitations(), CreateRecoveryCodes(), CreateAuditLog(), CreateAuthSupport()]
+        CreateUsers(), CreatePasskeyCredentials(), CreateSessions(), CreateInvitations(), CreateRecoveryCodes(), CreateAuditLog(), CreateAuthSupport(), CreateTenants()]
 }
 
 func run(_ db: any Database, _ stmts: [String]) async throws {

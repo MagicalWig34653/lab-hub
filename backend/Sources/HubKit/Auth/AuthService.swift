@@ -10,6 +10,7 @@ struct AuthService: Sendable {
 
     static let handlePattern = "^[a-z0-9][a-z0-9._-]{2,31}$"
     static let challengeTTLSeconds = 300
+    static let defaultTenantName = "Hauptmandant"
     static let bootstrapLock: Int64 = 0x4C41_4248_5553  // Advisory-Lock: genau ein erster Nutzer
 
     struct Options: Sendable { let challengeID: UUID; let options: PasskeyOptions }
@@ -55,7 +56,7 @@ struct AuthService: Sendable {
     func authenticate(_ token: String, viaCookie: Bool, on db: any Database) async throws -> AuthContext? {
         let s = try sql(db)
         guard let row = try await s.raw("""
-            SELECT s.id, s.kind, s.expires_at, u.id AS user_id, u.handle, u.display_name, u.is_admin
+            SELECT s.id, s.kind, s.expires_at, u.id AS user_id, u.handle, u.display_name, u.is_operator
             FROM sessions s JOIN users u ON u.id = s.user_id
             WHERE s.token_hash = \(bind: AuthSecrets.hash(token)) AND s.revoked_at IS NULL AND s.expires_at > now() AND u.disabled_at IS NULL
             """).first() else { return nil }
@@ -65,7 +66,7 @@ struct AuthService: Sendable {
         return AuthContext(
             sessionID: id,
             user: AuthUser(id: try row.decode(column: "user_id", as: UUID.self), handle: try row.decode(column: "handle", as: String.self),
-                           displayName: try row.decode(column: "display_name", as: String.self), isAdmin: try row.decode(column: "is_admin", as: Bool.self)),
+                           displayName: try row.decode(column: "display_name", as: String.self), isOperator: try row.decode(column: "is_operator", as: Bool.self)),
             kind: SessionKind(rawValue: try row.decode(column: "kind", as: String.self)) ?? .normal,
             expiresAt: try row.decode(column: "expires_at", as: Date.self), token: token, viaCookie: viaCookie)
     }
@@ -130,9 +131,12 @@ struct AuthService: Sendable {
     }
 
     /// AK-K1-1: Der erste Nutzer entsteht nur mit dem Setup-Token aus Env/Secret und nur, solange es noch keinen Nutzer gibt.
-    func beginBootstrap(setupToken: String, handle: String, displayName: String, on db: any Database) async throws -> Options {
+    func beginBootstrap(setupToken: String, handle: String, displayName: String, tenantName: String? = nil, on db: any Database) async throws -> Options {
         guard let expected = settings.setupToken else { throw HubError(.notFound, "not_found") }
         try Self.validate(handle: handle, displayName: displayName)
+        if let tenantName, !(1...80).contains(tenantName.count) {
+            throw HubError(.unprocessableEntity, "validation_failed", errors: [FieldError(field: "tenant_name", code: "invalid")])
+        }
         let lock = Self.bootstrapLock
         return try await inTransaction(db) { s in
             try await s.raw("SELECT pg_advisory_xact_lock(\(bind: lock))").run()
@@ -141,7 +145,7 @@ struct AuthService: Sendable {
             let userID = UUID()
             let options = try passkeys.beginRegistration(userID: userID, userName: handle, displayName: displayName, excludeCredentialIDs: [])
             let id = try await createChallenge("bootstrap", options.challenge,
-                                               payload: ["user_id": userID.uuidString, "handle": handle, "display_name": displayName], on: s)
+                                               payload: ["user_id": userID.uuidString, "handle": handle, "display_name": displayName, "tenant_name": tenantName ?? Self.defaultTenantName], on: s)
             return Options(challengeID: id, options: options)
         }
     }
@@ -153,7 +157,9 @@ struct AuthService: Sendable {
         return try await inTransaction(db) { s in
             try await s.raw("SELECT pg_advisory_xact_lock(\(bind: lock))").run()
             guard try await users(count: s) == 0 else { throw HubError(.notFound, "not_found") }
-            let user = try await createUser(from: ch, isAdmin: true, credential: credential, on: s)
+            let user = try await createUser(from: ch, isOperator: true, credential: credential, on: s)
+            // WP-K2: Der erste Nutzer ist Betreiber und Owner des ersten Mandanten.
+            _ = try await TenancyService.createTenant(name: ch.payload["tenant_name"] ?? AuthService.defaultTenantName, owner: user.id, requestID: requestID, on: s)
             try await AuditLog.record(AuditEvent(action: "auth.bootstrap", actor: user.id, subjectType: "user", subjectID: user.id.uuidString, requestID: requestID), on: s)
             return try await issueSession(for: user, on: s)
         }
@@ -187,9 +193,14 @@ struct AuthService: Sendable {
         else { throw HubError(.badRequest, "passkey_invalid") }
         return try await inTransaction(db) { s in
             guard let used = try await s.raw("""
-                UPDATE invitations SET used_at = now() WHERE id = \(bind: invitationID) AND used_at IS NULL AND expires_at > now() RETURNING created_by
+                UPDATE invitations SET used_at = now() WHERE id = \(bind: invitationID) AND used_at IS NULL AND expires_at > now() RETURNING created_by, tenant_id, role
                 """).first() else { throw HubError(.gone, "invitation_invalid") }
-            let user = try await createUser(from: ch, isAdmin: false, credential: credential, on: s)
+            guard let tenantID = try used.decode(column: "tenant_id", as: UUID?.self),
+                  let role = (try used.decode(column: "role", as: String?.self)).flatMap(Role.init(rawValue:)),
+                  try await s.raw("SELECT 1 AS x FROM tenants WHERE id = \(bind: tenantID) AND disabled_at IS NULL").first() != nil
+            else { throw HubError(.gone, "invitation_invalid") }
+            let user = try await createUser(from: ch, isOperator: false, credential: credential, on: s)
+            try await s.raw("INSERT INTO memberships (tenant_id, user_id, role) VALUES (\(bind: tenantID), \(bind: user.id), \(bind: role.rawValue))").run()
             try await s.raw("UPDATE invitations SET used_by = \(bind: user.id) WHERE id = \(bind: invitationID)").run()
             try await AuditLog.record(AuditEvent(action: "auth.register", actor: user.id, subjectType: "user", subjectID: user.id.uuidString,
                                                  meta: ["invited_by": .safe(try used.decode(column: "created_by", as: UUID.self).uuidString)], requestID: requestID), on: s)
@@ -198,16 +209,16 @@ struct AuthService: Sendable {
     }
 
     /// Legt Nutzer und ersten Passkey an (in der Transaktion des Aufrufers).
-    private func createUser(from ch: StoredChallenge, isAdmin: Bool, credential: Data, on s: any SQLDatabase) async throws -> AuthUser {
+    private func createUser(from ch: StoredChallenge, isOperator: Bool, credential: Data, on s: any SQLDatabase) async throws -> AuthUser {
         guard let idString = ch.payload["user_id"], let id = UUID(uuidString: idString), let handle = ch.payload["handle"],
               let name = ch.payload["display_name"] else { throw HubError(.badRequest, "passkey_invalid") }
         let registration = try await verifyRegistration(challenge: ch.challenge, credential: credential, on: s)
         guard try await s.raw("""
-            INSERT INTO users (id, handle, display_name, is_admin) VALUES (\(bind: id), \(bind: handle), \(bind: name), \(bind: isAdmin))
+            INSERT INTO users (id, handle, display_name, is_operator) VALUES (\(bind: id), \(bind: handle), \(bind: name), \(bind: isOperator))
             ON CONFLICT (handle) DO NOTHING RETURNING id
             """).first() != nil else { throw HubError(.conflict, "handle_taken") }
         try await insertPasskey(registration, userID: id, name: "Passkey", on: s)
-        return AuthUser(id: id, handle: handle, displayName: name, isAdmin: isAdmin)
+        return AuthUser(id: id, handle: handle, displayName: name, isOperator: isOperator)
     }
 
     private func verifyRegistration(challenge: Data, credential: Data, on s: any SQLDatabase) async throws -> PasskeyRegistration {
@@ -241,7 +252,7 @@ struct AuthService: Sendable {
         return try await inTransaction(db) { s in
             guard let info = try? passkeys.assertionInfo(credentialJSON: credential),
                   let row = try await s.raw("""
-                    SELECT p.id, p.public_key, p.sign_count, u.id AS user_id, u.handle, u.display_name, u.is_admin
+                    SELECT p.id, p.public_key, p.sign_count, u.id AS user_id, u.handle, u.display_name, u.is_operator
                     FROM passkey_credentials p JOIN users u ON u.id = p.user_id
                     WHERE p.credential_id = \(bind: info.credentialID) AND p.revoked_at IS NULL AND u.disabled_at IS NULL
                     """).first() else { throw failed }
@@ -258,7 +269,7 @@ struct AuthService: Sendable {
                 WHERE id = \(bind: try row.decode(column: "id", as: UUID.self))
                 """).run()
             let user = AuthUser(id: userID, handle: try row.decode(column: "handle", as: String.self),
-                                displayName: try row.decode(column: "display_name", as: String.self), isAdmin: try row.decode(column: "is_admin", as: Bool.self))
+                                displayName: try row.decode(column: "display_name", as: String.self), isOperator: try row.decode(column: "is_operator", as: Bool.self))
             try await AuditLog.record(AuditEvent(action: "auth.login", actor: userID, subjectType: "user", subjectID: userID.uuidString, requestID: requestID), on: s)
             return try await issueSession(for: user, on: s)
         }
@@ -268,17 +279,17 @@ struct AuthService: Sendable {
 
     struct CreatedInvitation: Sendable { let id: UUID; let token: String; let expiresAt: Date }
 
-    func createInvitation(by c: AuthContext, ttlSeconds: Int?, requestID: String, on db: any Database) async throws -> CreatedInvitation {
+    func createInvitation(by c: AuthContext, tenant: UUID, role: Role, ttlSeconds: Int?, requestID: String, on db: any Database) async throws -> CreatedInvitation {
         let token = AuthSecrets.token()
         let ttl = ttlSeconds ?? settings.invitationTTL
         return try await inTransaction(db) { s in
             guard let row = try await s.raw("""
-                INSERT INTO invitations (token_hash, created_by, expires_at)
-                VALUES (\(bind: AuthSecrets.hash(token)), \(bind: c.user.id), now() + (\(bind: ttl)::bigint * interval '1 second')) RETURNING id, expires_at
+                INSERT INTO invitations (token_hash, created_by, tenant_id, role, expires_at)
+                VALUES (\(bind: AuthSecrets.hash(token)), \(bind: c.user.id), \(bind: tenant), \(bind: role.rawValue), now() + (\(bind: ttl)::bigint * interval '1 second')) RETURNING id, expires_at
                 """).first() else { throw Abort(.internalServerError) }
             let id = try row.decode(column: "id", as: UUID.self)
-            try await AuditLog.record(AuditEvent(action: "auth.invitation_created", actor: c.user.id, subjectType: "invitation", subjectID: id.uuidString,
-                                                 meta: ["ttl_seconds": .number(Int64(ttl))], requestID: requestID), on: s)
+            try await AuditLog.record(AuditEvent(action: "auth.invitation_created", actor: c.user.id, tenant: tenant, subjectType: "invitation", subjectID: id.uuidString,
+                                                 meta: ["ttl_seconds": .number(Int64(ttl)), "role": .safe(role.rawValue)], requestID: requestID), on: s)
             return CreatedInvitation(id: id, token: token, expiresAt: try row.decode(column: "expires_at", as: Date.self))
         }
     }
@@ -311,14 +322,14 @@ struct AuthService: Sendable {
     func recoveryLogin(handle: String, code: String, requestID: String, on db: any Database) async throws -> AuthContext {
         let failed = HubError(.unauthorized, "login_failed")
         return try await inTransaction(db) { s in
-            guard let row = try await s.raw("SELECT id, handle, display_name, is_admin FROM users WHERE handle = \(bind: handle) AND disabled_at IS NULL").first() else { throw failed }
+            guard let row = try await s.raw("SELECT id, handle, display_name, is_operator FROM users WHERE handle = \(bind: handle) AND disabled_at IS NULL").first() else { throw failed }
             let userID = try row.decode(column: "id", as: UUID.self)
             guard try await s.raw("""
                 UPDATE recovery_codes SET used_at = now()
                 WHERE user_id = \(bind: userID) AND code_hash = \(bind: AuthSecrets.recoveryHash(user: userID, code: code)) AND used_at IS NULL RETURNING id
                 """).first() != nil else { throw failed }
             let user = AuthUser(id: userID, handle: handle, displayName: try row.decode(column: "display_name", as: String.self),
-                                isAdmin: try row.decode(column: "is_admin", as: Bool.self))
+                                isOperator: try row.decode(column: "is_operator", as: Bool.self))
             try await AuditLog.record(AuditEvent(action: "auth.recovery_login", actor: userID, subjectType: "user", subjectID: userID.uuidString, requestID: requestID), on: s)
             return try await issueSession(for: user, kind: .recovery, on: s)
         }

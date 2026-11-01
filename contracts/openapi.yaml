@@ -209,12 +209,147 @@ paths:
         "401": { $ref: "#/components/responses/Problem" }
         "403": { $ref: "#/components/responses/Problem" }
         "404": { $ref: "#/components/responses/Problem" }
-  /api/v1/invitations:
+  /api/v1/tenants:
+    get:
+      operationId: listTenants
+      summary: Mandanten, in denen der Nutzer Mitglied ist (nur eigene)
+      security: [{ bearer: [] }, { cookie: [] }]
+      responses:
+        "200":
+          description: Eigene Mandanten mit Rolle
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/TenantMembership" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+    post:
+      operationId: createTenant
+      summary: Mandant anlegen; nur Betreiber. Der Aufrufer wird Owner.
+      security: [{ bearer: [] }, { cookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 80 }
+      responses:
+        "201":
+          description: Mandant
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TenantMembership" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}:
+    get:
+      operationId: getTenant
+      summary: Mandant mit eigener Rolle und Berechtigungen (Berechtigung tenant.tenant.read)
+      description: Kein Mitglied, unbekannter oder deaktivierter Mandant liefert 404.
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+      responses:
+        "200":
+          description: Mandant
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id, name, role, permissions]
+                properties:
+                  id: { type: string, format: uuid }
+                  name: { type: string }
+                  role: { $ref: "#/components/schemas/Role" }
+                  permissions: { type: array, items: { type: string, description: "<modul>.<ressource>.<aktion>" } }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/members:
+    get:
+      operationId: listMembers
+      summary: Mitglieder des Mandanten (Berechtigung tenant.member.read)
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+      responses:
+        "200":
+          description: Mitglieder
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/Member" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/members/{user}:
+    patch:
+      operationId: changeMemberRole
+      summary: Rolle eines Mitglieds aendern (Berechtigung tenant.member.manage); der letzte Owner bleibt (409 last_owner)
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { name: user, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role]
+              properties:
+                role: { $ref: "#/components/schemas/Role" }
+      responses:
+        "200":
+          description: Neue Rolle
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [user_id, role]
+                properties:
+                  user_id: { type: string, format: uuid }
+                  role: { $ref: "#/components/schemas/Role" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+    delete:
+      operationId: removeMember
+      summary: Mitglied entfernen (Berechtigung tenant.member.manage); der letzte Owner bleibt (409 last_owner)
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { name: user, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204": { description: Entfernt }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/invitations:
     post:
       operationId: createInvitation
-      summary: Einladung (Einmal-Link) erzeugen; nur Administratoren
-      description: Der Klartext-Token wird nur in dieser Antwort geliefert.
+      summary: Einladung (Einmal-Link) in den Mandanten erzeugen (Berechtigung tenant.member.invite)
+      description: Die Einladung bindet Mandant und Rolle (Standard member). Der Klartext-Token wird nur in dieser Antwort geliefert.
       security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
       requestBody:
         required: false
         content:
@@ -222,6 +357,7 @@ paths:
             schema:
               type: object
               properties:
+                role: { $ref: "#/components/schemas/Role" }
                 expires_in_hours: { type: integer, minimum: 1, maximum: 720 }
       responses:
         "201":
@@ -230,14 +366,16 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [id, token, expires_at]
+                required: [id, token, expires_at, role]
                 properties:
                   id: { type: string, format: uuid }
                   token: { type: string }
                   expires_at: { type: string, format: date-time }
+                  role: { $ref: "#/components/schemas/Role" }
                   link: { type: string }
         "401": { $ref: "#/components/responses/Problem" }
         "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
         "422": { $ref: "#/components/responses/Problem" }
   /api/v1/me/recovery-codes:
     get:
@@ -340,6 +478,12 @@ components:
       description: Korrelations-ID der Anfrage; eine gueltige eingehende ID wird uebernommen.
       schema: { type: string, maxLength: 64, pattern: "^[A-Za-z0-9._-]+$" }
   parameters:
+    Tenant:
+      name: tenant
+      in: path
+      required: true
+      description: Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404.
+      schema: { type: string, format: uuid }
     Limit:
       name: limit
       in: query
@@ -401,6 +545,7 @@ components:
         setup_token: { type: string }
         handle: { type: string, pattern: "^[a-z0-9][a-z0-9._-]{2,31}$" }
         display_name: { type: string, minLength: 1, maxLength: 80 }
+        tenant_name: { type: string, minLength: 1, maxLength: 80, description: "Name des ersten Mandanten (Standard Hauptmandant); der Nutzer wird Betreiber und Owner" }
     RegisterOptionsRequest:
       type: object
       required: [invite_token, handle, display_name]
@@ -416,20 +561,48 @@ components:
         code: { type: string }
     SessionResponse:
       type: object
-      required: [user, kind, expires_at, csrf_token]
+      required: [user, memberships, kind, expires_at, csrf_token]
       properties:
         user:
           type: object
-          required: [id, handle, display_name, is_admin]
+          required: [id, handle, display_name, is_operator]
           properties:
             id: { type: string, format: uuid }
             handle: { type: string }
             display_name: { type: string }
-            is_admin: { type: boolean }
+            is_operator: { type: boolean, description: "Betreiber duerfen Mandanten anlegen (ersetzt is_admin aus WP-K1)" }
+        memberships:
+          type: array
+          items:
+            type: object
+            required: [tenant_id, name, role]
+            properties:
+              tenant_id: { type: string, format: uuid }
+              name: { type: string }
+              role: { $ref: "#/components/schemas/Role" }
         kind: { type: string, enum: [normal, recovery] }
         expires_at: { type: string, format: date-time }
         csrf_token: { type: string }
         token: { type: string, description: "Nur bei Anmeldung mit X-Auth-Transport bearer" }
+    Role:
+      type: string
+      enum: [owner, accountant, member, tax_advisor, customer_viewer]
+    TenantMembership:
+      type: object
+      required: [id, name, role]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        role: { $ref: "#/components/schemas/Role" }
+    Member:
+      type: object
+      required: [user_id, handle, display_name, role, created_at]
+      properties:
+        user_id: { type: string, format: uuid }
+        handle: { type: string }
+        display_name: { type: string }
+        role: { $ref: "#/components/schemas/Role" }
+        created_at: { type: string, format: date-time }
     SessionInfo:
       type: object
       required: [id, kind, created_at, last_seen_at, expires_at, current]
@@ -485,6 +658,7 @@ components:
             - invalid_cursor
             - invalid_limit
             - invitation_invalid
+            - last_owner
             - last_passkey
             - login_failed
             - method_not_allowed

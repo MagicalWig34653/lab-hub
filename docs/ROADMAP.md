@@ -12,7 +12,7 @@ Ausgangsstand (vorhanden, getestet laut `deploy/README.md`/Tests): `migrate`, `s
 | --- | --- | --- | --- | --- | --- | --- |
 | 0 Kern | K0 | Baseline: Build/Test verifizieren, CI-Skript | – | S | P zu allen | fertig (Baseline); F-03 offen |
 | | K1 | Auth: Nutzer, Passkeys, Sitzungen, Einladung, Audit | K0 | L | P K4, D1 | offen |
-| | K2 | Mandanten, Mitgliedschaft, Rollen, Berechtigungen | K1 | M | | offen |
+| | K2 | Mandanten, Mitgliedschaft, Rollen, Berechtigungen | K1 | M | | erledigt (Branch wp-K2, Handoff docs/handoff/WP-K2.md) |
 | | K3 | Modul-System (`HubModule`, Aktivierung, Guard) | K2 | M | P K4, K6 | offen |
 | | K4 | OpenAPI-Vertrag, Fehlerformat, Pagination, Vertragstest | K0 | M | P K1, D1 | erledigt (Branch wp-K4, Handoff docs/handoff/WP-K4.md) |
 | | K5 | Kontakte und `links` | K2, K4 | M | P K6, K7 | offen |
@@ -63,6 +63,8 @@ Grundsatz: Hub ohne Swift-App nutzbar (`AGENTS.md`); die Rechnungsphase ist dahe
 *Status WP-K1: AK-K1-1…8 umgesetzt und getestet (Branch wp-K1); offen: Notfall-Passwort, API-Tokens mit Scopes, Proxy-Vertrauen fürs Rate-Limit, siehe `docs/handoff/WP-K1.md`.*
 
 **WP-K2 Mandanten und Rechte (M).** Ziel: `tenants`, `memberships`, Rollen, Berechtigungen (`ARCHITEKTUR.md` 4.2). Akzeptanz: AK-K2-1…3 (dort). Test: generierte Matrix Rolle×Berechtigung×Route; Mandantentrennung mit zwei Mandanten und fremden IDs (404). Abh.: K1.
+
+*Status WP-K2: AK-K2-1 und AK-K2-2 umgesetzt und getestet (Branch wp-K2); AK-K2-3 (RLS-Spike, F-15) nicht durchgeführt, siehe `docs/handoff/WP-K2.md`.*
 
 **WP-K3 Modul-System (M).** Ziel: `HubModule`, Registry, `tenant_modules`, `ModuleGuard`, `/api/v1/modules`, Beispielmodul `ping` (nur Test). Akzeptanz: AK-K3-1…6 (`ARCHITEKTUR.md` 3.5). Test: Zwei-Instanzen-Aktivierung, Guard-Test über alle Routen, Migration deaktivierter Module. Abh.: K2. ADR 0004 auf „akzeptiert“ setzen, wenn Nutzer bestätigt.
 

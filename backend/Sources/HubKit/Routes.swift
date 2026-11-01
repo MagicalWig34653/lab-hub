@@ -11,6 +11,7 @@ public func routes(_ app: Application) throws {
     }
     registerVersionRoute(app)
     registerAuthRoutes(app)
+    registerTenancyRoutes(app)
 }
 
 public struct Readiness: Sendable {

@@ -33,7 +33,7 @@ struct AuthUser: Sendable {
     let id: UUID
     let handle: String
     let displayName: String
-    let isAdmin: Bool
+    let isOperator: Bool
 }
 
 struct AuthContext: Sendable {
@@ -162,11 +162,11 @@ struct SessionMiddleware: AsyncMiddleware {
 /// Verlangt eine gültige Sitzung. Notfall-Sitzungen (Recovery-Code) sind standardmäßig ausgeschlossen (Default-Deny).
 struct RequireSession: AsyncMiddleware {
     var allowRecovery = false
-    var admin = false
+    var `operator` = false
     func respond(to request: Request, chainingTo next: any AsyncResponder) async throws -> Response {
         let c = try request.requireAuth()
         if c.kind == .recovery, !allowRecovery { throw HubError(.forbidden, "recovery_session_restricted") }
-        if admin, !c.user.isAdmin { throw HubError(.forbidden, "forbidden") }
+        if `operator`, !c.user.isOperator { throw HubError(.forbidden, "forbidden") }
         return try await next.respond(to: request)
     }
 }

@@ -53,6 +53,7 @@ public enum ProblemCatalog {
         "passkey_invalid": "Der Passkey konnte nicht bestätigt werden.",
         "login_failed": "Die Anmeldung ist fehlgeschlagen.",
         "handle_taken": "Dieser Benutzername ist bereits vergeben.",
+        "last_owner": "Der letzte Owner eines Mandanten kann nicht herabgestuft oder entfernt werden.",
         "last_passkey": "Der letzte Passkey kann nicht entfernt werden.",
         "csrf_invalid": "Das CSRF-Token fehlt oder ist ungültig.",
         "recovery_session_restricted": "Diese Aktion ist in einer Notfall-Sitzung nicht erlaubt.",

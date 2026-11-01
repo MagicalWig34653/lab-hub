@@ -4,10 +4,9 @@ import Foundation
 // Routen der Anmeldung (WP-K1). Vertrag: contracts/openapi.yaml. Fehler: Problem Details (WP-K4).
 // Zugriff: öffentliche Routen sind rate-limitiert (DB); alle anderen verlangen eine Sitzung (Default-Deny für Notfall-Sitzungen).
 
-private struct BootstrapOptionsBody: Content { let setup_token: String; let handle: String; let display_name: String }
+private struct BootstrapOptionsBody: Content { let setup_token: String; let handle: String; let display_name: String; let tenant_name: String? }
 private struct RegisterOptionsBody: Content { let invite_token: String; let handle: String; let display_name: String }
 private struct RecoveryLoginBody: Content { let handle: String; let code: String }
-private struct InvitationBody: Content { let expires_in_hours: Int? }
 
 private struct VerifyBody {
     let challengeID: UUID
@@ -23,24 +22,26 @@ private func parseVerify(_ req: Request) throws -> VerifyBody {
     return VerifyBody(challengeID: challengeID, credential: data, name: object["name"] as? String)
 }
 
-private func jsonResponse(_ object: Any, status: HTTPStatus = .ok) throws -> Response {
+func jsonResponse(_ object: Any, status: HTTPStatus = .ok) throws -> Response {
     var headers = HTTPHeaders()
     headers.contentType = .json
     return Response(status: status, headers: headers, body: .init(data: try JSONSerialization.data(withJSONObject: object)))
 }
 
-private func iso(_ date: Date) -> String { ISO8601DateFormatter().string(from: date) }
+func iso(_ date: Date) -> String { ISO8601DateFormatter().string(from: date) }
 
 private func optionsResponse(_ o: AuthService.Options) throws -> Response {
     try jsonResponse(["challenge_id": o.challengeID.uuidString, "public_key": try JSONSerialization.jsonObject(with: o.options.publicKey)])
 }
 
 /// Sitzungsantwort. Bei neu ausgestellter Sitzung: Cookie (HttpOnly, SameSite=Lax) oder, mit `X-Auth-Transport: bearer`, Token im Body (Apps).
-private func sessionResponse(_ c: AuthContext, req: Request, issued: Bool, status: HTTPStatus = .ok) throws -> Response {
+private func sessionResponse(_ c: AuthContext, req: Request, issued: Bool, status: HTTPStatus = .ok) async throws -> Response {
     let settings = try req.application.authService().settings
     var body: [String: Any] = [
-        "user": ["id": c.user.id.uuidString, "handle": c.user.handle, "display_name": c.user.displayName, "is_admin": c.user.isAdmin],
-        "kind": c.kind.rawValue, "expires_at": iso(c.expiresAt), "csrf_token": AuthSecrets.csrf(c.token)]
+        "user": ["id": c.user.id.uuidString, "handle": c.user.handle, "display_name": c.user.displayName, "is_operator": c.user.isOperator],
+        "kind": c.kind.rawValue, "expires_at": iso(c.expiresAt), "csrf_token": AuthSecrets.csrf(c.token),
+        "memberships": try await TenancyService.memberships(of: c.user.id, on: req.db).map {
+            ["tenant_id": $0.tenantID.uuidString, "name": $0.name, "role": $0.role.rawValue] }]
     let bearer = req.headers.first(name: "X-Auth-Transport") == "bearer"
     if issued, bearer { body["token"] = c.token }
     let response = try jsonResponse(body, status: status)
@@ -62,11 +63,11 @@ func registerAuthRoutes(_ app: Application) {
     let open = api.grouped("auth").grouped(AuthRateLimitMiddleware())
     open.post("bootstrap", "options") { req async throws -> Response in
         let b = try req.content.decode(BootstrapOptionsBody.self)
-        return try optionsResponse(try await req.application.authService().beginBootstrap(setupToken: b.setup_token, handle: b.handle, displayName: b.display_name, on: req.db))
+        return try optionsResponse(try await req.application.authService().beginBootstrap(setupToken: b.setup_token, handle: b.handle, displayName: b.display_name, tenantName: b.tenant_name, on: req.db))
     }
     open.post("bootstrap", "verify") { req async throws -> Response in
         let v = try parseVerify(req)
-        return try sessionResponse(try await req.application.authService().finishBootstrap(challengeID: v.challengeID, credential: v.credential, requestID: req.requestId, on: req.db),
+        return try await sessionResponse(try await req.application.authService().finishBootstrap(challengeID: v.challengeID, credential: v.credential, requestID: req.requestId, on: req.db),
                                    req: req, issued: true, status: .created)
     }
     open.post("register", "options") { req async throws -> Response in
@@ -75,7 +76,7 @@ func registerAuthRoutes(_ app: Application) {
     }
     open.post("register", "verify") { req async throws -> Response in
         let v = try parseVerify(req)
-        return try sessionResponse(try await req.application.authService().finishRegistration(challengeID: v.challengeID, credential: v.credential, requestID: req.requestId, on: req.db),
+        return try await sessionResponse(try await req.application.authService().finishRegistration(challengeID: v.challengeID, credential: v.credential, requestID: req.requestId, on: req.db),
                                    req: req, issued: true, status: .created)
     }
     open.post("login", "options") { req async throws -> Response in
@@ -83,19 +84,19 @@ func registerAuthRoutes(_ app: Application) {
     }
     open.post("login", "verify") { req async throws -> Response in
         let v = try parseVerify(req)
-        return try sessionResponse(try await req.application.authService().finishLogin(challengeID: v.challengeID, credential: v.credential, requestID: req.requestId, on: req.db),
+        return try await sessionResponse(try await req.application.authService().finishLogin(challengeID: v.challengeID, credential: v.credential, requestID: req.requestId, on: req.db),
                                    req: req, issued: true)
     }
     open.post("recovery", "login") { req async throws -> Response in
         let b = try req.content.decode(RecoveryLoginBody.self)
-        return try sessionResponse(try await req.application.authService().recoveryLogin(handle: b.handle, code: b.code, requestID: req.requestId, on: req.db),
+        return try await sessionResponse(try await req.application.authService().recoveryLogin(handle: b.handle, code: b.code, requestID: req.requestId, on: req.db),
                                    req: req, issued: true)
     }
 
     // Jede gültige Sitzung (auch Notfall-Sitzung)
     let anySession = api.grouped(RequireSession(allowRecovery: true))
     anySession.get("auth", "session") { req async throws -> Response in
-        try sessionResponse(try req.requireAuth(), req: req, issued: false)
+        try await sessionResponse(try req.requireAuth(), req: req, issued: false)
     }
     anySession.post("auth", "logout") { req async throws -> Response in
         try await req.application.authService().logout(try req.requireAuth(), requestID: req.requestId, on: req.db)
@@ -146,20 +147,6 @@ func registerAuthRoutes(_ app: Application) {
     normal.post("me", "recovery-codes") { req async throws -> Response in
         let codes = try await req.application.authService().generateRecoveryCodes(try req.requireAuth(), requestID: req.requestId, on: req.db)
         return try jsonResponse(["codes": codes], status: .created)
-    }
-
-    // Nur Administratoren (Übergang bis zu den Rollen aus WP-K2)
-    let admin = api.grouped(RequireSession(admin: true))
-    admin.post("invitations") { req async throws -> Response in
-        let hours = (try? req.content.decode(InvitationBody.self))?.expires_in_hours
-        if let hours, !(1...720).contains(hours) {
-            throw HubError(.unprocessableEntity, "validation_failed", errors: [FieldError(field: "expires_in_hours", code: "invalid")])
-        }
-        let service = try req.application.authService()
-        let inv = try await service.createInvitation(by: try req.requireAuth(), ttlSeconds: hours.map { $0 * 3600 }, requestID: req.requestId, on: req.db)
-        var body: [String: Any] = ["id": inv.id.uuidString, "token": inv.token, "expires_at": iso(inv.expiresAt)]
-        if !service.settings.origin.isEmpty { body["link"] = "\(service.settings.origin)/invite/\(inv.token)" }
-        return try jsonResponse(body, status: .created)
     }
 }
 

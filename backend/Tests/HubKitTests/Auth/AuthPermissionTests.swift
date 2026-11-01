@@ -5,7 +5,7 @@ import SQLKit
 /// Berechtigungstest für jede Auth-Route (Definition of Done): erlaubt/verboten je Sitzungsart.
 /// Die Matrix muss alle `/api/v1`-Routen des Servers abdecken; eine neue Route ohne Eintrag lässt den Test scheitern.
 final class AuthPermissionTests: AuthTestCase {
-    enum Access { case open, anySession, normalSession, admin }
+    enum Access { case open, anySession, normalSession, `operator`, tenant }
 
     static let matrix: [(String, String, Access)] = [
         ("POST", "/api/v1/auth/bootstrap/options", .open), ("POST", "/api/v1/auth/bootstrap/verify", .open),
@@ -17,7 +17,11 @@ final class AuthPermissionTests: AuthTestCase {
         ("GET", "/api/v1/auth/sessions", .normalSession), ("DELETE", "/api/v1/auth/sessions/{id}", .normalSession),
         ("GET", "/api/v1/me/passkeys", .normalSession), ("DELETE", "/api/v1/me/passkeys/{id}", .normalSession),
         ("GET", "/api/v1/me/recovery-codes", .normalSession), ("POST", "/api/v1/me/recovery-codes", .normalSession),
-        ("POST", "/api/v1/invitations", .admin)
+        // WP-K2: Betreiber legt Mandanten an; Mandantenrouten prüfen Mitgliedschaft und Berechtigung (Matrix in TenantTests)
+        ("GET", "/api/v1/tenants", .normalSession), ("POST", "/api/v1/tenants", .operator),
+        ("GET", "/api/v1/tenants/{tenant}", .tenant), ("GET", "/api/v1/tenants/{tenant}/members", .tenant),
+        ("PATCH", "/api/v1/tenants/{tenant}/members/{user}", .tenant), ("DELETE", "/api/v1/tenants/{tenant}/members/{user}", .tenant),
+        ("POST", "/api/v1/tenants/{tenant}/invitations", .tenant)
     ]
 
     /// AK-K1-*: Die Matrix deckt genau die Routen des Servers unter /api/v1 ab.
@@ -29,6 +33,7 @@ final class AuthPermissionTests: AuthTestCase {
 
     private func path(_ template: String) -> String {
         String(template.dropFirst()).replacingOccurrences(of: "{id}", with: UUID().uuidString)
+            .replacingOccurrences(of: "{tenant}", with: UUID().uuidString).replacingOccurrences(of: "{user}", with: UUID().uuidString)
     }
 
     private func method(_ m: String) -> HTTPMethod { HTTPMethod(rawValue: m) }
@@ -61,16 +66,19 @@ final class AuthPermissionTests: AuthTestCase {
         for (m, p, access) in Self.matrix where access != .open {
             if p.hasSuffix("/logout") || p.hasSuffix("/logout-all") { continue }  // beenden die Sitzung; eigener Test unten
             let r = try await call(app1, method(m), path(p), json: [:], token: bob.token)
-            if access == .admin {
+            if access == .operator {
                 XCTAssertEqual(r.status, .forbidden, "\(m) \(p)"); XCTAssertEqual(r.problemCode, "forbidden", "\(m) \(p)")
+            } else if access == .tenant {
+                XCTAssertEqual(r.status, .notFound, "\(m) \(p)")  // fremder/unbekannter Mandant: 404
             } else {
                 XCTAssertNotEqual(r.status, .unauthorized, "\(m) \(p)")
                 XCTAssertNotEqual(r.status, .forbidden, "\(m) \(p)")
             }
         }
-        let adminOK = try await call(app2, .POST, "api/v1/invitations", json: [:], token: admin.token)
+        let tenant = try await scalar("SELECT tenant_id::text AS v FROM memberships WHERE user_id = '\(admin.userID)'", as: String.self)
+        let adminOK = try await call(app2, .POST, "api/v1/tenants/\(tenant)/invitations", json: [:], token: admin.token)
         XCTAssertEqual(adminOK.status, .created)
-        let tooLong = try await call(app2, .POST, "api/v1/invitations", json: ["expires_in_hours": 100_000], token: admin.token)
+        let tooLong = try await call(app2, .POST, "api/v1/tenants/\(tenant)/invitations", json: ["expires_in_hours": 100_000], token: admin.token)
         XCTAssertEqual(tooLong.status, .unprocessableEntity)
         let out = try await call(app1, .POST, "api/v1/auth/logout", token: bob.token)
         XCTAssertEqual(out.status, .noContent)

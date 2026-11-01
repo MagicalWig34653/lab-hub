@@ -6,7 +6,7 @@ import Crypto
 
 /// Alle Hub-Tabellen in abhängigkeitssicherer Reihenfolge (für saubere Testzustände). Nur synthetische Daten.
 enum HubTestDB {
-    static let tables = ["audit_log", "rate_limit_events", "auth_challenges", "recovery_codes", "invitations", "sessions",
+    static let tables = ["memberships", "audit_log", "rate_limit_events", "auth_challenges", "recovery_codes", "invitations", "tenants", "sessions",
                          "passkey_credentials", "users", "object_chunks", "files", "jobs", "idempotency_keys", "counters",
                          "schema_version", "_fluent_migrations"]
     static func dropAll(_ db: any SQLDatabase) async throws {
@@ -159,8 +159,13 @@ class AuthTestCase: XCTestCase, @unchecked Sendable {
                               headers: ["X-Auth-Transport": "bearer"])
     }
 
-    func invite(_ app: Application, by s: TestSession) async throws -> String {
-        let r = try await call(app, .POST, "api/v1/invitations", json: [:], token: s.token)
+    /// Einladung in einen Mandanten (Standard: der erste Mandant des Einladenden) mit Rolle (Standard: member).
+    func invite(_ app: Application, by s: TestSession, tenant: String? = nil, role: String = "member") async throws -> String {
+        let t: String
+        if let tenant { t = tenant } else {
+            t = try await scalar("SELECT tenant_id::text AS v FROM memberships WHERE user_id = '\(s.userID)' ORDER BY created_at LIMIT 1", as: String.self)
+        }
+        let r = try await call(app, .POST, "api/v1/tenants/\(t)/invitations", json: ["role": role], token: s.token)
         XCTAssertEqual(r.status, .created, "\(r.json)")
         return r.json["token"] as! String
     }
