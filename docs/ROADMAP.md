@@ -10,7 +10,7 @@ Ausgangsstand (vorhanden, getestet laut `deploy/README.md`/Tests): `migrate`, `s
 
 | Phase | WP | Titel | Abh. | Größe | Parallel | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| 0 Kern | K0 | Baseline: Build/Test verifizieren, CI-Skript | – | S | P zu allen | offen |
+| 0 Kern | K0 | Baseline: Build/Test verifizieren, CI-Skript | – | S | P zu allen | fertig (Baseline); F-03 offen |
 | | K1 | Auth: Nutzer, Passkeys, Sitzungen, Einladung, Audit | K0 | L | P K4, D1 | offen |
 | | K2 | Mandanten, Mitgliedschaft, Rollen, Berechtigungen | K1 | M | | offen |
 | | K3 | Modul-System (`HubModule`, Aktivierung, Guard) | K2 | M | P K4, K6 | offen |
@@ -56,6 +56,8 @@ Grundsatz: Hub ohne Swift-App nutzbar (`AGENTS.md`); die Rechnungsphase ist dahe
 ## Phase 0 – Kern
 
 **WP-K0 Baseline (S).** Ziel: Bestehendes verifizieren und Lizenzbefund prüfen. Zusatzauftrag: in der aufgelösten `swift-nio-ssl`-Version (`Package.resolved`) `LICENSE` und Header der `CNIOBoringSSL`-Dateien auswerten (Anzahl Dateien mit altem OpenSSL-/SSLeay-Header, Apache-2.0, ISC; ISC unkritisch), Befehl und Ergebnis in `docs/LIZENZEN.md` dokumentieren, Rückfalloptionen laut `OFFENE-FRAGEN.md` F-03; Rechtsfrage bleibt nicht abschließend geklärt. Akzeptanz: `swift build`/`swift test` mit Scratch-Pfad laufen gegen lokales Postgres; falls `--build-system native` nötig, in `AGENTS.md` eintragen; `deploy/` unverändert lauffähig; `.env.example` vollständig. Test: vorhandene `HealthTests`, `PostgresTests` grün; Ergebnis in `README.md` notiert. Abh.: –.
+
+*Übergabevermerk 01.11.2026:* `scripts/ci.sh` (shellcheck, `swift build`, `swift test`, Scratch-Pfad) lief grün: 11 Tests, 0 Fehler, davon 6 Postgres-Tests gegen lokales Postgres 17; kein `--build-system native` nötig (Swift 6.4.2, macOS arm64). `.env.example` vervollständigt. `deploy/` unverändert, **nicht** erneut ausgeführt. Lizenzbefund (`docs/LIZENZEN.md`): 323 von 643 CNIOBoringSSL-Dateien mit altem OpenSSL-Header, 2.37.5 ist die neueste Version; F-03 braucht Nutzerentscheidung. Nächster Schritt: K4, K6, D1, R0 (parallel möglich), dann K1.
 
 **WP-K1 Auth (L).** Ziel: Nutzer, Passkeys, Sitzungen. Details `ARCHITEKTUR.md` 4.1; Vorbild-Dateien dort. Akzeptanz: AK-K1-1 Setup-Token-Bootstrap des ersten Nutzers; K1-2 Passkey-Registrierung/-Login mit virtuellem Authenticator; K1-3 Einladung, Einmal-Link, Ablauf; K1-4 Recovery-Codes einmalig; K1-5 Sitzung gilt auf zweiter Instanz; K1-6 Rate-Limit instanzübergreifend (DB); K1-7 „alle Geräte abmelden“; K1-8 Audit-Einträge ohne Nutzdaten, Tabelle append-only (UPDATE scheitert). Test: XCTVapor + Postgres, virtueller Authenticator als Testhilfe, Zwei-Instanzen-Test. Migrationen `users`, `passkey_credentials`, `sessions`, `invitations`, `recovery_codes`, `audit_log`. Offen: F-04, F-05.
 

@@ -43,4 +43,6 @@ swift run --scratch-path "$LH_SCRATCH" App serve
 curl http://127.0.0.1:8080/health
 ```
 
-Nächster Schritt: WP-K0 (Baseline verifizieren), danach Kern laut `docs/ROADMAP.md`.
+Baseline (WP-K0, 01.11.2026): `scripts/ci.sh` (shellcheck, Build, Tests) läuft grün; 11 Tests, davon 6 gegen Postgres, ohne `--build-system native`. Lizenzbefund BoringSSL offen: `docs/LIZENZEN.md`.
+
+Nächster Schritt: Kern laut `docs/ROADMAP.md` (K1, K4, K6, D1 u. a.).
