@@ -76,6 +76,7 @@ Grundsatz: Hub ohne Swift-App nutzbar (`AGENTS.md`); die Rechnungsphase ist dahe
 ## Phase 1 – DMS M1
 
 **WP-D1 ObjectStore (M).** Ziel: Protokoll `ObjectStore`, Implementierungen FS und DB (`bytea`/Large Object), S3 (nach F-06 priorisieren), Tabelle `files`. Akzeptanz: AK-D1-1 Contract-Test gegen alle Backends (put/get/exists/delete, Hash-Prüfung, Streaming ohne Vollpuffern bei 1 GiB synthetisch, Speicherverbrauch begrenzt); D1-2 `put` mit falschem Hash scheitert; D1-3 gleiche Bytes → eine Speicherung (Dedup); D1-4 FS-Backend nur mit Konfigurationswarnung bei Replikas>1 (Test der Konfigurationsprüfung). Test: S3 gegen lokalen Garage/MinIO in Testprofil (Docker), sonst übersprungen mit Ausgabe. Abh.: K0. **P**.
+*Status WP-D1: Protokoll, FS, DB, `files` fertig und getestet (Branch wp-D1); S3 offen, siehe `docs/handoff/WP-D1.md`.*
 
 **WP-D2 DMS-Kern (L).** Ziel: Tabellen `dms_*` (Dokument, Dateien, Typ, Tag/Gruppe, Pfad, Felder, Papierkorb), Upload-Route, Audit, Events, Berechtigungen (`MODUL-DMS.md` Abschnitte 3, 4.1, 7, 9). Akzeptanz: AK-D1 (Modul gesamt, Upload), AK-D8, Papierkorb/Restore, ASN-Vergabe atomar (AK-D7), Original per DB-Constraint unveränderlich (AK-D-REV-1), Mandantentrennung. Test wie genannt, plus Zwei-Instanzen-Upload. Abh.: K3, K5, D1.
 
