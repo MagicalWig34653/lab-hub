@@ -2,13 +2,80 @@ import Vapor
 import Fluent
 import SQLKit
 
+/// Schlüsselraum eines Zählers: `space` (Modul/Zweck, z. B. "invoice") und `name` (z. B. Jahr). Rohschlüssel `space:name`.
+public struct CounterKey: Sendable, Equatable, Hashable {
+    public let space: String
+    public let name: String
+    public init(space: String, name: String) {
+        precondition(!space.isEmpty && !space.contains(":"), "invalid counter space")
+        self.space = space; self.name = name
+    }
+    public var rawValue: String { "\(space):\(name)" }
+}
+
+/// Ereignis einer Anhebung per `ensureAtLeast` (nur Zählerdaten, keine Nutzdaten).
+public struct CounterAuditEvent: Sendable, Equatable {
+    public let tenant: UUID
+    public let key: String
+    public let previous: Int64?
+    public let new: Int64
+    public let reason: String
+}
+
+/// Schnittstelle für das Audit-Log (Tabelle `audit_log` entsteht mit WP-K1). Der Hook läuft auf derselben
+/// Datenbank/Transaktion wie die Anhebung, damit Zähler und Audit-Eintrag gemeinsam committen oder zurückrollen.
+public protocol CounterAuditHook: Sendable {
+    func counterRaised(_ event: CounterAuditEvent, on db: any SQLDatabase) async throws
+}
+
 /// Zähler: ein Statement, atomar durch die Zeilensperre des Upserts. Rückgabe ist die vergebene Nummer (ab 1).
+/// Mit `on:` läuft die Vergabe in einer fremden Transaktion; Rollback setzt den Zählerstand zurück.
 public struct CounterService: Sendable {
     let db: any SQLDatabase
-    public init(_ db: any SQLDatabase) { self.db = db }
+    let auditHook: (any CounterAuditHook)?
+    public init(_ db: any SQLDatabase, auditHook: (any CounterAuditHook)? = nil) { self.db = db; self.auditHook = auditHook }
 
     public func next(tenant: UUID, key: String) async throws -> Int64 {
-        let row = try await db.raw("""
+        try await next(tenant: tenant, key: key, on: db)
+    }
+
+    public func next(tenant: UUID, key: CounterKey, on tx: (any SQLDatabase)? = nil) async throws -> Int64 {
+        try await next(tenant: tenant, key: key.rawValue, on: tx ?? db)
+    }
+
+    /// Hebt den Zähler auf mindestens `value` an (nie ab), z. B. nach Importen. Rückgabe: Stand danach.
+    /// Bei tatsächlicher Änderung wird der Audit-Hook (falls gesetzt) auf derselben Verbindung aufgerufen.
+    @discardableResult
+    public func ensureAtLeast(tenant: UUID, key: CounterKey, value: Int64, reason: String = "ensureAtLeast",
+                              on tx: (any SQLDatabase)? = nil) async throws -> Int64 {
+        let db = tx ?? self.db
+        let rawKey = key.rawValue
+        let inserted = try await db.raw("""
+            INSERT INTO counters (tenant_id, key, value) VALUES (\(bind: tenant), \(bind: rawKey), \(bind: value))
+            ON CONFLICT (tenant_id, key) DO NOTHING RETURNING value
+            """).first()
+        var previous: Int64? = nil
+        var result = value
+        if inserted == nil {
+            // Row exists: lock it, return old and new value in one statement.
+            guard let row = try await db.raw("""
+                UPDATE counters c SET value = GREATEST(c.value, \(bind: value))
+                FROM (SELECT value FROM counters WHERE tenant_id = \(bind: tenant) AND key = \(bind: rawKey) FOR UPDATE) old
+                WHERE c.tenant_id = \(bind: tenant) AND c.key = \(bind: rawKey)
+                RETURNING old.value AS previous, c.value AS value
+                """).first() else { throw Abort(.internalServerError) }
+            previous = try row.decode(column: "previous", as: Int64.self)
+            result = try row.decode(column: "value", as: Int64.self)
+        }
+        if previous != result, let auditHook {
+            try await auditHook.counterRaised(
+                CounterAuditEvent(tenant: tenant, key: rawKey, previous: previous, new: result, reason: reason), on: db)
+        }
+        return result
+    }
+
+    public func next(tenant: UUID, key: String, on tx: any SQLDatabase) async throws -> Int64 {
+        let row = try await tx.raw("""
             INSERT INTO counters (tenant_id, key, value) VALUES (\(bind: tenant), \(bind: key), 1)
             ON CONFLICT (tenant_id, key) DO UPDATE SET value = counters.value + 1 RETURNING value
             """).first()

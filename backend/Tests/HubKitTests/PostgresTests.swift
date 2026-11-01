@@ -61,6 +61,98 @@ final class PostgresTests: XCTestCase {
         XCTAssertEqual(other, 1)
     }
 
+    // MARK: WP-K6 counters
+
+    private func inTx<T: Sendable>(_ body: @Sendable @escaping (any SQLDatabase) async throws -> T) async throws -> T {
+        try await app.db(.psql).transaction { tx in try await body(tx as! any SQLDatabase) }
+    }
+
+    struct Boom: Error {}
+
+    func testNextOnForeignTransaction_AK_K6_1() async throws {
+        try await migrateWithLock(app)
+        let tenant = UUID(), counters = CounterService(db!)
+        let key = CounterKey(space: "invoice", name: "2026")
+        let (a, b) = try await inTx { tx in
+            (try await counters.next(tenant: tenant, key: key, on: tx), try await counters.next(tenant: tenant, key: key, on: tx))
+        }
+        XCTAssertEqual([a, b], [1, 2])
+        let c = try await counters.next(tenant: tenant, key: key)
+        XCTAssertEqual(c, 3)
+    }
+
+    func testRollbackReleasesNumber_AK_K6_2() async throws {
+        try await migrateWithLock(app)
+        let tenant = UUID(), counters = CounterService(db!)
+        let key = CounterKey(space: "invoice", name: "2026")
+        let first = try await counters.next(tenant: tenant, key: key)
+        XCTAssertEqual(first, 1)
+        do {
+            try await inTx { tx in
+                let n = try await counters.next(tenant: tenant, key: key, on: tx)
+                XCTAssertEqual(n, 2)
+                throw Boom()
+            }
+            XCTFail("Rollback erwartet")
+        } catch is Boom {}
+        let again = try await counters.next(tenant: tenant, key: key)
+        XCTAssertEqual(again, 2)
+    }
+
+    func testEnsureAtLeastOnlyRaises_AK_K6_3() async throws {
+        try await migrateWithLock(app)
+        let tenant = UUID(), counters = CounterService(db!)
+        let key = CounterKey(space: "invoice", name: "2026")
+        let created = try await counters.ensureAtLeast(tenant: tenant, key: key, value: 50)
+        XCTAssertEqual(created, 50)
+        let lowered = try await counters.ensureAtLeast(tenant: tenant, key: key, value: 10)
+        XCTAssertEqual(lowered, 50)
+        let n = try await counters.next(tenant: tenant, key: key)
+        XCTAssertEqual(n, 51)
+        let raised = try await counters.ensureAtLeast(tenant: tenant, key: key, value: 100)
+        XCTAssertEqual(raised, 100)
+    }
+
+    func testEnsureAtLeastCallsAuditHookOnlyOnChange_AK_K6_3() async throws {
+        try await migrateWithLock(app)
+        let tenant = UUID()
+        let rec = AuditRecorder()
+        let counters = CounterService(db!, auditHook: rec)
+        let key = CounterKey(space: "invoice", name: "2026")
+        _ = try await counters.ensureAtLeast(tenant: tenant, key: key, value: 50, reason: "import")
+        _ = try await counters.ensureAtLeast(tenant: tenant, key: key, value: 10, reason: "import")
+        _ = try await counters.ensureAtLeast(tenant: tenant, key: key, value: 70, reason: "import")
+        let events = await rec.events
+        XCTAssertEqual(events.map(\.previous), [nil, 50])
+        XCTAssertEqual(events.map(\.new), [50, 70])
+        XCTAssertEqual(events.first?.reason, "import")
+        XCTAssertEqual(events.first?.key, key.rawValue)
+    }
+
+    func testTwoConnectionsThousandNumbersNoGapNoDuplicate_AK_K6_4() async throws {
+        try await migrateWithLock(app)
+        let tenant = UUID(), counters = CounterService(db!)
+        let key = CounterKey(space: "invoice", name: "2026")
+        var values: [Int64] = []
+        try await withThrowingTaskGroup(of: [Int64].self) { g in
+            for _ in 0..<2 {   // two workers, each batch in its own transaction (= own connection)
+                g.addTask { [application = app!] in
+                    var out: [Int64] = []
+                    for _ in 0..<50 {
+                        out += try await inTxOn(application) { tx in
+                            var batch: [Int64] = []
+                            for _ in 0..<10 { batch.append(try await counters.next(tenant: tenant, key: key, on: tx)) }
+                            return batch
+                        }
+                    }
+                    return out
+                }
+            }
+            for try await v in g { values += v }
+        }
+        XCTAssertEqual(values.sorted(), (1...1000).map { Int64($0) })
+    }
+
     func testIdempotency() async throws {
         try await migrateWithLock(app)
         let svc = IdempotencyService(db!), tenant = UUID()
@@ -118,3 +210,12 @@ final class PostgresTests: XCTestCase {
 }
 
 actor ActorCounter { var value = 0; func inc() { value += 1 } }
+
+actor AuditRecorder: CounterAuditHook {
+    var events: [CounterAuditEvent] = []
+    func counterRaised(_ event: CounterAuditEvent, on db: any SQLDatabase) async throws { events.append(event) }
+}
+
+func inTxOn<T: Sendable>(_ app: Application, _ body: @Sendable @escaping (any SQLDatabase) async throws -> T) async throws -> T {
+    try await app.db(.psql).transaction { tx in try await body(tx as! any SQLDatabase) }
+}

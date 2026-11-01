@@ -16,7 +16,7 @@ Ausgangsstand (vorhanden, getestet laut `deploy/README.md`/Tests): `migrate`, `s
 | | K3 | Modul-System (`HubModule`, Aktivierung, Guard) | K2 | M | P K4, K6 | offen |
 | | K4 | OpenAPI-Vertrag, Fehlerformat, Pagination, Vertragstest | K0 | M | P K1, D1 | offen |
 | | K5 | Kontakte und `links` | K2, K4 | M | P K6, K7 | offen |
-| | K6 | Zähler-Erweiterung (transaktional, Schlüsselraum) | K0 | S | P K3, K5 | offen |
+| | K6 | Zähler-Erweiterung (transaktional, Schlüsselraum) | K0 | S | P K3, K5 | umgesetzt (Branch wp-K6, `docs/handoff/WP-K6.md`) |
 | | K7 | Events/Outbox, Webhooks | K3 | M | P K5 | offen |
 | 1 DMS M1 | D1 | ObjectStore (FS, DB, S3), `files`, Hash | K0 | M | P K1, K4 | offen |
 | | D2 | DMS-Kern: Dokumente, Upload, Stammdaten, Papierkorb | K3, K5, D1 | L | | offen |
