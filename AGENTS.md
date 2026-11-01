@@ -12,6 +12,10 @@ Das Repository ist das Projektgedächtnis. Sessions sind wegwerfbar: Stand, Ents
 6. `docs/PLATTFORM-VISION.md` nur als Hintergrund (Teile veraltet, siehe Kopfzeile dort)
 7. `deploy/README.md` bei Betriebs-/Image-Themen
 
+## Grundsatz: Hub ohne Swift-App nutzbar
+
+Der Hub muss **vollständig ohne Swift-App** funktionieren: Alles, was die Apps können (Rechnungsmodul: Belege erstellen, bearbeiten, finalisieren, Nummernvergabe, PDF, E-Rechnung, Zahlungen, Berichte; DMS), muss über Backend + PWA möglich sein. Swift-Apps sind optionale Clients mit Offline-/Eigenständigkeit. Kein WP darf eine App voraussetzen (Entscheidungsvorschlag, `docs/OFFENE-FRAGEN.md` F-08/F-27/F-31).
+
 ## 2. Stack und Verzeichnislayout
 
 | Pfad | Inhalt |
@@ -62,7 +66,7 @@ Eine Instanz hält keinen korrektheitsrelevanten Zustand. Verboten: In-Memory-Ca
 - Remote: privates GitHub-Repo `MagicalWig34653/lab-hub`, Branch `main`. Sichtbarkeit nie ändern.
 - Vor Commit `git status` und `git diff --cached --stat` prüfen. Keine Binärdateien, Archive, Builds, `.env`, Schlüssel, Kundendateien.
 - Commit-Nachricht: kurzer englischer Betreff mit WP-ID (z. B. `WP-K2: tenants and roles`). Nach jedem abgeschlossenen WP `git push origin main`. Nie `--force`.
-- Lizenz AGPL-3.0-only. Neue Abhängigkeiten: Lizenz prüfen und in `docs/LIZENZEN.md` (entsteht mit WP-H1) eintragen. **Offener Befund:** `swift-nio-ssl` bündelt BoringSSL mit OpenSSL-Altlizenz (Werbeklausel), nach FSF mit der GPL-Familie inkompatibel; der Hub erbt sie über Vapor. Vor erster Veröffentlichung/Image-Weitergabe klären (`docs/OFFENE-FRAGEN.md` F-03; Ausnahmeentwurf `../timetrack-backend/LICENSE-EXCEPTION.md`, Inventar `../timetrack-backend/docs/LIZENZEN.md`). Bis dahin kein öffentliches Image, kein öffentliches Repo.
+- Lizenz AGPL-3.0-only. Neue Abhängigkeiten: Lizenz prüfen und in `docs/LIZENZEN.md` (entsteht mit WP-H1) eintragen. **Lizenzprüfung BoringSSL (WP-K0, Rechtsfrage nicht abschließend geklärt):** BoringSSL steht upstream seit dem Commit „Switch the license to Apache 2.0, matching OpenSSL upstream“ (`boringssl.googlesource.com/boringssl/+/33d1049b1f730d2725bb09b2256fd5fe4c46b17e`) unter Apache-2.0, das mit AGPLv3 kompatibel ist. Offen ist, ob die in `swift-nio-ssl` gebündelte Kopie (`CNIOBoringSSL`) der im Hub aufgelösten Version diesen Stand hat (ältere Checkouts tragen noch den Header „Licensed under the OpenSSL license“). Prüfauftrag und Rückfalloptionen: `docs/OFFENE-FRAGEN.md` F-03. Bis zum Prüfergebnis keine Annahmen in Doku/Releases, dass der Befund erledigt ist.
 - Paperless-ngx steht unter GPL-3.0: keinen Code, keine Texte, keine Testdaten übernehmen; nur Funktionen sind Vorbild.
 
 ## 7. Arbeitsweise und TDD

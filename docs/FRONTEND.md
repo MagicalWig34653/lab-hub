@@ -4,6 +4,7 @@ Status: Entwurf, Stand 01.11.2026. Entscheidung Stack: ADR 0002 (entschieden) un
 
 ## 1. Ziele
 
+0. Alle Funktionen des Hubs sind ohne Swift-App über die PWA erreichbar (Grundsatz, `ARCHITEKTUR.md`).
 1. Eine PWA für alle Module; Menü und Routen folgen der Modulaktivierung des Backends (`ARCHITEKTUR.md` Abschnitt 3).
 2. Statisch gebaut, vom Backend ausgeliefert (gleicher Origin → Cookie-Sitzung, Passkey-RP-ID = Host; Vorbild `PWAStaticMiddleware.swift` im timetrack-backend).
 3. Installierbar, Shell offline verfügbar; Schreibzugriffe nur online (V1), Lesen zuletzt geladener Listen/Dokumente optional offline (Abschnitt 7).
@@ -145,3 +146,11 @@ Befehle (Ziel, mit WP-F1 festschreiben): `npm run dev`, `dev:mock`, `check`, `te
 ## 12. Build und Auslieferung
 
 `npm run build` → `pwa/build/` (statisch, `index.html`-Fallback, `version.json`). Das Docker-Image kopiert `pwa/build` in das Backend-Image (Mehrstufiger Build); Backend liefert Dateien unter `/` aus, API unter `/api`. Dev: Vite-Proxy auf `BACKEND_URL` (Vorbild `vite.config.ts`). `OpenAPI → types.ts` per Generator (F-17), generierte Datei wird committet und per CI-Check auf Aktualität geprüft.
+
+## 13. Layout-Verwaltung und Designer in der PWA (Entwurf, offen F-31)
+
+Da der Hub ohne App nutzbar sein muss, braucht die PWA Layouts für Belege. Stufen:
+1. **V1 (WP-F6):** Standardlayouts wählen, Parameter (Logo-Upload, Farben, Schrift aus freigegebener Liste, Kopf-/Fußtexte, Platzhalter-Vorschau); PDF-Vorschau kommt vom Server-Renderer (`invoice.render`), nicht aus dem Browser.
+2. **WP-F7a:** Layoutliste, Versionen, Import vorhandener Layouts (Taxlab-/Totals-Importformat), Zuordnung je Belegtyp/Serie, Vorschau mit Beispieldaten.
+3. **WP-F7b:** Grafischer Designer (Elemente, Ebenen, Seiten, Inspector, Tastatur) nach dem Konzept der App (taxlab `docs/LAYOUT-DESIGNER.md`, `docs/DESIGNER.md`); gemeinsames Layoutmodell mit Server-Renderer, Canvas-Vorschau nur zur Bearbeitung, maßgeblich ist das Serverergebnis.
+Akzeptanz F7: Layout-Roundtrip (speichern, laden, rendern) ohne Verlust; a11y der Bedienelemente (Tastaturalternative zu Drag&Drop); Mandantentrennung der Layouts.

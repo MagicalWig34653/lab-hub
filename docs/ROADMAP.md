@@ -39,9 +39,11 @@ Ausgangsstand (vorhanden, getestet laut `deploy/README.md`/Tests): `migrate`, `s
 | | R3 | Zahlungen, Gutschrift, Umwandlung | R2 | M | | offen |
 | | R4 | Taxlab-Import/Export | R2 | M | P R3 | offen |
 | | R5 | E-Rechnung Erzeugung (Server) | R2 | M | P R3, R4 | offen |
-| | R6 | Server-Renderer (optional, nach F-08) | R2 | L | | offen |
+| | R6a | Spike Renderer: Optionen (a)/(b)/(c) gegen Referenz-PDFs | R0 | M | P R1, R2 | offen |
+| | R6 | Server-Renderer und Layout-Engine (Pflicht, Linux) | R6a, R2 | L | | offen |
 | | R7 | Ausgaben, EÜR/USt-Berichte | R3 | L | | offen |
-| | F6 | Rechnungs-UI | F2, R2 | L | P R3.. | offen |
+| | F6 | Rechnungs-UI (erstellen, bearbeiten, finalisieren, PDF, Zahlungen, Berichte) | F2, R2, R6 | L | P R3.. | offen |
+| | F7 | Layout-Verwaltung und Designer in der PWA | F6, R6 | L | | offen |
 | 5 Verknüpfung | X1 | Beleg↔Dokument, Events, Steuerberater-Export | D5, R3 | M | | offen |
 | 6 Hardening | H1 | Lizenzen (BoringSSL), SBOM, Abhängigkeitsprüfung | K0 | M | P ab Phase 0 | offen |
 | | H2 | Backup/Restore mit Hash-Verifikation | D2 | M | | offen |
@@ -49,11 +51,11 @@ Ausgangsstand (vorhanden, getestet laut `deploy/README.md`/Tests): `migrate`, `s
 | | H4 | Update-/Swarm-Test real (Repliken, Rolling, Rollback) | K3, O2 | M | | offen |
 | | H5 | Last-/Skalierungstest (Suche, OCR-Backlog) | S1, O2 | M | | offen |
 
-Kritischer Pfad: K0 → K1 → K2 → K3 → D2 → O1 → O2 → S1 → F4. Früh parallel starten: K4, D1, K6, R0, H1, F1 (sobald K1/K4).
+Grundsatz: Hub ohne Swift-App nutzbar (`AGENTS.md`); die Rechnungsphase ist daher kein optionaler Anhang, sondern gleichwertig. Kritische Pfade: **DMS** K0 → K1 → K2 → K3 → D2 → O1 → O2 → S1 → F4; **Rechnung** R0 (Linux-Rechenkern) → R1 → R2 → R6a/R6 (Renderer) → F6 → F7; beide laufen nach K3 parallel (getrennter Dateibesitz). Früh parallel starten: K4, D1, K6, R0, H1, F1 (sobald K1/K4).
 
 ## Phase 0 – Kern
 
-**WP-K0 Baseline (S).** Ziel: Bestehendes verifizieren. Akzeptanz: `swift build`/`swift test` mit Scratch-Pfad laufen gegen lokales Postgres; falls `--build-system native` nötig, in `AGENTS.md` eintragen; `deploy/` unverändert lauffähig; `.env.example` vollständig. Test: vorhandene `HealthTests`, `PostgresTests` grün; Ergebnis in `README.md` notiert. Abh.: –.
+**WP-K0 Baseline (S).** Ziel: Bestehendes verifizieren und Lizenzbefund prüfen. Zusatzauftrag: in der aufgelösten `swift-nio-ssl`-Version (`Package.resolved`) `LICENSE` und Header der `CNIOBoringSSL`-Dateien auswerten (Anzahl Dateien mit altem OpenSSL-/SSLeay-Header, Apache-2.0, ISC; ISC unkritisch), Befehl und Ergebnis in `docs/LIZENZEN.md` dokumentieren, Rückfalloptionen laut `OFFENE-FRAGEN.md` F-03; Rechtsfrage bleibt nicht abschließend geklärt. Akzeptanz: `swift build`/`swift test` mit Scratch-Pfad laufen gegen lokales Postgres; falls `--build-system native` nötig, in `AGENTS.md` eintragen; `deploy/` unverändert lauffähig; `.env.example` vollständig. Test: vorhandene `HealthTests`, `PostgresTests` grün; Ergebnis in `README.md` notiert. Abh.: –.
 
 **WP-K1 Auth (L).** Ziel: Nutzer, Passkeys, Sitzungen. Details `ARCHITEKTUR.md` 4.1; Vorbild-Dateien dort. Akzeptanz: AK-K1-1 Setup-Token-Bootstrap des ersten Nutzers; K1-2 Passkey-Registrierung/-Login mit virtuellem Authenticator; K1-3 Einladung, Einmal-Link, Ablauf; K1-4 Recovery-Codes einmalig; K1-5 Sitzung gilt auf zweiter Instanz; K1-6 Rate-Limit instanzübergreifend (DB); K1-7 „alle Geräte abmelden“; K1-8 Audit-Einträge ohne Nutzdaten, Tabelle append-only (UPDATE scheitert). Test: XCTVapor + Postgres, virtueller Authenticator als Testhilfe, Zwei-Instanzen-Test. Migrationen `users`, `passkey_credentials`, `sessions`, `invitations`, `recovery_codes`, `audit_log`. Offen: F-04, F-05.
 
@@ -107,9 +109,9 @@ Kritischer Pfad: K0 → K1 → K2 → K3 → D2 → O1 → O2 → S1 → F4. Fr�
 
 ## Phase 4 – Rechnungsmodul
 
-(Details `MODUL-RECHNUNG.md`; Reihenfolge und Entscheidungen F-08/F-09/F-26/F-27 klären.)
+(Details `MODUL-RECHNUNG.md`. Vollständigkeit ohne App: Belege erstellen/bearbeiten/finalisieren, Nummern, PDF, E-Rechnung, Zahlungen, Berichte. Entscheidungen F-08/F-27/F-31 neu bewertet, F-09/F-26 offen.)
 
-**WP-R0 Spike Rechenkern (S).** Ziel: Nachweis, ob `TaxlabCore`/`TaxlabModel` unter Linux bauen und testen. Akzeptanz: dokumentiertes Ergebnis (Ja/Nein, nötige Änderungen) in `MODUL-RECHNUNG.md`; gemeinsame Testvektoren (JSON) aus taxlab-Tests abgeleitet (synthetisch). Teststrategie: Docker `swift:6.2` Build der Pakete. Abh.: K0. **P**.
+**WP-R0 Spike Rechenkern (S–M).** Ziel: `TaxlabCore`/`TaxlabModel` (+ Nummernformat, `TaxlabReports`, E-Rechnung ohne Rendering) unter Linux bauen und testen; bei Erfolg Auslagerung in gemeinsames SwiftPM-Repo planen, sonst Neuimplementierung gegen Testvektoren. Akzeptanz: dokumentiertes Ergebnis (Ja/Nein, nötige Änderungen) in `MODUL-RECHNUNG.md`; gemeinsame Testvektoren (JSON) aus taxlab-Tests abgeleitet (synthetisch). Teststrategie: Docker `swift:6.2` Build der Pakete. Abh.: K0. **P**.
 
 **WP-R1 Stammdaten (M).** Einstellungen, Steuerzeiträume, Serien, Belegtypen, Artikel. Mandantentrennung/Rechte. Abh.: K3, K5, R0.
 
@@ -121,11 +123,15 @@ Kritischer Pfad: K0 → K1 → K2 → K3 → D2 → O1 → O2 → S1 → F4. Fr�
 
 **WP-R5 E-Rechnung (M).** Erzeugung CII/XRechnung aus finalem Beleg; Validierung nach F-26. Abh.: R2.
 
-**WP-R6 Server-Renderer (L, optional).** Nur nach Entscheidung F-08.
+**WP-R6a Spike Renderer (M).** Ziel: Entscheidungsgrundlage F-08: Optionen (a) Swift-Portierung `TaxlabLayout`/`TaxlabRender` mit Swift-PDF-Bibliothek, (b) HTML/CSS + headless Chromium, (c) Typst-Pipeline. Akzeptanz: je Option dieselben 5 synthetischen Layouts (Briefkopf, Positionstabelle, mehrseitig, Summenblock, Fußzeile; Vorbild `tools/layoutcheck` in taxlab) → PDF; Vergleich Treue (Seitenzahl, Textpositionen ±Toleranz, extrahierter Text), Determinismus, Laufzeit, Image-Größe, Lizenz, PDF/A-3-Fähigkeit; Ergebnis als ADR 0008 (vorgeschlagen). Abh.: R0. **P**.
+
+**WP-R6 Server-Renderer und Layout-Engine (L).** Linux-tauglicher Renderer als Worker-Job (`invoice.render`, Lease wie ADR 0006), Layoutmodell (Import des Taxlab-/Totals-Layoutformats nach `IMPORT-ADAPTER.md`/`LAYOUT-DESIGNER.md`), Platzhalter, Seitenumbruch, Standardlayouts. Akzeptanz: Referenz-Layoutfälle aus R6a bestehen mit festgelegter Toleranz; Finalisieren speichert PDF + Layoutversion + Inhalt-Hash (nie neu erzeugt); zwei Worker erzeugen genau ein PDF je Beleg. Abh.: R6a, R2.
 
 **WP-R7 Ausgaben und Berichte (L).** EÜR/USt serverseitig, Vergleich mit Referenzwerten aus taxlab (synthetische Fälle). Abh.: R3.
 
-**WP-F6 Rechnungs-UI (L).** Belegliste/-editor, Zahlungen, Berichte. Abh.: F2, R2.
+**WP-F6 Rechnungs-UI (L).** Kontakte, Artikel, Belegliste/-editor mit Live-Summenvorschau, Finalisieren, PDF-Vorschau/-Download, E-Rechnung, Zahlungen, Berichte (EÜR/USt). Akzeptanz: E2E ohne App: Beleg anlegen → finalisieren → Nummer → PDF → Zahlung → Bericht. Abh.: F2, R2, R6.
+
+**WP-F7 Layout-Verwaltung und Designer (L).** `FRONTEND.md` Abschnitt 13: Layoutliste, Import, Parameter, Vorschau; grafischer Designer nach Teilung in F7a (Verwaltung) und F7b (Designer) planen. Abh.: F6, R6.
 
 ## Phase 5 – Verknüpfung
 
@@ -133,7 +139,7 @@ Kritischer Pfad: K0 → K1 → K2 → K3 → D2 → O1 → O2 → S1 → F4. Fr�
 
 ## Phase 6 – Hardening
 
-**WP-H1 Lizenzen (M).** `docs/LIZENZEN.md` (Inventar nach Vorbild `timetrack-backend/docs/LIZENZEN.md`), SBOM, Entscheidung F-03 umsetzen, Lizenzprüfung als Skript. Akzeptanz: jede Abhängigkeit mit SPDX-Eintrag; Befund BoringSSL dokumentiert mit gewählter Lösung. **P** ab Phase 0.
+**WP-H1 Lizenzen (M).** `docs/LIZENZEN.md` (Inventar nach Vorbild `timetrack-backend/docs/LIZENZEN.md`), SBOM, Prüfergebnis aus WP-K0 und F-03 umsetzen, Lizenzprüfung als Skript. Akzeptanz: jede Abhängigkeit mit SPDX-Eintrag; Befund BoringSSL dokumentiert mit gewählter Lösung. **P** ab Phase 0.
 
 **WP-H2 Backup/Restore (M).** Skripte `deploy/backup.sh`, `restore.sh`; konsistentes Paar DB + ObjectStore; Restore-Test in frischer Umgebung mit Hash-Prüfung aller Dateien. Akzeptanz: automatischer Restore-Test in Docker, Abweichung = Fehlschlag.
 

@@ -2,6 +2,8 @@
 
 Status: Entwurf, Stand 01.11.2026. Entschieden sind nur ADR 0001–0003 (PostgreSQL, Stack/Betrieb/Lizenz, stateless). Alles andere ist Vorschlag (ADR 0004–0007 „vorgeschlagen“) und mit **[Annahme]** oder Verweis auf `OFFENE-FRAGEN.md` (F-xx) markiert. Zielbild und Produktfamilie: `PLATTFORM-VISION.md`. Dieses Dokument konsolidiert dessen Abschnitte 8 und 9 und ersetzt sie bei Widerspruch (dort steht noch „MariaDB als Arbeitsstand“, überholt durch ADR 0001).
 
+**Grundsatz (Nutzeranforderung 01.11.2026):** Der Hub ist vollständig ohne Swift-App nutzbar. Jede Funktion der Apps (Rechnung: Belege, Nummern, PDF, E-Rechnung, Zahlungen, Berichte; DMS) ist über Backend + PWA abbildbar. Swift-Apps sind optionale Clients mit Offline-/Eigenständigkeit. Folge: Rechenkern, Renderer und Layout-Engine laufen serverseitig unter Linux (`MODUL-RECHNUNG.md` Abschnitte 3, 5); Rendering ist ein Worker-Job wie OCR (ADR 0006). Der Worker-Service bearbeitet daher mehrere Job-Arten (`dms.ocr`, `invoice.render`, `event.deliver`, …).
+
 ## 1. Begriffe
 
 | Begriff | Bedeutung |
@@ -175,6 +177,8 @@ Ein Kernindex `search_documents(tenant_id, entity_type, entity_id, title, body, 
 - AK-K4-1: Vertragstest schlägt fehl, wenn eine Route fehlt oder undokumentiert ist; AK-K4-2: jede Fehlerantwort entspricht dem Schema; AK-K4-3: Cursor-Pagination durchläuft 10 000 synthetische Zeilen ohne Doppel/Lücke bei parallelen Einfügungen.
 
 ## 6. Sync mit den Swift-Apps (Entwurf, offen)
+
+Die Apps sind optionale Clients; der Hub ist ohne sie vollständig. Sync ist daher Komfort (Offline, Eigenständigkeit), keine Voraussetzung.
 
 Ausgangslage: Taxlab arbeitet lokal (SQLite) mit CloudKit-Sync und zentralem Nummernzähler (CloudKit-CAS), siehe `taxlab/docs/SYNC.md`, `STORAGE-SCHNITTSTELLEN.md` (Protokolle `DocumentStore`, `AttachmentStore`, `NumberAllocator`, `SyncTransport`). Leitregel aus `PLATTFORM-VISION.md` 3: Wechsel der Betriebsart (lokal / iCloud / Hub) ist **Export/Import mit definierter Migration, nie stilles Umschalten**.
 

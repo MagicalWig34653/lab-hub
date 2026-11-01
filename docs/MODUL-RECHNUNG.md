@@ -18,7 +18,9 @@ Hinweis: Rechtliche und steuerliche Aussagen in diesem Dokument sind keine Berat
 
 ## 1. Ziel und Abgrenzung
 
-Ziel: Das Rechnungsprogramm läuft zusätzlich zur eigenständigen Swift-App als Hub-Modul, sodass PWA und Apps denselben Bestand nutzen, Belege mit dem DMS verknüpft sind und Nummern zentral vergeben werden. **Nicht Ziel von V1 des Hubs**: Zwei-Wege-Sync mit CloudKit, Bank-Import, Steuer-App (LAB tax), Lagerführung.
+Grundsatz: Hub eigenständig vollständig; Swift-Apps sind optionale Clients (Offline-/Eigenständigkeit).
+
+Ziel (Nutzeranforderung 01.11.2026): Das Rechnungsprogramm ist im Hub **vollständig ohne Swift-App** nutzbar (Belege erstellen/bearbeiten/finalisieren, Nummernvergabe, PDF-Erzeugung, E-Rechnung, Zahlungen, Berichte), PWA und optionale Apps nutzen denselben Bestand, Belege mit dem DMS verknüpft sind und Nummern zentral vergeben werden. **Nicht Ziel von V1 des Hubs**: Zwei-Wege-Sync mit CloudKit, Bank-Import, Steuer-App (LAB tax), Lagerführung.
 
 | Betriebsart der Swift-App | Datenhaltung | Nummern | Hub nötig |
 | --- | --- | --- | --- |
@@ -40,8 +42,8 @@ Zuordnung der Taxlab-Funktionen (F-IDs aus der taxlab-Doku; Detailtabelle dort i
 | Verknüpfungen Beleg↔Beleg (F10, F11) | ja (Umwandlung, Gutschrift, Referenz) | Beleg↔Dokument über Kern `links` |
 | Zahlungen, Skonto (F11, F14) | ja | Zuordnung nie still (taxlab-Regel) |
 | Nummernvergabe (F09) | ja, **Hub-Zähler** | Abschnitt 4 |
-| Berechnung (Summen, Rundung) | ja, **deterministisch, Dezimal** | Abschnitt 3 |
-| PDF-Rendering, Layouts, Designer | **offen** | Abschnitt 5 |
+| Berechnung (Summen, Rundung) | ja, **deterministisch, Dezimal**, Linux-Rechenkern Pflicht | Abschnitt 3 |
+| PDF-Rendering, Layouts, Designer | ja, **Pflicht** (Linux-Renderer; Designer in PWA gestuft) | Abschnitt 5 |
 | E-Rechnung erzeugen/prüfen | ja (Erzeugung), Prüfung offen | Abschnitt 6 |
 | Ausgaben, Eingangsrechnungen, EÜR, USt | ja (Phase 2) | Abschnitt 7 |
 | Banking (Kontoauszug-Import) | nein in V1 | taxlab `KONTOAUSZUG.md` |
@@ -65,7 +67,7 @@ Die Rechenregeln (Steuergruppen, Rundung, Skonto) existieren als Swift-Paket `Ta
 | B | Regeln im Hub nach Doku neu schreiben | Doppelte Pflege, Abweichungsrisiko; nur mit Kreuztests (gleiche Testvektoren) |
 | C | Hub rechnet nicht, nimmt Summen vom Client | schwach: Server kann Invarianten nicht erzwingen |
 
-Empfehlung A mit Spike (WP-R0): Linux-Build von `TaxlabCore`/`TaxlabModel`, Testvektoren (JSON, Dezimal-Strings) als gemeinsame Konformitätsfixtur. Fällt der Spike negativ aus: B mit gemeinsamen Testvektoren. **[OFFEN F-27]**
+Seit der Anforderung „Hub ohne App“ ist Option C ausgeschlossen. Empfehlung A mit Spike (WP-R0): Linux-Build von `TaxlabCore`/`TaxlabModel`, Testvektoren (JSON, Dezimal-Strings) als gemeinsame Konformitätsfixtur. Fällt der Spike negativ aus: B mit gemeinsamen Testvektoren. **[OFFEN F-27]**
 
 ## 4. Nummernvergabe über den Hub-Zähler
 
@@ -77,18 +79,17 @@ Empfehlung A mit Spike (WP-R0): Linux-Build von `TaxlabCore`/`TaxlabModel`, Test
 - Untergrenzen beim Import/Verbinden (App hatte Nummern bis N): Zähler wird auf `max(Zähler, N)` gesetzt, Audit. **[OFFEN F-09]**
 - AK-R4: 50 parallele Finalisierungen über zwei Instanzen ergeben 50 verschiedene lückenlose Nummern; Fehlerfall ohne Lücke.
 
-## 5. PDF-Rendering: Server-Renderer vs. Swift-App **[OFFEN F-08]**
+## 5. PDF-Rendering und Layouts im Hub (Entscheidung F-08 neu bewertet)
 
-Fakten (taxlab `RENDERER.md`): `TaxlabRender` nutzt CoreGraphics/CoreText/PDFKit, also **nur Apple-Plattformen**; Layouts kommen aus dem Layout-Designer (App). Auf einem Linux-Server (Swarm) ist `TaxlabRender` ohne Portierung nicht lauffähig (zu verifizieren, Annahme).
+Anforderung: Der Hub rendert selbst, Linux-tauglich, ohne App. `TaxlabRender` nutzt CoreGraphics/CoreText/PDFKit (taxlab `RENDERER.md`) und läuft nicht auf Linux (Annahme, im Spike prüfen). Ziel bleibt Treue zu Totals-/Designer-Layouts (taxlab `docs/IMPORT-ADAPTER.md`, `docs/LAYOUT-DESIGNER.md`, `tools/layoutcheck`).
 
 | Option | Beschreibung | Vorteile | Nachteile |
 | --- | --- | --- | --- |
-| R1 Renderer in der App (Apple), Hub speichert PDF | Finalisieren: App rendert, lädt PDF + Inhalt-Hash hoch | volle Layout-Treue, keine Doppelarbeit | PWA kann nicht finalisieren ohne Mac/iPhone; Beleg ohne PDF bis App online |
-| R2 Server-Renderer (Linux) | Neuer Renderer im Hub (z. B. HTML→PDF per Chromium/WeasyPrint-Äquivalent oder Swift-PDF-Bibliothek) aus Layout-Daten | PWA vollständig nutzbar | zweiter Renderer, **Layout-Abweichung** zur App, Designer-Layouts müssten übersetzt werden |
-| R3 Renderer im Browser (PWA) | PDF clientseitig (z. B. pdf-lib/pdfjs wie in `timetrack-pwa/package.json`) | kein Serverrenderer | dritter Renderer; Treue schwach; Finalisierung abhängig vom Client |
-| R4 Hybrid (Vorschlag) | V1: R1 für Apple-Clients; PWA zeigt gespeicherte PDFs, kann Entwürfe bearbeiten, Finalisierung erzeugt PDF **serverseitig mit einem einfachen Standardlayout** (R2-light) oder verlangt App | schrittweise | Zwei Ausgabepfade, dokumentieren, welches Layout gilt |
+| a Swift-Portierung | `TaxlabLayout`/`TaxlabRender` auf Linux: Layout-Engine bleibt, Zeichnen/Schrift über Swift-PDF-Bibliothek bzw. eigenen PDF-Writer, Schriftmetriken über FreeType/HarfBuzz | gleiche Layoutlogik wie App (höchste Treue, ein Layoutmodell), kein Browser im Image | Portierungsaufwand, PDF/A-3 selbst zu liefern |
+| b HTML/CSS + headless Chromium | Layoutmodell → HTML/CSS → PDF im Worker-Container | etabliert, gute Typografie | große Images, Abweichungen zur App, Determinismus/Seitenumbruch schwer |
+| c Typst-Pipeline | Layoutmodell → Typst → PDF per Binary im Worker | schnell, deterministisch, kleines Image | zweite Layoutsprache, Treue zu Totals-Layouts über Übersetzer; Lizenz/PDF-A-Unterstützung zu verifizieren |
 
-Empfehlung: R4 mit klarer Regel „das PDF eines finalen Belegs ist das zum Finalisierungszeitpunkt gespeicherte Artefakt (`invoice_render_states`: Layoutversion, Inhalt-Hash, `file_id`) und wird nie neu erzeugt“ (entspricht taxlab-`RenderState`). Der Hub rendert V1 **nicht**; ein Server-Renderer ist ein eigenes, später zu entscheidendes WP (WP-R6 optional). Vorher Entscheidung F-08: Soll die PWA Rechnungen finalisieren können?
+Entscheidung per Spike WP-R6a (`ROADMAP.md`), Ergebnis als ADR 0008. Tendenz [Annahme]: a, falls der Linux-Build gelingt, sonst b. Regeln unabhängig von der Option: Rendering als Worker-Job mit Lease; das PDF eines finalen Belegs ist das zum Finalisierungszeitpunkt erzeugte Artefakt (`invoice_render_states`: Layoutversion, Inhalt-Hash, `file_id`) und wird nie neu erzeugt; Layouts sind versionierte Mandantendaten (`invoice_layouts`); Import vorhandener Layouts nach dem Importformat der Taxlab-Doku (nur synthetische Fixtures in Tests). Die App behält ihren eigenen Renderer für Offline-Betrieb; Abweichungen zwischen App- und Hub-PDF sind erwartbar und werden im Konformitätstest quantifiziert. Layout-Designer in der PWA: `FRONTEND.md` Abschnitt 13.
 
 ## 6. E-Rechnung
 
@@ -134,6 +135,6 @@ Basis `/api/v1/tenants/{t}/invoice`: `contacts` (Kern, nicht hier), `items`, `se
 | R3 | Zahlungen, Gutschrift/Umwandlung, Verknüpfungen Beleg↔Beleg | WP-R3 |
 | R4 | Import/Export Taxlab-Format | WP-R4 |
 | R5 | E-Rechnung Erzeugung (Server) | WP-R5 |
-| R6 | Server-Renderer (optional, nach F-08) | WP-R6 |
+| R6 | Renderer-Spike, Server-Renderer und Layout-Engine (Pflicht) | WP-R6a, WP-R6 |
 | R7 | Ausgaben, EÜR/USt-Berichte | WP-R7 |
 | R8 | DMS-Verknüpfung | WP-X1 |

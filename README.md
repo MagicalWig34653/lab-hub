@@ -1,6 +1,6 @@
 # LAB hub (Arbeitsname)
 
-Selbst hostbares Backend mit PWA für eine Familie modularer Produkte. Jedes Produkt ist ein Modul (ein-/ausschaltbar je Betreiber und Mandant); mit Backend arbeiten alle Module über einen gemeinsamen Kern (Mandanten, Nutzer, Rechte, Kontakte, Dateien, Zähler, Suche, Audit, Events). Die zugehörigen Swift-Apps (z. B. Taxlab) laufen weiterhin eigenständig ohne Backend.
+Selbst hostbares Backend mit PWA für eine Familie modularer Produkte. Jedes Produkt ist ein Modul (ein-/ausschaltbar je Betreiber und Mandant); mit Backend arbeiten alle Module über einen gemeinsamen Kern (Mandanten, Nutzer, Rechte, Kontakte, Dateien, Zähler, Suche, Audit, Events). Der Hub ist vollständig ohne Swift-App nutzbar (Backend + PWA); die Swift-Apps (z. B. Taxlab) sind optionale Clients und laufen weiterhin eigenständig ohne Backend.
 
 Geplante Module: **Rechnung** (heute Taxlab, Fachlogik im Repo `taxlab`) und **DMS** (Dokumentenmanagement, Grundidee Paperless-ngx, neu gedacht). Später Steuer, Zeit, Projekte.
 
@@ -9,7 +9,7 @@ Geplante Module: **Rechnung** (heute Taxlab, Fachlogik im Repo `taxlab`) und **D
 - **Vorhanden (Code):** Swift/Vapor-Gerüst in `backend/` mit `migrate` (Advisory Lock), Nummernzähler, Idempotency, Jobs mit Lease, `/health`, `/ready`, Konfiguration über Env/`_FILE`; Deploy-Skripte (Compose real getestet, Swarm ungetestet).
 - **Vorhanden (Planung):** Architektur, Modulentwürfe, Roadmap mit Arbeitspaketen, offene Fragen, ADRs. **Noch kein Feature-Code**, `pwa/` ist leer.
 - Entscheidungen: ADR 0001–0003 entschieden; 0004–0007 vorgeschlagen.
-- Name, Bundle-IDs und Domains sind vorläufig. Lizenz AGPL-3.0-only (privates Repo; offener Lizenzbefund BoringSSL, siehe `docs/OFFENE-FRAGEN.md` F-03).
+- Name, Bundle-IDs und Domains sind vorläufig. Lizenz AGPL-3.0-only (privates Repo; Prüfung der gebündelten BoringSSL-Kopie steht in WP-K0 aus, siehe `docs/OFFENE-FRAGEN.md` F-03).
 
 ## Dokumentenindex
 
