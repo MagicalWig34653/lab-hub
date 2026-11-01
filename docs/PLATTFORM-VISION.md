@@ -1,5 +1,7 @@
 # Plattform-Vision: LAB-Produktfamilie (Entwurf)
 
+> **Hinweis (01.11.2026):** Hintergrunddokument. Maßgeblich sind `ARCHITEKTUR.md`, `ROADMAP.md`, `OFFENE-FRAGEN.md` und die ADRs. Überholt: die Datenbankentscheidung in 6/6.1 (MariaDB als Arbeitsstand; entschieden ist PostgreSQL, ADR 0001). Abschnitt 8 und 9 sind in `ARCHITEKTUR.md` konsolidiert, hier bleibt der ausführliche Datenschutzentwurf.
+
 Stand: 28.10.2026 (überarbeitet nach den Nutzerentscheidungen vom selben Tag). **Nicht Teil von Version 1.** Entscheidungen des Nutzers stehen in Abschnitt 6, alles andere sind Vorschläge.
 
 ## 1. Grundidee (Nutzer)

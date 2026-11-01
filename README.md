@@ -1,19 +1,46 @@
 # LAB hub (Arbeitsname)
 
-Selbst hostbares Backend mit PWA für eine Familie modularer Produkte (Rechnungen, DMS, später Steuer, Zeit, Projekte …). Jedes Produkt ist ein Modul, das sich aktivieren und deaktivieren lässt; mit Backend arbeiten alle Module über einen gemeinsamen Kern zusammen. Die zugehörigen Swift-Apps laufen auch eigenständig ohne Backend.
+Selbst hostbares Backend mit PWA für eine Familie modularer Produkte. Jedes Produkt ist ein Modul (ein-/ausschaltbar je Betreiber und Mandant); mit Backend arbeiten alle Module über einen gemeinsamen Kern (Mandanten, Nutzer, Rechte, Kontakte, Dateien, Zähler, Suche, Audit, Events). Die zugehörigen Swift-Apps (z. B. Taxlab) laufen weiterhin eigenständig ohne Backend.
 
-Status: **Gerüst.** Entscheidungen und Zielbild: `docs/PLATTFORM-VISION.md` (Kopie aus dem Repo `taxlab`, dort fortgeschrieben), `docs/decisions/`.
+Geplante Module: **Rechnung** (heute Taxlab, Fachlogik im Repo `taxlab`) und **DMS** (Dokumentenmanagement, Grundidee Paperless-ngx, neu gedacht). Später Steuer, Zeit, Projekte.
 
-- Backend: Swift 6, Vapor, Fluent, PostgreSQL (`backend/`)
-- Frontend: SvelteKit + shadcn-svelte als PWA (`pwa/`, noch leer)
-- Betrieb: Docker Compose, später Swarm; ein Stack je Kunde (`deploy/`)
-- Lizenz: AGPL-3.0-only, Open Source. Einnahmen über Betreuung und Dienstleistungen.
-- Name, Bundle-IDs und Domains sind vorläufig und werden später geändert.
+## Status (01.11.2026)
+
+- **Vorhanden (Code):** Swift/Vapor-Gerüst in `backend/` mit `migrate` (Advisory Lock), Nummernzähler, Idempotency, Jobs mit Lease, `/health`, `/ready`, Konfiguration über Env/`_FILE`; Deploy-Skripte (Compose real getestet, Swarm ungetestet).
+- **Vorhanden (Planung):** Architektur, Modulentwürfe, Roadmap mit Arbeitspaketen, offene Fragen, ADRs. **Noch kein Feature-Code**, `pwa/` ist leer.
+- Entscheidungen: ADR 0001–0003 entschieden; 0004–0007 vorgeschlagen.
+- Name, Bundle-IDs und Domains sind vorläufig. Lizenz AGPL-3.0-only (privates Repo; offener Lizenzbefund BoringSSL, siehe `docs/OFFENE-FRAGEN.md` F-03).
+
+## Dokumentenindex
+
+| Dokument | Inhalt |
+| --- | --- |
+| `AGENTS.md` / `CLAUDE.md` | Arbeitsregeln für Coding-Agents: Lesereihenfolge, Build/Test, Stateless, Datenschutz, Git, Definition of Done |
+| `docs/ROADMAP.md` | Phasen und Arbeitspakete (WP) mit Abhängigkeiten, Akzeptanzkriterien, Teststrategie |
+| `docs/ARCHITEKTUR.md` | Schichten, Modul-System, gemeinsamer Kern, API-Stil, Sync-Entwurf, Datenschutz, Betrieb |
+| `docs/MODUL-DMS.md` | Paperless-Analyse, Problem/Lösung, Datenmodell, Ingest, OCR, Suche, Revisionssicherheit, API, Import |
+| `docs/MODUL-RECHNUNG.md` | Umfang des Rechnungsmoduls, Renderer-Frage, E-Rechnung, Migration aus Taxlab |
+| `docs/FRONTEND.md` | PWA-Architektur, Modul-Manifest, i18n, Offline, Tests, Verzeichnislayout |
+| `docs/OFFENE-FRAGEN.md` | Entscheidungen des Nutzers mit Empfehlung |
+| `docs/decisions/` | ADRs 0001–0007 |
+| `docs/PLATTFORM-VISION.md` | Ursprüngliche Vision (Hintergrund; teils überholt) |
+| `deploy/README.md` | Betrieb: Compose, Swarm, Setup/Update-Skripte |
+
+## Verzeichnisse
+
+`backend/` (Swift), `pwa/` (SvelteKit, folgt), `contracts/` (OpenAPI, folgt), `deploy/`, `docs/`.
 
 ## Entwickeln
 
+Build-Artefakte immer außerhalb des Repos (Scratch-Pfad), siehe `AGENTS.md` Abschnitt 3.
+
 ```
+export LH_SCRATCH="${TMPDIR:-/tmp}/labhub-build"
 docker compose up -d db
-cd backend && swift run App serve
+cd backend
+swift test --scratch-path "$LH_SCRATCH"
+swift run --scratch-path "$LH_SCRATCH" App serve
 curl http://127.0.0.1:8080/health
 ```
+
+Nächster Schritt: WP-K0 (Baseline verifizieren), danach Kern laut `docs/ROADMAP.md`.
