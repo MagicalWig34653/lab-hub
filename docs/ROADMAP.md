@@ -33,7 +33,7 @@ Ausgangsstand (vorhanden, getestet laut `deploy/README.md`/Tests): `migrate`, `s
 | | D5 | Revisionssicherheit: Löschkonzept, Prüf-Job, Export | D2 | M | P D3, D4 | offen |
 | | D6 | Paperless-Import | D2, D3 | M | P D5 | offen |
 | | F5 | DMS-UI: Prüfen, Regeln, Stammdaten, Papierkorb | F4, D3, D5 | M | | offen |
-| 4 Rechnung | R0 | Spike: Linux-Build Rechenkern, Testvektoren | K0 | S | P ab Phase 0 | offen |
+| 4 Rechnung | R0 | Spike: Linux-Build Rechenkern, Testvektoren | K0 | S | P ab Phase 0 | umgesetzt (Branch wp-R0, `docs/handoff/WP-R0.md`) |
 | | R1 | Stammdaten Rechnung | K3, K5, R0 | M | | offen |
 | | R2 | Belege, Berechnung, Finalisieren mit Hub-Zähler | R1, K6 | L | | offen |
 | | R3 | Zahlungen, Gutschrift, Umwandlung | R2 | M | | offen |
@@ -115,6 +115,7 @@ Grundsatz: Hub ohne Swift-App nutzbar (`AGENTS.md`); die Rechnungsphase ist dahe
 (Details `MODUL-RECHNUNG.md`. Vollständigkeit ohne App: Belege erstellen/bearbeiten/finalisieren, Nummern, PDF, E-Rechnung, Zahlungen, Berichte. Entscheidungen F-08/F-27/F-31 neu bewertet, F-09/F-26 offen.)
 
 **WP-R0 Spike Rechenkern (S–M).** Ziel: `TaxlabCore`/`TaxlabModel` (+ Nummernformat, `TaxlabReports`, E-Rechnung ohne Rendering) unter Linux bauen und testen; bei Erfolg Auslagerung in gemeinsames SwiftPM-Repo planen, sonst Neuimplementierung gegen Testvektoren. Akzeptanz: dokumentiertes Ergebnis (Ja/Nein, nötige Änderungen) in `MODUL-RECHNUNG.md`; gemeinsame Testvektoren (JSON) aus taxlab-Tests abgeleitet (synthetisch). Teststrategie: Docker `swift:6.2` Build der Pakete. Abh.: K0. **P**.
+*Status WP-R0: Ja für Core/Model (unverändert Linux-tauglich, 53 + 135 Tests grün), teilweise für Reports/E-Rechnung; 50 Testvektoren; siehe `MODUL-RECHNUNG.md` Abschnitt 12 und `docs/handoff/WP-R0.md`. Entscheidung F-27 offen.*
 
 **WP-R1 Stammdaten (M).** Einstellungen, Steuerzeiträume, Serien, Belegtypen, Artikel. Mandantentrennung/Rechte. Abh.: K3, K5, R0.
 

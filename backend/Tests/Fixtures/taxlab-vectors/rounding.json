@@ -1,0 +1,20 @@
+{
+  "suite": "rounding",
+  "note": "Synthetic. Reference: TaxlabCore RoundingRule.apply. Values are decimal strings.",
+  "vectors": [
+    {"id": "half-up-pos", "mode": "halfAwayFromZero", "scale": 2, "input": "2.675", "expected": "2.68"},
+    {"id": "half-up-neg", "mode": "halfAwayFromZero", "scale": 2, "input": "-2.675", "expected": "-2.68"},
+    {"id": "half-up-below", "mode": "halfAwayFromZero", "scale": 2, "input": "2.674", "expected": "2.67"},
+    {"id": "half-even-down", "mode": "halfEven", "scale": 2, "input": "2.665", "expected": "2.66"},
+    {"id": "half-even-up", "mode": "halfEven", "scale": 2, "input": "2.675", "expected": "2.68"},
+    {"id": "half-even-neg", "mode": "halfEven", "scale": 2, "input": "-0.125", "expected": "-0.12"},
+    {"id": "toward-zero-pos", "mode": "towardZero", "scale": 2, "input": "9.999", "expected": "9.99"},
+    {"id": "toward-zero-neg", "mode": "towardZero", "scale": 2, "input": "-9.999", "expected": "-9.99"},
+    {"id": "scale0", "mode": "halfAwayFromZero", "scale": 0, "input": "0.5", "expected": "1"},
+    {"id": "scale0-neg", "mode": "halfAwayFromZero", "scale": 0, "input": "-0.5", "expected": "-1"},
+    {"id": "scale3", "mode": "halfAwayFromZero", "scale": 3, "input": "1.00049", "expected": "1"},
+    {"id": "exact", "mode": "halfAwayFromZero", "scale": 2, "input": "19.99", "expected": "19.99"},
+    {"id": "zero", "mode": "halfAwayFromZero", "scale": 2, "input": "0", "expected": "0"},
+    {"id": "tiny", "mode": "halfAwayFromZero", "scale": 2, "input": "0.004", "expected": "0"}
+  ]
+}

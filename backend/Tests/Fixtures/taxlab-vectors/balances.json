@@ -1,0 +1,16 @@
+{
+  "suite": "balances",
+  "note": "Synthetic. Reference: TaxlabCore Balances.compute for document id 'doc'. Payment.allocations map document id to amount.",
+  "vectors": [
+    {"id": "unpaid", "input": {"gross": "119", "payments": [], "linkedDocuments": []},
+     "expected": {"paid": "0", "openBalance": "119", "totalBalance": "119"}},
+    {"id": "partial-direct", "input": {"gross": "119", "payments": [{"id": "p1", "amount": "50", "allocations": {"doc": "50"}}], "linkedDocuments": []},
+     "expected": {"paid": "50", "openBalance": "69", "totalBalance": "69"}},
+    {"id": "overpaid", "input": {"gross": "100", "payments": [{"id": "p1", "amount": "120", "allocations": {"doc": "120"}}], "linkedDocuments": []},
+     "expected": {"paid": "120", "openBalance": "-20", "totalBalance": "-20"}},
+    {"id": "with-credit-note", "input": {"gross": "200", "payments": [{"id": "p1", "amount": "50", "allocations": {"doc": "50"}}], "linkedDocuments": [{"id": "cn", "gross": "-30"}]},
+     "expected": {"paid": "50", "openBalance": "150", "totalBalance": "120"}},
+    {"id": "payment-split-over-documents", "input": {"gross": "100", "payments": [{"id": "p1", "amount": "100", "allocations": {"doc": "40", "other": "60"}}], "linkedDocuments": []},
+     "expected": {"paid": "40", "openBalance": "60", "totalBalance": "60"}}
+  ]
+}

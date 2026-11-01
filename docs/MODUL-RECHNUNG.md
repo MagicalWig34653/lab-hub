@@ -138,3 +138,47 @@ Basis `/api/v1/tenants/{t}/invoice`: `contacts` (Kern, nicht hier), `items`, `se
 | R6 | Renderer-Spike, Server-Renderer und Layout-Engine (Pflicht) | WP-R6a, WP-R6 |
 | R7 | Ausgaben, EÜR/USt-Berichte | WP-R7 |
 | R8 | DMS-Verknüpfung | WP-X1 |
+
+## 12. R0 – Spike-Ergebnis Linux-Rechenkern (WP-R0, 01.11.2026)
+
+**Ergebnis: Ja für `TaxlabCore`, `TaxlabModel` (inkl. Nummernformat) und den Daten-/CSV-Teil von `TaxlabReports`; teilweise für `TaxlabEInvoice`; Nein für `TaxlabLayout`/`TaxlabRender` ohne Portierung (Renderer-Frage gehört zu WP-R6a).**
+
+Methode: taxlab-Quellen (nur `*.swift` und `Package.swift`, keine Daten) wurden schreibgeschützt in einen Scratch-Ordner kopiert und in `swift:6.2` (Swift 6.2.4, Linux aarch64) gebaut und getestet. Das taxlab-Repo wurde weder verändert noch dort gebaut. Befehle (Platzhalter `<dir>` = Ordner, der `Packages/` aus `../taxlab` als gefilterte Kopie enthält und für Docker lesbar gemountet ist):
+
+```
+scripts/spike-r0/linux-build.sh <dir> "TaxlabCore TaxlabModel"          # unverändert
+scripts/spike-r0/linux-build.sh <dir> "TaxlabLayout TaxlabStorage"      # zeigt die Hindernisse
+scripts/spike-r0/linux-patched.sh <dir>                                  # Reports/EInvoice minimal angepasst
+scripts/spike-r0/linux-patched-einvoice.sh <dir>                         # explorativ: EInvoice samt Builder
+scripts/spike-r0/generate-vectors.sh <dir> backend/Tests/Fixtures/taxlab-vectors
+```
+
+| Paket | Linux-Stand | Änderungen nötig | Tests (Linux) |
+| --- | --- | --- | --- |
+| `TaxlabCore` (7 Dateien, ~800 Zeilen) | baut und testet **unverändert** | keine; `platforms: [.macOS(.v26), .iOS(.v26)]` ist unter Linux wirkungslos, nur Foundation | 53 Tests grün |
+| `TaxlabModel` (28 Dateien, ~4300 Zeilen; Nummernformat `NumberFormat`) | baut und testet **unverändert** | keine | 135 Tests in 27 Suites grün |
+| `TaxlabReports` (9 Dateien) | baut nach Abtrennen des PDF-Exports | `ReportPDF.swift` (1 Quelldatei, braucht `TaxlabRender`/`TaxlabDesigner`), Paketabhängigkeiten und `linkedFramework`-Einträge; 1 Testdatei `ReportPDFTests.swift`; in `ReportEngineTests.swift` 2 Zeilen mit `criteriaText` (liegt in `ReportPDF.swift`) | 101 Tests grün (ohne PDF) |
+| `TaxlabEInvoice` (7 Dateien, ~1060 Zeilen) | Bibliothek (Writer, Validator, Reader ohne PDF) baut nach Anpassung; Tests **nicht** auf Linux gelaufen | `PDFA3Embedder.swift` (CoreGraphics/PDFKit; PDF/A-3 braucht Linux-Ersatz), `CIIReader.swift` (Teil `PDFEmbeddedXML` mit CoreGraphics entfernen; `XMLParser` braucht `import FoundationXML` unter `#if canImport`), `EInvoiceBuilder.make(from: RenderData)` hängt an `TaxlabRender`; Tests nutzen `RenderData` (`Support.swift`) und sind daher nicht ausführbar, solange `RenderData` in `TaxlabRender` liegt | nicht ausgeführt |
+| `TaxlabLayout` (9 Dateien) | scheitert unverändert | `TotalsLayoutParser.swift`: `CFGetTypeID`/`CFBooleanGetTypeID`/`CFNumberIsFloatType` (CoreFoundation); mit `NSNumber.objCType` ersetzt baut das Target | Tests nicht ausgeführt |
+| `TaxlabRender` (8 Dateien) | scheitert | `PDFRenderer.swift` (587 Zeilen, CoreGraphics/CoreText/PDFKit) und `RichTextConversion.swift` Apple-only; `TemplateFormat.swift` braucht `FoundationXML`; `RichRTF.swift` Zeile 124 läuft in Type-Check-Timeout; Aufwand = Renderer-Portierung (WP-R6a) | nicht ausgeführt |
+| `TaxlabStorage` (über `TaxlabDesigner` Abhängigkeit von Reports) | scheitert | `CryptoKit` nicht unter Linux; für den Hub irrelevant | nicht ausgeführt |
+
+Eingriffe für den Hub-relevanten Kern: Core/Model 0 Dateien; Reports 1 Quell- und 2 Testdateien plus `Package.swift`; E-Rechnung 3 Quelldateien (`PDFA3Embedder`, `CIIReader`, `EInvoiceBuilder`) plus `Package.swift`; die Plattformdeklaration ist unkritisch. Eigentliches Abhängigkeitshindernis ist `RenderData` in `TaxlabRender`: Für E-Rechnung und PDF-Berichte muss das reine Datenmodell vom Renderer getrennt werden.
+
+Auffälligkeiten:
+- Skonto ist weder in `TaxlabCore` noch in `TaxlabModel` implementiert (keine Fundstelle); die Quelle der Skonto-Regeln für R3 bleibt zu klären.
+- `Decimal.description` liefert Werte ohne Nachkomma-Nullen (`"291.9"`). Hub-Tests vergleichen numerisch (Dezimalparse), nicht als String.
+- Tests nutzen Swift Testing (`import Testing`), läuft unter `swift:6.2`.
+
+**Testvektoren:** `backend/Tests/Fixtures/taxlab-vectors/` (`rounding.json` 14, `document-totals.json` 16, `number-format.json` 15, `balances.json` 5 = 50 Vektoren). Eingaben synthetisch, alle Beträge, Mengen und Sätze als Dezimal-Strings (per Skript auf Gleitkomma geprüft). Erwartungswerte stammen aus der Referenzimplementierung (taxlab-Code unter Linux) und decken die in den taxlab-Tests geprüften Regeln ab (Rundung nur je Steuersatz auf Dokumentebene, Netto-/Brutto-Modus, Positions-/Dokumentrabatt, Zusatzkosten, Gutschrift, Rundungsmodi, Nummernformat-Token und Fehlerfälle, Salden). Regenerierung: `scripts/spike-r0/generate-vectors.sh`.
+
+**Empfehlung (Nutzerentscheidung F-27 steht aus):**
+1. **Option A (gemeinsames SwiftPM-Repo) für `TaxlabCore` + `TaxlabModel`**: technisch belegt, keine Quelländerung nötig; Eingriff beschränkt auf Repo-Struktur (Pfadabhängigkeiten auf URL/Tag, Linux-CI-Job `swift:6.2`, Vektortests in beiden Repos). Aufwand ca. S (1–2 Sessions) plus Abstimmung im taxlab-Repo (Eingriff nur nach Absprache). Risiko: `TaxlabModel` ist groß (~4300 Zeilen, vieles app-spezifisch); entweder komplett binden oder ein schlankes Paket (Totals, Rounding, NumberFormat, Balances) herauslösen.
+2. **`TaxlabReports`**: PDF-Export als eigenes Target abtrennen (S).
+3. **E-Rechnung**: `RenderData` in ein renderfreies Paket verschieben, `PDFA3Embedder` getrennt halten, Linux-PDF/A-3 in WP-R5/R6a entscheiden (M). Alternative: Writer/Validator übernehmen, Builder im Hub gegen das Hub-Belegmodell neu schreiben.
+4. **Renderer** (`TaxlabLayout`/`TaxlabRender`): nicht Teil dieser Empfehlung, Entscheidung über WP-R6a (F-08).
+5. **Fallback B** (Neuimplementierung gegen die Vektoren): Totals, Rundung, Nummernformat und Salden ca. 400 Zeilen Swift, Aufwand S–M (2–3 Sessions inkl. Vektortests); sinnvoll, falls kein Eingriff ins taxlab-Repo gewünscht ist. Die Vektoren gelten für beide Wege und sind in R2 als Konformitätstest einzubinden.
+
+Gesamtschätzung A (Core/Model + Reports ohne PDF + E-Rechnung-Trennung): M (4–6 Sessions); nur Core/Model: S. Schätzungen, keine Zusage.
+
+**Offen:** E-Rechnung-Tests unter Linux (nach Trennung von `RenderData`), Linux-Lauf der `TaxlabLayout`-Tests nach CF-Fix, Skonto-Quelle, Auslagerungsumfang `TaxlabModel`.
