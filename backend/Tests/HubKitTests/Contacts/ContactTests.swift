@@ -462,7 +462,7 @@ final class ContactTests: AuthTestCase {
         XCTAssertTrue(routes.allSatisfy { Permissions.catalog.contains($0.permission) })
         // Rollenkonsistenz
         XCTAssertTrue(Permissions.of(.member).contains("contact.contact.update")); XCTAssertFalse(Permissions.of(.member).contains("contact.contact.merge"))
-        XCTAssertFalse(Permissions.of(.member).contains("contact.contact.delete")); XCTAssertEqual(Permissions.of(.taxAdvisor).filter { $0.hasPrefix("contact.") }, ["contact.contact.read", "contact.link.read"])
+        XCTAssertFalse(Permissions.of(.member).contains("contact.contact.delete")); XCTAssertEqual(Permissions.of(.taxAdvisor).filter { $0.hasPrefix("contact.") }, ["contact.contact.read", "contact.link.read"] as Set<String>)
         XCTAssertTrue(Permissions.of(.customerViewer).filter { $0.hasPrefix("contact.") }.isEmpty)
 
         var cells = 0, allowed = 0, denied = 0

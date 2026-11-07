@@ -360,11 +360,12 @@ final class ModuleTests: AuthTestCase {
 
     func testAKK3_6_ModuleMigrationRecordedAndSchemaVersion() async throws {
         let v = try await scalar("SELECT max(version)::bigint AS v FROM schema_version", as: Int64.self)
-        XCTAssertEqual(v, 14)
+        XCTAssertEqual(v, 15)  // WP-K5 (015) liegt über 014
         let recorded = try await scalar("SELECT count(*)::bigint AS v FROM _fluent_migrations WHERE name IN ('014_modules','ping_001_items')", as: Int64.self)
         XCTAssertEqual(recorded, 2)
         // Revert/Prepare der Kernmigration (Expand-only, Revert vorhanden)
         let database = app1.db(.psql)
+        try await CreateContacts().revert(on: database)  // WP-K5 zuerst
         try await CreateModules().revert(on: database)
         let reverted = try await scalar("SELECT max(version)::bigint AS v FROM schema_version", as: Int64.self)
         XCTAssertEqual(reverted, 13)
@@ -373,6 +374,7 @@ final class ModuleTests: AuthTestCase {
         try await CreateModules().prepare(on: database)
         let again = try await scalar("SELECT max(version)::bigint AS v FROM schema_version", as: Int64.self)
         XCTAssertEqual(again, 14)
+        try await CreateContacts().prepare(on: database)
     }
 }
 

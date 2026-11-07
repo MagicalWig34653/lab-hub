@@ -1,6 +1,6 @@
 # Übergabe WP-K5 (Kontakte und links)
 
-Stand 07.11.2026, Branch `wp-K5` (aufgesetzt auf lokalen `main`, Commit 0260821 = K1+K2). Gate: `scripts/ci.sh` mit `TEST_DB_NAME=labhub_k5`, Ergebnis siehe Abschnitt Tests. Test und Implementierung entstanden in derselben Session (kein separat belegter Rot-Lauf). Kein Reviewer-Lauf; empfohlen (Schwerpunkte: Merge-Sperrreihenfolge, Mandantenfilter in `ContactService`/`LinkService`).
+Stand 07.11.2026, Branch `wp-K5` (rebased auf lokalen `main` mit WP-K3, Commit 83a9f4c; 113 Tests grün). Gate: `scripts/ci.sh` mit `TEST_DB_NAME=labhub_k5`, Ergebnis siehe Abschnitt Tests. Test und Implementierung entstanden in derselben Session (kein separat belegter Rot-Lauf). Kein Reviewer-Lauf; empfohlen (Schwerpunkte: Merge-Sperrreihenfolge, Mandantenfilter in `ContactService`/`LinkService`).
 
 ## Umgesetzt (`backend/Sources/HubKit/Contacts/`)
 - `ContactMigrations.swift`: Migration `015_contacts` (`contacts`, `contact_addresses`, `contact_emails`, `contact_bank_accounts`, `contact_aliases`, `links`), `schema_version` auf 15, Revert vorhanden (stellt 14 wieder her, wenn eine Migration `014_*` angewendet ist, sonst 13). Keine Fremdschlüssel auf `tenants`/`users` (wie `files`, `counters`); `tenant_id` an jeder Tabelle. Expand-only.
