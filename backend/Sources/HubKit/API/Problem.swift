@@ -65,6 +65,8 @@ public enum ProblemCatalog {
         "storage_quota_exceeded": "Der Speicherplatz dieses Mandanten ist ausgeschöpft.",
         "upload_interrupted": "Der Upload wurde durch einen parallelen Vorgang unterbrochen. Bitte erneut senden.",
         "ingest_not_failed": "Das Dokument hat keinen dauerhaft fehlgeschlagenen Verarbeitungsvorgang.",
+        "suggestion_decided": "Der Vorschlag wurde schon entschieden.",
+        "suggestion_stale": "Der Vorschlag passt nicht mehr zum aktuellen Stand des Dokuments.",
         "unsupported_media_type": "Dieser Dateityp wird nicht unterstützt.",
         "contact_merged": "Der Kontakt wurde bereits mit einem anderen zusammengeführt.",
         "last_owner": "Der letzte Owner eines Mandanten kann nicht herabgestuft oder entfernt werden.",

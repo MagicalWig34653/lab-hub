@@ -1565,6 +1565,93 @@ paths:
         - { $ref: "#/components/parameters/DmsDocument" }
       responses:
         "200": { description: Aufbewahrungszustand, content: { application/json: { schema: { $ref: "#/components/schemas/DmsRetention" } } } }
+  # --- WP-D3: Regeln, Vorschlaege, Duplikate ---
+  /api/v1/tenants/{tenant}/dms/rules:
+    get:
+      operationId: listDmsRules
+      summary: Regeln des Mandanten (Berechtigung dms.rule.read), aelteste zuerst; ohne geloeschte
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Count" }
+      responses:
+        "200":
+          description: Regelseite
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DmsRulePage" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+    post:
+      operationId: createDmsRule
+      summary: Regel anlegen (Berechtigung dms.rule.manage); Modus Standard suggest, Audit dms.rule.created
+      description: |
+        Bedingungen (conditions.conditions, match all|any): text_contains, text_regex, filename_contains, filename_regex, sender_contains, source_is.
+        Regex hoechstens 200 Zeichen und mit Zeitlimit bei der Auswertung (Standard 250 ms je Dokument, Betrieb DMS_REGEX_TIMEOUT_MS); ein Abbruch zaehlt als "nicht erfuellt".
+        Aktionen: correspondent_id, document_type_id, tag_ids, storage_path_id, doc_date (extracted oder yyyy-MM-dd), title_template ({filename}, {match}, {date}).
+        Modus auto wendet nur bei leeren Einzelwerten an (F-25), Standard suggest aendert nie Metadaten. Unbekannte Schluessel und fremde Verweise: 422. Gleicher Name (ohne Gross-/Kleinschreibung): 409.
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DmsRuleInput" }
+      responses:
+        "201":
+          description: Regel
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DmsRule" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/dms/rules/preview:
+    post:
+      operationId: previewDmsRuleDraft
+      summary: Trockenlauf eines Entwurfs gegen vorhandene Dokumente (Berechtigung dms.rule.manage); schreibt nichts
+      description: |
+        Prueft die juengsten Dokumente (limit 1..500, Standard 100, ohne Papierkorb) gegen den Entwurf. Kein Audit, keine Zeile, keine Aenderung.
+        Antwort: geprueft, getroffen, Regex-Abbrueche (timed_out), truncated (Zeitbudget 20 s aufgebraucht), Treffer mit Fundstelle und den Vorschlaegen, die entstaenden.
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DmsRuleInput" }
+      responses:
+        "200":
+          description: Trockenlauf
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DmsRulePreview" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/dms/rules/{rule}:
+    get:
+      operationId: getDmsRule
+      summary: Regel mit Statistik (Berechtigung dms.rule.read)
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/DmsRule" }
+      responses:
+        "200":
+          description: Regel
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DmsRule" }
         "401": { $ref: "#/components/responses/Problem" }
         "403": { $ref: "#/components/responses/Problem" }
         "404": { $ref: "#/components/responses/Problem" }
@@ -1576,6 +1663,186 @@ paths:
       parameters:
         - { $ref: "#/components/parameters/Tenant" }
         - { $ref: "#/components/parameters/DmsDocument" }
+      operationId: updateDmsRule
+      summary: Regel aendern (Berechtigung dms.rule.manage); nur gesetzte Felder; die Version steigt bei Aenderung von Bedingungen, Aktionen, Modus oder Konfidenz
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/DmsRule" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DmsRuleInput" }
+      responses:
+        "200":
+          description: Regel
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DmsRule" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+    delete:
+      operationId: deleteDmsRule
+      summary: Regel loeschen (Berechtigung dms.rule.manage); weich, bestehende Vorschlaege bleiben
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/DmsRule" }
+      responses:
+        "204":
+          description: Geloescht
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/dms/rules/{rule}/preview:
+    post:
+      operationId: previewDmsRule
+      summary: Trockenlauf einer gespeicherten Regel gegen vorhandene Dokumente (Berechtigung dms.rule.manage); schreibt nichts
+      description: Wie der Entwurfs-Trockenlauf; optionaler Body {"limit": n}.
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/DmsRule" }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                limit: { type: integer, minimum: 1, maximum: 500 }
+      responses:
+        "200":
+          description: Trockenlauf
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DmsRulePreview" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/dms/suggestions:
+    get:
+      operationId: listDmsSuggestions
+      summary: Vorschlaege des Mandanten (Berechtigung dms.suggestion.read); Standard nur offene, Papierkorb-Dokumente ausgeblendet
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Count" }
+        - { name: state, in: query, schema: { type: string, enum: [open, accepted, rejected, all], default: open } }
+        - { name: kind, in: query, schema: { type: string, enum: [correspondent, type, tag, date, title, path] } }
+        - { name: document_id, in: query, schema: { type: string, format: uuid } }
+        - { name: rule_id, in: query, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Vorschlagsseite
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DmsSuggestionPage" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/dms/documents/{document}/suggestions:
+    get:
+      operationId: listDmsDocumentSuggestions
+      summary: Vorschlaege zu einem Dokument (Berechtigung dms.suggestion.read); state wie bei der Mandantenliste
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Count" }
+        - { $ref: "#/components/parameters/DmsDocument" }
+        - { name: state, in: query, schema: { type: string, enum: [open, accepted, rejected, all], default: open } }
+      responses:
+        "200":
+          description: Vorschlagsseite
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DmsSuggestionPage" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/dms/suggestions/{suggestion}/accept:
+    post:
+      operationId: acceptDmsSuggestion
+      summary: Vorschlag annehmen (Berechtigung dms.suggestion.decide); schreibt die Aenderung ans Dokument, Audit dms.suggestion.accepted
+      description: Bereits entschieden 409 suggestion_decided; Ziel nicht mehr vorhanden oder exklusive Tag-Gruppe belegt 409 suggestion_stale; Dokument im Papierkorb 409 document_trashed.
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/DmsSuggestion" }
+      responses:
+        "200":
+          description: Vorschlag
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DmsSuggestion" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/dms/suggestions/{suggestion}/reject:
+    post:
+      operationId: rejectDmsSuggestion
+      summary: Vorschlag ablehnen (Berechtigung dms.suggestion.decide); aendert nichts am Dokument, Audit dms.suggestion.rejected, fliesst in die Regelstatistik
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/DmsSuggestion" }
+      responses:
+        "200":
+          description: Vorschlag
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DmsSuggestion" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/dms/duplicates:
+    get:
+      operationId: listDmsDuplicates
+      summary: Duplikat-Hinweise mit Gegenueberstellung (Berechtigung dms.document.read); Standard nur offene
+      description: Stufe 1 sha256 (gleiches Original), Stufe 2 text_hash (gleicher normalisierter Text) und similarity (Text-Shingles, bei mittlerer Aehnlichkeit nur mit gleichem Belegdatum und aehnlichem Titel). Nie wird ein Dokument verworfen.
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Count" }
+        - { name: state, in: query, schema: { type: string, enum: [open, confirmed, dismissed, all], default: open } }
+        - { name: method, in: query, schema: { type: string, enum: [sha256, text_hash, similarity] } }
+        - { name: document_id, in: query, schema: { type: string, format: uuid }, description: "Paare, in denen dieses Dokument vorkommt" }
+      responses:
+        "200":
+          description: Duplikatseite
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DmsDuplicatePage" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/dms/duplicates/{duplicate}/resolve:
+    post:
+      operationId: resolveDmsDuplicate
+      summary: Duplikat-Hinweis entscheiden (Berechtigung dms.document.update); loescht und verschiebt nichts, Audit dms.duplicate.resolved
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/DmsDuplicate" }
       requestBody:
         required: true
         content:
@@ -1605,6 +1872,15 @@ paths:
         - { $ref: "#/components/parameters/DmsDocument" }
       responses:
         "200": { description: Geloescht, content: { application/json: { schema: { $ref: "#/components/schemas/DmsPurge" } } } }
+              required: [state]
+              properties:
+                state: { type: string, enum: [confirmed, dismissed] }
+      responses:
+        "200":
+          description: Duplikat
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DmsDuplicate" }
         "401": { $ref: "#/components/responses/Problem" }
         "403": { $ref: "#/components/responses/Problem" }
         "404": { $ref: "#/components/responses/Problem" }
@@ -1747,6 +2023,7 @@ paths:
         "401": { $ref: "#/components/responses/Problem" }
         "403": { $ref: "#/components/responses/Problem" }
         "404": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
 components:
   securitySchemes:
     bearer: { type: http, scheme: bearer, description: "Sitzungstoken fuer Apps (Header X-Auth-Transport: bearer bei der Anmeldung)" }
@@ -1799,6 +2076,21 @@ components:
       schema: { type: string, format: uuid }
     DmsMasterId:
       name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    DmsRule:
+      name: rule
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    DmsSuggestion:
+      name: suggestion
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    DmsDuplicate:
+      name: duplicate
       in: path
       required: true
       schema: { type: string, format: uuid }
@@ -1979,6 +2271,8 @@ components:
             - service_unavailable
             - setup_token_invalid
             - storage_quota_exceeded
+            - suggestion_decided
+            - suggestion_stale
             - tenant_required
             - too_many_requests
             - unauthorized
@@ -2290,3 +2584,164 @@ components:
         sha256: { type: [string, "null"], description: "SHA-256 des ZIP" }
         manifest_sha256: { type: [string, "null"], description: "SHA-256 der manifest.json im ZIP" }
         error_code: { type: [string, "null"], description: "integrity_failed, export_too_large, export_failed" }
+    # --- WP-D3 ---
+    DmsRuleCondition:
+      type: object
+      required: [type]
+      additionalProperties: false
+      properties:
+        type: { type: string, enum: [text_contains, text_regex, filename_contains, filename_regex, sender_contains, source_is] }
+        value: { type: string, maxLength: 200, description: "fuer *_contains; bei source_is upload|folder|mail|share_ext|api" }
+        pattern: { type: string, maxLength: 200, description: "fuer *_regex (mit Zeitlimit)" }
+        case_sensitive: { type: boolean, default: false }
+    DmsRuleConditions:
+      type: object
+      required: [conditions]
+      additionalProperties: false
+      properties:
+        version: { type: integer, enum: [1] }
+        match: { type: string, enum: [all, any], default: all }
+        conditions: { type: array, minItems: 1, maxItems: 20, items: { $ref: "#/components/schemas/DmsRuleCondition" } }
+    DmsRuleActions:
+      type: object
+      additionalProperties: false
+      description: Mindestens eine Aktion. Verweise muessen zum Mandanten gehoeren.
+      properties:
+        correspondent_id: { type: string, format: uuid }
+        document_type_id: { type: string, format: uuid }
+        tag_ids: { type: array, maxItems: 20, items: { type: string, format: uuid } }
+        storage_path_id: { type: string, format: uuid }
+        doc_date: { type: string, description: "extracted (erstes gueltiges Datum im Text) oder yyyy-MM-dd" }
+        title_template: { type: string, maxLength: 300, description: "Platzhalter {filename}, {match}, {date}" }
+    DmsRuleInput:
+      type: object
+      additionalProperties: false
+      properties:
+        name: { type: string, maxLength: 100 }
+        priority: { type: integer, minimum: -1000, maximum: 1000, default: 0, description: "hoehere zuerst" }
+        enabled: { type: boolean, default: true }
+        mode: { type: string, enum: [suggest, auto], default: suggest }
+        confidence: { type: number, minimum: 0, maximum: 1, default: 0.8 }
+        conditions: { $ref: "#/components/schemas/DmsRuleConditions" }
+        actions: { $ref: "#/components/schemas/DmsRuleActions" }
+        limit: { type: integer, minimum: 1, maximum: 500, description: "nur Trockenlauf" }
+    DmsRule:
+      type: object
+      required: [id, name, priority, enabled, mode, confidence, conditions, actions, version, created_at, updated_at, stats]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        priority: { type: integer }
+        enabled: { type: boolean }
+        mode: { type: string, enum: [suggest, auto] }
+        confidence: { type: number }
+        conditions: { $ref: "#/components/schemas/DmsRuleConditions" }
+        actions: { $ref: "#/components/schemas/DmsRuleActions" }
+        version: { type: integer }
+        created_by: { type: [string, "null"], format: uuid }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        stats:
+          type: object
+          required: [suggested, open, accepted, rejected, automatic]
+          properties:
+            suggested: { type: integer }
+            open: { type: integer }
+            accepted: { type: integer }
+            rejected: { type: integer }
+            automatic: { type: integer }
+    DmsRulePage:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/DmsRule" } }
+        next_cursor: { type: [string, "null"] }
+        total: { type: [integer, "null"] }
+    DmsRulePreview:
+      type: object
+      required: [mode, checked, matched, timed_out, truncated, items]
+      properties:
+        rule_id: { type: [string, "null"], format: uuid }
+        mode: { type: string, enum: [suggest, auto] }
+        checked: { type: integer }
+        matched: { type: integer }
+        timed_out: { type: integer, description: "Dokumente, bei denen ein Regex das Zeitlimit ueberschritt" }
+        truncated: { type: boolean }
+        items:
+          type: array
+          description: Hoechstens 100 Treffer.
+          items:
+            type: object
+            required: [document_id, title, matches, suggestions]
+            properties:
+              document_id: { type: string, format: uuid }
+              title: { type: string }
+              matches:
+                type: array
+                items:
+                  type: object
+                  required: [type, matched]
+                  properties:
+                    type: { type: string }
+                    matched: { type: string, description: "gekuerzter Fundtext" }
+                    offset: { type: [integer, "null"], description: "UTF-16-Offset im Text" }
+                    length: { type: [integer, "null"] }
+              suggestions:
+                type: array
+                items:
+                  type: object
+                  required: [kind, value, confidence, reason]
+                  properties:
+                    kind: { type: string }
+                    value: { type: object, additionalProperties: { type: string } }
+                    confidence: { type: number }
+                    reason: { type: string }
+    DmsSuggestion:
+      type: object
+      required: [id, document_id, document_title, kind, value, source, confidence, reason, evidence, state, applied_automatically, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        document_id: { type: string, format: uuid }
+        document_title: { type: string }
+        kind: { type: string, enum: [correspondent, type, tag, date, title, path] }
+        value: { type: object, additionalProperties: { type: string }, description: "z. B. {contact_id}, {document_type_id}, {tag_id}, {doc_date}, {title}, {storage_path_id}" }
+        source: { type: string, enum: [rule, contact_match] }
+        rule_id: { type: [string, "null"], format: uuid }
+        rule_version: { type: [integer, "null"] }
+        confidence: { type: number, minimum: 0, maximum: 1 }
+        reason: { type: string, description: "z. B. Regel \"X\", Treffer \"Y\" oder Kontakt-Abgleich, Treffer IBAN ...1234" }
+        evidence: { type: object, additionalProperties: { type: string } }
+        state: { type: string, enum: [open, accepted, rejected] }
+        applied_automatically: { type: boolean }
+        decided_by: { type: [string, "null"], format: uuid }
+        decided_at: { type: [string, "null"], format: date-time }
+        created_at: { type: string, format: date-time }
+    DmsSuggestionPage:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/DmsSuggestion" } }
+        next_cursor: { type: [string, "null"] }
+        total: { type: [integer, "null"] }
+    DmsDuplicate:
+      type: object
+      required: [id, document_id, document_title, duplicate_of, duplicate_of_title, method, score, state, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        document_id: { type: string, format: uuid, description: "das jeweils juengere Dokument" }
+        document_title: { type: string }
+        duplicate_of: { type: string, format: uuid }
+        duplicate_of_title: { type: string }
+        method: { type: string, enum: [sha256, text_hash, similarity] }
+        score: { type: number, minimum: 0, maximum: 1 }
+        state: { type: string, enum: [open, confirmed, dismissed] }
+        decided_by: { type: [string, "null"], format: uuid }
+        decided_at: { type: [string, "null"], format: date-time }
+        created_at: { type: string, format: date-time }
+    DmsDuplicatePage:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/DmsDuplicate" } }
+        next_cursor: { type: [string, "null"] }
+        total: { type: [integer, "null"] }

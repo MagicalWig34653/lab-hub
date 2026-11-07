@@ -539,10 +539,10 @@ final class DMSTests: DMSTestBase {
         }
         // Sollzuordnung (unabhängig vom Code, MODUL-DMS.md Abschnitt 3)
         let granted: [Role: Set<String>] = [
-            .owner: ["read", "create", "update", "trash", "download_original", "tag.manage", "master.manage", "purge", "retention", "integrity.run", "export.run"],
-            .accountant: ["read", "create", "update", "trash", "download_original", "tag.manage", "master.manage", "retention", "integrity.run", "export.run"],
-            .member: ["read", "create", "update", "download_original"],
-            .taxAdvisor: ["read", "download_original", "export.run"],
+            .owner: ["read", "create", "update", "trash", "download_original", "tag.manage", "master.manage", "purge", "retention", "integrity.run", "export.run", "rule.read", "rule.manage", "suggestion.read", "suggestion.decide"],
+            .accountant: ["read", "create", "update", "trash", "download_original", "tag.manage", "master.manage", "retention", "integrity.run", "export.run", "rule.read", "rule.manage", "suggestion.read", "suggestion.decide"],
+            .member: ["read", "create", "update", "download_original", "rule.read", "suggestion.read", "suggestion.decide"],
+            .taxAdvisor: ["read", "download_original", "export.run", "suggestion.read"],
             .customerViewer: []]
         for (role, perms) in granted {
             let actual = Set(DMSModule().permissions.filter { role == .owner || $0.roles.contains(role) }.map { $0.name.replacingOccurrences(of: "dms.document.", with: "").replacingOccurrences(of: "dms.", with: "")
@@ -560,7 +560,11 @@ final class DMSTests: DMSTestBase {
             // WP-D5: Probe-Dokument liegt nicht im Papierkorb -> Purge 409 document_not_trashed; Lauf/Export der Probe sind vorhanden bzw. (Export-Datei) noch nicht fertig
             "GET documents/{document}/retention": .ok, "PATCH documents/{document}/retention": .ok, "POST documents/{document}/purge": .conflict, "GET deletion-log": .ok,
             "POST integrity-runs": .accepted, "GET integrity-runs": .ok, "GET integrity-runs/{run}": .ok,
-            "POST exports": .accepted, "GET exports": .ok, "GET exports/{export}": .ok, "GET exports/{export}/file": .notFound]
+            "POST exports": .accepted, "GET exports": .ok, "GET exports/{export}": .ok, "GET exports/{export}/file": .notFound,
+            // WP-D3
+            "GET rules": .ok, "POST rules": .created, "POST rules/preview": .ok, "GET rules/{rule}": .ok, "PATCH rules/{rule}": .ok, "DELETE rules/{rule}": .noContent,
+            "POST rules/{rule}/preview": .ok, "GET suggestions": .ok, "GET documents/{document}/suggestions": .ok, "POST suggestions/{suggestion}/accept": .ok,
+            "POST suggestions/{suggestion}/reject": .ok, "GET duplicates": .ok, "POST duplicates/{duplicate}/resolve": .ok]
         let masters = ["types", "tag-groups", "tags", "storage-paths", "custom-fields"]
         var expectedAll = expected
         for m in masters { expectedAll["GET \(m)"] = .ok; expectedAll["POST \(m)"] = .created; expectedAll["PATCH \(m)/{id}"] = .ok; expectedAll["DELETE \(m)/{id}"] = .noContent }
@@ -575,7 +579,8 @@ final class DMSTests: DMSTestBase {
                 SELECT concat_ws('|', (SELECT count(*) FROM dms_documents), (SELECT count(*) FROM dms_documents WHERE trashed_at IS NOT NULL), (SELECT count(*) FROM dms_documents WHERE asn IS NOT NULL),
                   (SELECT coalesce(sum(rev), 0) FROM dms_documents), (SELECT count(*) FROM dms_document_types), (SELECT count(*) FROM dms_tags), (SELECT count(*) FROM dms_tag_groups),
                   (SELECT count(*) FROM dms_storage_paths), (SELECT count(*) FROM dms_custom_fields), (SELECT count(*) FROM files), (SELECT count(*) FROM audit_log WHERE action LIKE 'dms.%'),
-                  (SELECT count(*) FROM dms_integrity_runs), (SELECT count(*) FROM dms_exports), (SELECT count(*) FROM dms_deletion_log)) AS v
+                  (SELECT count(*) FROM dms_integrity_runs), (SELECT count(*) FROM dms_exports), (SELECT count(*) FROM dms_deletion_log),
+                  (SELECT count(*) FROM dms_rules), (SELECT count(*) FROM dms_suggestions WHERE state <> 'open'), (SELECT count(*) FROM dms_duplicates WHERE state <> 'open')) AS v
                 """, as: String.self)
         }
         let tenant = UUID(uuidString: w.tenantA)!
@@ -597,10 +602,24 @@ final class DMSTests: DMSTestBase {
                     let insert = "INSERT INTO \(table) (id, tenant_id, name\(extra)) VALUES ('\(typeID)', '\(w.tenantA)', 'Probe \(cells)'\(vals))"
                     try await db.raw(SQLQueryString(insert)).run()
                 }
+                // WP-D3: frische Regel, Vorschlag und Duplikat je Zelle
+                let ruleID = UUID(), suggestionID = UUID(), duplicateID = UUID(), otherDoc = UUID()
+                try await db.raw("""
+                    INSERT INTO dms_rules (id, tenant_id, name, conditions, actions) VALUES (\(bind: ruleID), \(bind: tenant), \(bind: "Probe-Regel \(cells)"),
+                      '{"conditions":[{"type":"text_contains","value":"Probe"}]}'::jsonb, '{"title_template":"{filename}"}'::jsonb)
+                    """).run()
+                try await db.raw("""
+                    INSERT INTO dms_suggestions (id, tenant_id, document_id, kind, value, value_key, source, confidence, reason)
+                    VALUES (\(bind: suggestionID), \(bind: tenant), \(bind: docID), 'title', '{"title":"Vorschlag"}'::jsonb, 'Vorschlag', 'contact_match', 0.9, 'Probe')
+                    """).run()
+                try await db.raw("INSERT INTO dms_documents (id, tenant_id, title) VALUES (\(bind: otherDoc), \(bind: tenant), 'Gegenstück')").run()
+                try await db.raw("INSERT INTO dms_duplicates (id, tenant_id, document_id, duplicate_of, method, score) VALUES (\(bind: duplicateID), \(bind: tenant), \(bind: docID), \(bind: otherDoc), 'sha256', 1)").run()
                 let isTrash = route.path.hasSuffix("/restore")
                 let target = route.path.hasSuffix("/documents/{document}/file") ? fileDoc : (isTrash ? trashedID : docID).uuidString
                 var path = String(route.path.dropFirst()).replacingOccurrences(of: "{tenant}", with: w.tenantA).replacingOccurrences(of: "{document}", with: target)
                     .replacingOccurrences(of: "{id}", with: typeID.uuidString).replacingOccurrences(of: "{run}", with: runID.uuidString).replacingOccurrences(of: "{export}", with: exportID.uuidString)
+                    .replacingOccurrences(of: "{rule}", with: ruleID.uuidString)
+                    .replacingOccurrences(of: "{suggestion}", with: suggestionID.uuidString).replacingOccurrences(of: "{duplicate}", with: duplicateID.uuidString)
                 var body: Data?
                 var headers: [String: String] = [:]
                 switch key {
@@ -609,6 +628,9 @@ final class DMSTests: DMSTestBase {
                 case "POST exports": body = Data("{}".utf8); headers["Content-Type"] = "application/json"
                 case "PATCH documents/{document}": body = Data(#"{"title":"Geändert"}"#.utf8); headers["Content-Type"] = "application/json"
                 case "POST documents/{document}/trash": body = Data(#"{"reason":"Probe"}"#.utf8); headers["Content-Type"] = "application/json"
+                case "POST rules": body = Data(#"{"name":"Neu \#(cells)","conditions":{"conditions":[{"type":"text_contains","value":"Rechnung"}]},"actions":{"title_template":"{filename}"}}"#.utf8); headers["Content-Type"] = "application/json"
+                case "POST rules/preview": body = Data(#"{"conditions":{"conditions":[{"type":"text_contains","value":"Rechnung"}]},"actions":{"title_template":"{filename}"}}"#.utf8); headers["Content-Type"] = "application/json"
+                case "POST duplicates/{duplicate}/resolve": body = Data(#"{"state":"dismissed"}"#.utf8); headers["Content-Type"] = "application/json"
                 case "POST types": body = Data(#"{"name":"Neu \#(cells)"}"#.utf8); headers["Content-Type"] = "application/json"
                 case "POST tag-groups": body = Data(#"{"name":"Neu \#(cells)"}"#.utf8); headers["Content-Type"] = "application/json"
                 case "POST tags": body = Data(#"{"name":"Neu \#(cells)"}"#.utf8); headers["Content-Type"] = "application/json"
@@ -829,6 +851,7 @@ final class DMSTests: DMSTestBase {
 
         let migration = CreateDMSCore()
         try await CreateDMSRevision().revert(on: app1.db(.psql))  // WP-D5: Spalten an dms_documents, Löschprotokoll, Kette, Läufe
+        try await CreateDMSRules().revert(on: app1.db(.psql))    // WP-D3: verweist auf Dokumente und Ingest-Items
         try await CreateDMSOCR().revert(on: app1.db(.psql))      // WP-O2: Spalte an dms_ingest_items
         try await CreateDMSSearch().revert(on: app1.db(.psql))   // WP-S1 baut auf dem Kern auf und wird zuerst zurückgenommen
         try await CreateDMSIngest().revert(on: app1.db(.psql))  // WP-O1: Ingest-Tabellen verweisen auf dms_documents
@@ -841,6 +864,7 @@ final class DMSTests: DMSTestBase {
         try await CreateDMSIngest().prepare(on: app1.db(.psql))
         try await CreateDMSSearch().prepare(on: app1.db(.psql))
         try await CreateDMSOCR().prepare(on: app1.db(.psql))
+        try await CreateDMSRules().prepare(on: app1.db(.psql))
         try await CreateDMSRevision().prepare(on: app1.db(.psql))
     }
 }

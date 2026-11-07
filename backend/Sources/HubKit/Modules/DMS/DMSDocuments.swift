@@ -149,6 +149,7 @@ enum DMSDocuments {
                 INSERT INTO dms_document_files (tenant_id, document_id, role, file_id, mime, size_bytes, sha256, original_name)
                 VALUES (\(bind: tenant), \(bind: id), 'original', \(bind: fileID), \(bind: n.kind.mime), \(bind: n.stored.size), \(bind: n.stored.key.sha256), \(bind: n.originalName))
                 """).run()
+            try await DMSDuplicates.detectHash(document: id, sha256: n.stored.key.sha256, tenant: tenant, on: s)   // WP-D3 Stufe 1
             var asn: Int64?
             // WP-O1: Eingangsvorgang; Upload hat Speichern und Hash synchron erledigt, weitere Schritte (OCR usw.) führen Worker aus.
             let ingestID = try await DMSIngest.create(tenant: tenant, document: id, source: .upload, actor: actor, upTo: .hashed, on: s)

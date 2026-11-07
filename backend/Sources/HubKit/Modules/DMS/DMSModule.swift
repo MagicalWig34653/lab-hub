@@ -44,10 +44,10 @@ public struct DMSModule: HubModule {
          PermissionDefinition("dms.document.purge"),
          PermissionDefinition("dms.document.retention", roles: [.accountant]),
          PermissionDefinition("dms.integrity.run", roles: [.accountant]),
-         PermissionDefinition("dms.export.run", roles: [.accountant, .taxAdvisor])]
+         PermissionDefinition("dms.export.run", roles: [.accountant, .taxAdvisor])] + Self.rulePermissions   // WP-D3: dms.rule.*, dms.suggestion.*
     }
 
-    public var migrations: [any Migration] { [CreateDMSCore(), CreateDMSIngest(), CreateDMSSearch(), CreateDMSOCR(), CreateDMSRevision()] }
+    public var migrations: [any Migration] { [CreateDMSCore(), CreateDMSIngest(), CreateDMSSearch(), CreateDMSOCR(), CreateDMSRules(), CreateDMSRevision()] }
     public var navigation: [NavigationItem] { [NavigationItem(key: "dms", labelKey: "nav.dms", path: "/dms", permission: "dms.document.read")] }
 
     func makeStore(_ req: Request) throws -> any ObjectStore {
@@ -141,6 +141,9 @@ public struct DMSModule: HubModule {
         routes.on(.GET, "search", permission: "dms.document.read") { req in
             try dmsJSON(try await DMSSearch.run(try DMSSearch.parse(req, tenant: try req.requireTenant().tenantID), on: req.db))
         }
+
+        // Regeln, Vorschläge, Duplikate (WP-D3)
+        registerRuleRoutes(routes)
 
         // Revisionssicherheit (WP-D5): Aufbewahrung, Löschsperre, endgültiges Löschen, Prüfläufe, Export
         let years = defaultRetentionYears
