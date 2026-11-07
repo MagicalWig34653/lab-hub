@@ -34,6 +34,13 @@ function readStored(): string | null {
 	}
 }
 
+/** Module texts registered by frontend manifests (keys are not part of the core `MessageKey` type). */
+const extra: Record<Locale, Record<string, string>> = { de: {}, en: {} };
+
+export function registerMessages(messages: Record<Locale, Record<string, string>>): void {
+	for (const locale of locales) Object.assign(extra[locale], messages[locale]);
+}
+
 class I18n {
 	locale = $state<Locale>('de');
 
@@ -53,11 +60,20 @@ class I18n {
 
 	t = (key: MessageKey, params?: Record<string, string | number>): string => format(catalogues[this.locale][key], params);
 
+	/** Dynamic key (backend `label_key`, module texts): core or module catalogue, else the key itself. */
+	tx = (key: string, params?: Record<string, string | number>): string => {
+		const text = (catalogues[this.locale] as Record<string, string>)[key] ?? extra[this.locale][key];
+		return text === undefined ? key : format(text, params);
+	};
+
 	has = (key: string): key is MessageKey => key in de;
 }
 
 export const i18n = new I18n();
 if (typeof window !== 'undefined') i18n.init();
+
+/** Like `t` for keys only known at runtime. */
+export const tx = (key: string, params?: Record<string, string | number>) => i18n.tx(key, params);
 
 export const t = (key: MessageKey, params?: Record<string, string | number>) => i18n.t(key, params);
 

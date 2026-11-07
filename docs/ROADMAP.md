@@ -104,6 +104,7 @@ Grundsatz: Hub ohne Swift-App nutzbar (`AGENTS.md`); die Rechnungsphase ist dahe
 *Status WP-F1: AK-F1-1…4 umgesetzt und getestet (Branch wp-F1); Backend-Auslieferung und Dockerfile-Stufe sind nur als Vorschlag im Handoff, siehe `docs/handoff/WP-F1.md`.*
 
 **WP-F2 Modulnavigation (M).** AK-F2-1…3 (`FRONTEND.md` 4), Mandantenwechsel, Einstellungsseiten (Profil, Passkeys, Sitzungen, Module). Abh.: F1, K3.
+*Status WP-F2: umgesetzt und getestet (Branch wp-F2): Modulnavigation, Mandantenwechsel, Einstellungen (Profil, Passkeys, Recovery-Codes, Sitzungen, Module, Mitglieder/Einladungen), Platzhalter `/dms`; siehe `docs/handoff/WP-F2.md`.*
 
 **WP-F3 PWA/Offline (M).** AK siehe `FRONTEND.md` Abschnitt 7; Manifest, Icons, Service Worker, Update-Hinweis. Test: Playwright-PWA-Lauf. Abh.: F1.
 

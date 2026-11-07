@@ -56,6 +56,15 @@ class SessionStore {
 		await this.refresh();
 	}
 
+	/** Ends every session of the user on all devices, including this one. */
+	async logoutAll(): Promise<number> {
+		try {
+			return (await authApi.logoutAll()).revoked;
+		} finally {
+			this.apply(null);
+		}
+	}
+
 	async logout() {
 		try {
 			await authApi.logout();

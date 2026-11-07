@@ -644,6 +644,322 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tenants/{tenant}/dms/uploads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Datei hochladen (Berechtigung dms.document.create). Body = Dateiinhalt, gestreamt; Typ wird an den Magic Bytes erkannt (PDF, PNG, JPEG, TIFF, WebP), nicht an Endung oder Content-Type
+         * @description Query: filename, title, doc_date (yyyy-MM-dd), document_type_id, archive (true vergibt die ASN sofort). Idempotency-Key ist Pflicht;
+         *     gleicher Key + gleicher Inhalt/Parameter liefert die gespeicherte Antwort, anderer Inhalt 422 idempotency_key_reused.
+         *     Ein bereits vorhandenes Original im Mandanten wird nicht abgelehnt, sondern als duplicates gemeldet.
+         *     Zu gross 413 payload_too_large, unbekannter Typ 415 unsupported_media_type.
+         */
+        post: operations["dmsUpload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/dms/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Dokumente (Berechtigung dms.document.read); trashed=true zeigt den Papierkorb
+         * @description Filter status, document_type_id, tag_id, correspondent_id, asn, q (Titel enthaelt). Cursor-Pagination wie ueberall.
+         */
+        get: operations["listDmsDocuments"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/dms/documents/{document}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dokument mit Tags, Feldern und Dateien (Berechtigung dms.document.read); fremde ID 404 */
+        get: operations["getDmsDocument"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Metadaten aendern (Berechtigung dms.document.update); nur gesetzte Felder, null loescht doc_date, Typ, Pfad, Korrespondent; tag_ids ersetzt; fields setzt Werte je Code (null entfernt)
+         * @description Optional If-Match mit der rev des Dokuments (412 bei Abweichung). Dokument im Papierkorb 409 document_trashed. Korrespondent = Kontakt (Kern-links, ueberlebt Kontakt-Merge).
+         */
+        patch: operations["updateDmsDocument"];
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/dms/documents/{document}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Archivnummer (ASN) atomar vergeben und Dokument archivieren (Berechtigung dms.document.update); idempotent, eine vorhandene ASN bleibt */
+        post: operations["archiveDmsDocument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/dms/documents/{document}/trash": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** In den Papierkorb (Berechtigung dms.document.trash); Grund ist Pflicht, Original und Metadaten bleiben */
+        post: operations["trashDmsDocument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/dms/documents/{document}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Aus dem Papierkorb wiederherstellen (Berechtigung dms.document.trash) */
+        post: operations["restoreDmsDocument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/dms/documents/{document}/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Datei ausliefern (Streaming; Berechtigung dms.document.read, fuer role=original zusaetzlich dms.document.download_original)
+         * @description role original (Standard), archive, thumbnail, derivative. disposition attachment (Standard) oder inline (Vorschau).
+         *     Der Dateiname kommt aus dem Titel. Header nosniff, CSP sandbox, Cache-Control private, no-store. Download des Originals wird im Audit protokolliert.
+         */
+        get: operations["getDmsDocumentFile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/dms/types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Liste Dokumenttypen (Berechtigung dms.document.read) */
+        get: operations["listDmsTypes"];
+        put?: never;
+        /** Dokumenttyp anlegen (Berechtigung dms.master.manage); doppelter Name/Code 409 */
+        post: operations["createDmsType"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/dms/types/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Dokumenttyp loeschen (Berechtigung dms.master.manage); solange etwas darauf verweist 409 */
+        delete: operations["deleteDmsType"];
+        options?: never;
+        head?: never;
+        /** Dokumenttyp aendern (Berechtigung dms.master.manage); unveraenderliche Felder (code, data_type) 422 */
+        patch: operations["updateDmsType"];
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/dms/tag-groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Liste Tag-Gruppen (Berechtigung dms.document.read) */
+        get: operations["listDmsTagGroups"];
+        put?: never;
+        /** Tag-Gruppe anlegen (Berechtigung dms.tag.manage); doppelter Name/Code 409 */
+        post: operations["createDmsTagGroup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/dms/tag-groups/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Tag-Gruppe loeschen (Berechtigung dms.tag.manage); solange etwas darauf verweist 409 */
+        delete: operations["deleteDmsTagGroup"];
+        options?: never;
+        head?: never;
+        /** Tag-Gruppe aendern (Berechtigung dms.tag.manage); unveraenderliche Felder (code, data_type) 422 */
+        patch: operations["updateDmsTagGroup"];
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/dms/tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Liste Tags (Berechtigung dms.document.read) */
+        get: operations["listDmsTags"];
+        put?: never;
+        /** Tag anlegen (Berechtigung dms.tag.manage); doppelter Name/Code 409 */
+        post: operations["createDmsTag"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/dms/tags/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Tag loeschen (Berechtigung dms.tag.manage); solange etwas darauf verweist 409 */
+        delete: operations["deleteDmsTag"];
+        options?: never;
+        head?: never;
+        /** Tag aendern (Berechtigung dms.tag.manage); unveraenderliche Felder (code, data_type) 422 */
+        patch: operations["updateDmsTag"];
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/dms/storage-paths": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Liste Ablagepfade (Berechtigung dms.document.read) */
+        get: operations["listDmsStoragePaths"];
+        put?: never;
+        /** Ablagepfad anlegen (Berechtigung dms.master.manage); doppelter Name/Code 409 */
+        post: operations["createDmsStoragePath"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/dms/storage-paths/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Ablagepfad loeschen (Berechtigung dms.master.manage); solange etwas darauf verweist 409 */
+        delete: operations["deleteDmsStoragePath"];
+        options?: never;
+        head?: never;
+        /** Ablagepfad aendern (Berechtigung dms.master.manage); unveraenderliche Felder (code, data_type) 422 */
+        patch: operations["updateDmsStoragePath"];
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/dms/custom-fields": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Liste benutzerdefinierte Felder (Berechtigung dms.document.read) */
+        get: operations["listDmsCustomFields"];
+        put?: never;
+        /** Benutzerdefiniertes Feld anlegen (Berechtigung dms.master.manage); doppelter Name/Code 409 */
+        post: operations["createDmsCustomField"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/dms/custom-fields/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Benutzerdefiniertes Feld loeschen (Berechtigung dms.master.manage); solange etwas darauf verweist 409 */
+        delete: operations["deleteDmsCustomField"];
+        options?: never;
+        head?: never;
+        /** Benutzerdefiniertes Feld aendern (Berechtigung dms.master.manage); unveraenderliche Felder (code, data_type) 422 */
+        patch: operations["updateDmsCustomField"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -760,7 +1076,7 @@ export interface components {
              * @description Stabiler maschinenlesbarer Code
              * @enum {string}
              */
-            code: "bad_request" | "conflict" | "contact_merged" | "csrf_invalid" | "forbidden" | "handle_taken" | "idempotency_in_progress" | "idempotency_key_required" | "idempotency_key_reused" | "internal_error" | "invalid_cursor" | "invalid_limit" | "invitation_invalid" | "last_owner" | "last_passkey" | "login_failed" | "method_not_allowed" | "module_disabled" | "module_required_by" | "module_requires" | "module_unavailable" | "not_found" | "passkey_invalid" | "payload_too_large" | "precondition_failed" | "recovery_session_restricted" | "service_unavailable" | "setup_token_invalid" | "tenant_required" | "too_many_requests" | "unauthorized" | "validation_failed";
+            code: "bad_request" | "conflict" | "contact_merged" | "csrf_invalid" | "document_trashed" | "forbidden" | "handle_taken" | "idempotency_in_progress" | "idempotency_key_required" | "idempotency_key_reused" | "internal_error" | "invalid_cursor" | "invalid_limit" | "invitation_invalid" | "last_owner" | "last_passkey" | "login_failed" | "method_not_allowed" | "module_disabled" | "module_required_by" | "module_requires" | "module_unavailable" | "not_found" | "passkey_invalid" | "payload_too_large" | "precondition_failed" | "recovery_session_restricted" | "service_unavailable" | "setup_token_invalid" | "tenant_required" | "too_many_requests" | "unauthorized" | "unsupported_media_type" | "validation_failed";
             detail?: string;
             request_id: string;
             errors?: components["schemas"]["FieldError"][];
@@ -863,6 +1179,75 @@ export interface components {
             /** Format: uuid */
             removed_by?: string | null;
         };
+        DmsFile: {
+            /** @enum {string} */
+            role: "original" | "archive" | "thumbnail" | "derivative";
+            mime: string;
+            /** Format: int64 */
+            size_bytes: number;
+            sha256: string;
+            page_count?: number | null;
+            original_name?: string | null;
+        };
+        DmsDocument: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            /** Format: date */
+            doc_date?: string | null;
+            /** Format: date-time */
+            received_at: string;
+            /** Format: uuid */
+            document_type_id?: string | null;
+            /** Format: uuid */
+            storage_path_id?: string | null;
+            /**
+             * Format: uuid
+             * @description Kontakt (Kern); ueber links kind correspondent
+             */
+            correspondent_id?: string | null;
+            /**
+             * Format: int64
+             * @description Archivnummer je Mandant, unveraenderlich
+             */
+            asn?: number | null;
+            /** @enum {string} */
+            status: "processing" | "needs_review" | "archived";
+            /** Format: date-time */
+            trashed_at?: string | null;
+            trash_reason?: string | null;
+            /** Format: uuid */
+            created_by?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** @description Fuer If-Match */
+            rev: number;
+            /** @description Nur in der Einzelansicht */
+            tag_ids?: string[];
+            /** @description Wert je Feldcode (nur Einzelansicht) */
+            fields?: {
+                [key: string]: unknown;
+            };
+            files?: components["schemas"]["DmsFile"][];
+            /** @description Nur beim Upload: Dokumente mit gleichem Original */
+            duplicates?: string[];
+        };
+        /** @description Stammdatenzeile; Felder je Ressource (name, code, description, default_retention_years, exclusive, group_id, color, template, data_type, options). */
+        DmsMaster: {
+            /** Format: uuid */
+            id: string;
+            name?: string;
+            /** Format: date-time */
+            created_at: string;
+        } & {
+            [key: string]: unknown;
+        };
+        /** @description Felder je Ressource; name ist Pflicht beim Anlegen, bei custom-fields zusaetzlich code und data_type (string, int, decimal, date, bool, select, contact) und fuer select options. */
+        DmsMasterInput: {
+            [key: string]: unknown;
+        };
     };
     responses: {
         /** @description Fehler (RFC 9457) */
@@ -906,6 +1291,8 @@ export interface components {
         IdempotencyKey: string;
         Contact: string;
         LinkId: string;
+        DmsDocument: string;
+        DmsMasterId: string;
     };
     requestBodies: never;
     headers: {
@@ -2077,6 +2464,889 @@ export interface operations {
             403: components["responses"]["Problem"];
             404: components["responses"]["Problem"];
             409: components["responses"]["Problem"];
+        };
+    };
+    dmsUpload: {
+        parameters: {
+            query?: {
+                filename?: string;
+                title?: string;
+                doc_date?: string;
+                document_type_id?: string;
+                archive?: boolean;
+            };
+            header: {
+                /** @description Pflicht bei finalisierenden POSTs. Gleicher Key + gleicher Request = gespeicherte Antwort; anderer Request = 422 idempotency_key_reused. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/octet-stream": string;
+            };
+        };
+        responses: {
+            /** @description Dokument angelegt */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmsDocument"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            413: components["responses"]["Problem"];
+            415: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listDmsDocuments: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaker Cursor aus next_cursor der vorigen Seite. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Gesamtzahl nur auf Anforderung (teuer). */
+                count?: components["parameters"]["Count"];
+                trashed?: boolean;
+                status?: "processing" | "needs_review" | "archived";
+                document_type_id?: string;
+                tag_id?: string;
+                correspondent_id?: string;
+                asn?: number;
+                q?: string;
+            };
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Seite */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["DmsDocument"][];
+                        next_cursor?: string | null;
+                        total?: number | null;
+                    };
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getDmsDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                document: components["parameters"]["DmsDocument"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Dokument */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmsDocument"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    updateDmsDocument: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string;
+            };
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                document: components["parameters"]["DmsDocument"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    title?: string;
+                    /** Format: date */
+                    doc_date?: string | null;
+                    /** Format: uuid */
+                    document_type_id?: string | null;
+                    /** Format: uuid */
+                    storage_path_id?: string | null;
+                    /** Format: uuid */
+                    correspondent_id?: string | null;
+                    tag_ids?: string[];
+                    fields?: {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description Aktualisiertes Dokument */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmsDocument"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            412: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    archiveDmsDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                document: components["parameters"]["DmsDocument"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Dokument */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmsDocument"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+        };
+    };
+    trashDmsDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                document: components["parameters"]["DmsDocument"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    reason: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Dokument (trashed_at gesetzt) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmsDocument"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    restoreDmsDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                document: components["parameters"]["DmsDocument"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Dokument */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmsDocument"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+        };
+    };
+    getDmsDocumentFile: {
+        parameters: {
+            query?: {
+                role?: "original" | "archive" | "thumbnail" | "derivative";
+                disposition?: "attachment" | "inline";
+            };
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                document: components["parameters"]["DmsDocument"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Dateiinhalt */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": string;
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listDmsTypes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Eintraege */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["DmsMaster"][];
+                    };
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    createDmsType: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DmsMasterInput"];
+            };
+        };
+        responses: {
+            /** @description Angelegt */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmsMaster"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    deleteDmsType: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                id: components["parameters"]["DmsMasterId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Geloescht */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+        };
+    };
+    updateDmsType: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                id: components["parameters"]["DmsMasterId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DmsMasterInput"];
+            };
+        };
+        responses: {
+            /** @description Aktualisiert */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmsMaster"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listDmsTagGroups: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Eintraege */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["DmsMaster"][];
+                    };
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    createDmsTagGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DmsMasterInput"];
+            };
+        };
+        responses: {
+            /** @description Angelegt */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmsMaster"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    deleteDmsTagGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                id: components["parameters"]["DmsMasterId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Geloescht */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+        };
+    };
+    updateDmsTagGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                id: components["parameters"]["DmsMasterId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DmsMasterInput"];
+            };
+        };
+        responses: {
+            /** @description Aktualisiert */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmsMaster"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listDmsTags: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Eintraege */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["DmsMaster"][];
+                    };
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    createDmsTag: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DmsMasterInput"];
+            };
+        };
+        responses: {
+            /** @description Angelegt */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmsMaster"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    deleteDmsTag: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                id: components["parameters"]["DmsMasterId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Geloescht */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+        };
+    };
+    updateDmsTag: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                id: components["parameters"]["DmsMasterId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DmsMasterInput"];
+            };
+        };
+        responses: {
+            /** @description Aktualisiert */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmsMaster"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listDmsStoragePaths: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Eintraege */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["DmsMaster"][];
+                    };
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    createDmsStoragePath: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DmsMasterInput"];
+            };
+        };
+        responses: {
+            /** @description Angelegt */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmsMaster"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    deleteDmsStoragePath: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                id: components["parameters"]["DmsMasterId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Geloescht */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+        };
+    };
+    updateDmsStoragePath: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                id: components["parameters"]["DmsMasterId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DmsMasterInput"];
+            };
+        };
+        responses: {
+            /** @description Aktualisiert */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmsMaster"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listDmsCustomFields: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Eintraege */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["DmsMaster"][];
+                    };
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    createDmsCustomField: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DmsMasterInput"];
+            };
+        };
+        responses: {
+            /** @description Angelegt */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmsMaster"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    deleteDmsCustomField: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                id: components["parameters"]["DmsMasterId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Geloescht */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+        };
+    };
+    updateDmsCustomField: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                id: components["parameters"]["DmsMasterId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DmsMasterInput"];
+            };
+        };
+        responses: {
+            /** @description Aktualisiert */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmsMaster"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
         };
     };
 }
