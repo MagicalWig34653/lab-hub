@@ -205,7 +205,7 @@ enum DMSDownload {
     }
 
     static func ext(for mime: String) -> String {
-        switch mime { case "application/pdf": "pdf"; case "image/png": "png"; case "image/jpeg": "jpg"; case "image/tiff": "tiff"; case "image/webp": "webp"; default: "bin" }
+        switch mime { case "application/pdf": "pdf"; case "image/png": "png"; case "image/jpeg": "jpg"; case "image/tiff": "tiff"; case "image/webp": "webp"; case "application/zip": "zip"; default: "bin" }
     }
 
     static func response(file: DMSDocuments.StoredFile, tenant: UUID, store: any ObjectStore, inline: Bool) async throws -> Response {

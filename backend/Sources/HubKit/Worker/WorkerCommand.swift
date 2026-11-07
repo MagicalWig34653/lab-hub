@@ -15,6 +15,9 @@ public enum WorkerHandlers {
         map[DMSOCR.kind] = DMSOCR.handler(engine: OCRToolEngine(config: ocr), tempRoot: ocr.tempRoot) { s in
             try ObjectStoreConfig.fromEnvironment(environment).makeStore(db: s)
         }
+        // WP-D5: Prüf-Job und Export-Job
+        map[DMSIntegrity.kind] = DMSIntegrity.handler { s in try ObjectStoreConfig.fromEnvironment(environment).makeStore(db: s) }
+        map[DMSExport.kind] = DMSExport.handler(tempRoot: ocr.tempRoot) { s in try ObjectStoreConfig.fromEnvironment(environment).makeStore(db: s) }
         return map
     }
 

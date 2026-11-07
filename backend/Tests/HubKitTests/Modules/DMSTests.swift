@@ -539,10 +539,10 @@ final class DMSTests: DMSTestBase {
         }
         // Sollzuordnung (unabhängig vom Code, MODUL-DMS.md Abschnitt 3)
         let granted: [Role: Set<String>] = [
-            .owner: ["read", "create", "update", "trash", "download_original", "tag.manage", "master.manage"],
-            .accountant: ["read", "create", "update", "trash", "download_original", "tag.manage", "master.manage"],
+            .owner: ["read", "create", "update", "trash", "download_original", "tag.manage", "master.manage", "purge", "retention", "integrity.run", "export.run"],
+            .accountant: ["read", "create", "update", "trash", "download_original", "tag.manage", "master.manage", "retention", "integrity.run", "export.run"],
             .member: ["read", "create", "update", "download_original"],
-            .taxAdvisor: ["read", "download_original"],
+            .taxAdvisor: ["read", "download_original", "export.run"],
             .customerViewer: []]
         for (role, perms) in granted {
             let actual = Set(DMSModule().permissions.filter { role == .owner || $0.roles.contains(role) }.map { $0.name.replacingOccurrences(of: "dms.document.", with: "").replacingOccurrences(of: "dms.", with: "")
@@ -556,7 +556,11 @@ final class DMSTests: DMSTestBase {
             "POST uploads": .created, "GET documents": .ok, "GET documents/{document}": .ok, "PATCH documents/{document}": .ok,
             "POST documents/{document}/archive": .ok, "POST documents/{document}/trash": .ok, "POST documents/{document}/restore": .ok, "GET documents/{document}/file": .ok,
             "GET search": .ok, "GET documents/{document}/processing": .ok,
-            "POST documents/{document}/processing/retry": .conflict]   // WP-H6: Probe-Dokument ohne Quarantäne-Vorgang -> 409 ingest_not_failed
+            "POST documents/{document}/processing/retry": .conflict,   // WP-H6: Probe-Dokument ohne Quarantäne-Vorgang -> 409 ingest_not_failed
+            // WP-D5: Probe-Dokument liegt nicht im Papierkorb -> Purge 409 document_not_trashed; Lauf/Export der Probe sind vorhanden bzw. (Export-Datei) noch nicht fertig
+            "GET documents/{document}/retention": .ok, "PATCH documents/{document}/retention": .ok, "POST documents/{document}/purge": .conflict, "GET deletion-log": .ok,
+            "POST integrity-runs": .accepted, "GET integrity-runs": .ok, "GET integrity-runs/{run}": .ok,
+            "POST exports": .accepted, "GET exports": .ok, "GET exports/{export}": .ok, "GET exports/{export}/file": .notFound]
         let masters = ["types", "tag-groups", "tags", "storage-paths", "custom-fields"]
         var expectedAll = expected
         for m in masters { expectedAll["GET \(m)"] = .ok; expectedAll["POST \(m)"] = .created; expectedAll["PATCH \(m)/{id}"] = .ok; expectedAll["DELETE \(m)/{id}"] = .noContent }
@@ -570,7 +574,8 @@ final class DMSTests: DMSTestBase {
             try await scalar("""
                 SELECT concat_ws('|', (SELECT count(*) FROM dms_documents), (SELECT count(*) FROM dms_documents WHERE trashed_at IS NOT NULL), (SELECT count(*) FROM dms_documents WHERE asn IS NOT NULL),
                   (SELECT coalesce(sum(rev), 0) FROM dms_documents), (SELECT count(*) FROM dms_document_types), (SELECT count(*) FROM dms_tags), (SELECT count(*) FROM dms_tag_groups),
-                  (SELECT count(*) FROM dms_storage_paths), (SELECT count(*) FROM dms_custom_fields), (SELECT count(*) FROM files), (SELECT count(*) FROM audit_log WHERE action LIKE 'dms.%')) AS v
+                  (SELECT count(*) FROM dms_storage_paths), (SELECT count(*) FROM dms_custom_fields), (SELECT count(*) FROM files), (SELECT count(*) FROM audit_log WHERE action LIKE 'dms.%'),
+                  (SELECT count(*) FROM dms_integrity_runs), (SELECT count(*) FROM dms_exports), (SELECT count(*) FROM dms_deletion_log)) AS v
                 """, as: String.self)
         }
         let tenant = UUID(uuidString: w.tenantA)!
@@ -579,7 +584,9 @@ final class DMSTests: DMSTestBase {
             let key = "\(route.method) \(route.path.replacingOccurrences(of: prefix, with: ""))"
             for role in Role.allCases {
                 // frische Objekte je Zelle
-                let docID = UUID(), trashedID = UUID(), typeID = UUID()
+                let docID = UUID(), trashedID = UUID(), typeID = UUID(), runID = UUID(), exportID = UUID()
+                try await db.raw("INSERT INTO dms_integrity_runs (id, tenant_id) VALUES (\(bind: runID), \(bind: tenant))").run()
+                try await db.raw("INSERT INTO dms_exports (id, tenant_id) VALUES (\(bind: exportID), \(bind: tenant))").run()
                 try await db.raw("INSERT INTO dms_documents (id, tenant_id, title) VALUES (\(bind: docID), \(bind: tenant), 'Probe')").run()
                 try await db.raw("INSERT INTO dms_documents (id, tenant_id, title, trashed_at, trash_reason) VALUES (\(bind: trashedID), \(bind: tenant), 'Papierkorb', now(), 'Probe')").run()
                 let segment = route.path.split(separator: "/").dropFirst(5).first.map(String.init) ?? ""
@@ -591,13 +598,15 @@ final class DMSTests: DMSTestBase {
                     try await db.raw(SQLQueryString(insert)).run()
                 }
                 let isTrash = route.path.hasSuffix("/restore")
-                let target = route.path.hasSuffix("/file") ? fileDoc : (isTrash ? trashedID : docID).uuidString
+                let target = route.path.hasSuffix("/documents/{document}/file") ? fileDoc : (isTrash ? trashedID : docID).uuidString
                 var path = String(route.path.dropFirst()).replacingOccurrences(of: "{tenant}", with: w.tenantA).replacingOccurrences(of: "{document}", with: target)
-                    .replacingOccurrences(of: "{id}", with: typeID.uuidString)
+                    .replacingOccurrences(of: "{id}", with: typeID.uuidString).replacingOccurrences(of: "{run}", with: runID.uuidString).replacingOccurrences(of: "{export}", with: exportID.uuidString)
                 var body: Data?
                 var headers: [String: String] = [:]
                 switch key {
                 case "POST uploads": body = pdf("probe-\(cells)"); headers["Idempotency-Key"] = UUID().uuidString
+                case "PATCH documents/{document}/retention": body = Data(#"{"legal_hold":false}"#.utf8); headers["Content-Type"] = "application/json"
+                case "POST exports": body = Data("{}".utf8); headers["Content-Type"] = "application/json"
                 case "PATCH documents/{document}": body = Data(#"{"title":"Geändert"}"#.utf8); headers["Content-Type"] = "application/json"
                 case "POST documents/{document}/trash": body = Data(#"{"reason":"Probe"}"#.utf8); headers["Content-Type"] = "application/json"
                 case "POST types": body = Data(#"{"name":"Neu \#(cells)"}"#.utf8); headers["Content-Type"] = "application/json"
@@ -819,6 +828,7 @@ final class DMSTests: DMSTestBase {
         try await aEq(try await count("pg_trigger", where: "tgname IN ('dms_document_files_protect', 'dms_files_protect', 'dms_documents_protect_asn')"), 3)
 
         let migration = CreateDMSCore()
+        try await CreateDMSRevision().revert(on: app1.db(.psql))  // WP-D5: Spalten an dms_documents, Löschprotokoll, Kette, Läufe
         try await CreateDMSOCR().revert(on: app1.db(.psql))      // WP-O2: Spalte an dms_ingest_items
         try await CreateDMSSearch().revert(on: app1.db(.psql))   // WP-S1 baut auf dem Kern auf und wird zuerst zurückgenommen
         try await CreateDMSIngest().revert(on: app1.db(.psql))  // WP-O1: Ingest-Tabellen verweisen auf dms_documents
@@ -831,6 +841,7 @@ final class DMSTests: DMSTestBase {
         try await CreateDMSIngest().prepare(on: app1.db(.psql))
         try await CreateDMSSearch().prepare(on: app1.db(.psql))
         try await CreateDMSOCR().prepare(on: app1.db(.psql))
+        try await CreateDMSRevision().prepare(on: app1.db(.psql))
     }
 }
 

@@ -120,6 +120,7 @@ Grundsatz: Hub ohne Swift-App nutzbar (`AGENTS.md`); die Rechnungsphase ist dahe
 **WP-D4 Quellen (L).** Mail-Ingest (IMAP-Polling mit Lease), Konsumordner (Stabilitätsprüfung), Share-/Scan-API. Akzeptanz: AK-D3 plus Mail-Test gegen lokalen Test-IMAP-Server (Docker, synthetische Mails); Geheimnisse nie in DB/Log. Abh.: O1. Offen: F-22.
 
 **WP-D5 Revisionssicherheit (M).** `MODUL-DMS.md` Abschnitt 8: AK-D-REV-1…4, Prüf-Job, Export-Job (ZIP + Index + Manifest). Abh.: D2.
+*Status WP-D5: umgesetzt und getestet (Branch wp-D5; Migration `dms_021_revision`): Aufbewahrung je Dokumenttyp (konfigurierbar, GoBD-orientiert, keine Konformitätszusage), Löschsperre, Purge nur aus Papierkorb nach Frist/ohne Sperre/ohne Verknüpfung mit Löschprotokoll und Blob-Referenzprüfung, Hash-Kette des DMS-Audits (F-16), Prüf-Job `dms.verify`, Export-Job `dms.export` (ZIP + index.csv + manifest.json mit SHA-256), 231 Tests grün; offen: Deploy der Worker-Arten, Zeitplaner, Alarmkanal; siehe `docs/handoff/WP-D5.md`.*
 
 **WP-D6 Paperless-Import (M).** `MODUL-DMS.md` Abschnitt 10, AK-D9, nur synthetische Fixture. Abh.: D2, D3. Offen: F-23.
 

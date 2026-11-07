@@ -15,15 +15,18 @@ public struct DMSModule: HubModule {
     /// WP-O2: Upload reiht einen OCR-Job ein (`dms.ocr`). Produktiv an (`DMS_OCR_ENABLED`, Standard true); der Initialisierer ohne Angabe lässt es aus,
     /// damit Tests und Entwicklung ohne Worker das bisherige Verhalten (Zustand `hashed` nach dem Upload) behalten.
     let enqueueOCR: Bool
+    /// WP-D5: Standard-Aufbewahrungsjahre für Dokumente ohne Typfrist (`DMS_DEFAULT_RETENTION_YEARS`, Standard 10, 0 = keine Frist). Konfiguration, keine rechtliche Zusage.
+    let defaultRetentionYears: Int
 
     /// Standard: Objektspeicher aus der Umgebung (`OBJECT_STORE*`), Upload-Limit `DMS_MAX_UPLOAD_BYTES` (Standard 100 MiB).
-    public init(objectStore: ObjectStoreConfig? = nil, maxUploadBytes: Int64? = nil, tenantQuotaBytes: Int64? = nil, enqueueOCR: Bool = false, environment: [String: String] = ProcessInfo.processInfo.environment) {
+    public init(objectStore: ObjectStoreConfig? = nil, maxUploadBytes: Int64? = nil, tenantQuotaBytes: Int64? = nil, enqueueOCR: Bool = false, defaultRetentionYears: Int? = nil, environment: [String: String] = ProcessInfo.processInfo.environment) {
         if let objectStore { self.objectStore = .success(objectStore) } else {
             do { self.objectStore = .success(try ObjectStoreConfig.fromEnvironment(environment)) }
             catch let e as ConfigError { self.objectStore = .failure(e) }
             catch { self.objectStore = .failure(ConfigError(description: "OBJECT_STORE ungültig")) }
         }
         self.enqueueOCR = enqueueOCR
+        self.defaultRetentionYears = defaultRetentionYears ?? DMSRetention.defaultYears(environment)
         self.tenantQuotaBytes = tenantQuotaBytes ?? environment["DMS_TENANT_QUOTA_BYTES"].flatMap(Int64.init).flatMap { $0 > 0 ? $0 : nil } ?? 1024 * 1024 * 1024 * 1024
         self.maxUploadBytes = maxUploadBytes ?? environment["DMS_MAX_UPLOAD_BYTES"].flatMap(Int64.init).flatMap { $0 > 0 ? $0 : nil } ?? 100 * 1024 * 1024
     }
@@ -36,10 +39,15 @@ public struct DMSModule: HubModule {
          PermissionDefinition("dms.document.trash", roles: [.accountant]),
          PermissionDefinition("dms.document.download_original", roles: [.accountant, .member, .taxAdvisor]),
          PermissionDefinition("dms.tag.manage", roles: [.accountant]),
-         PermissionDefinition("dms.master.manage", roles: [.accountant])]
+         PermissionDefinition("dms.master.manage", roles: [.accountant]),
+         // WP-D5: endgültiges Löschen nur Owner (Standardrollen MODUL-DMS 3); Frist/Sperre und Prüfung: Buchhaltung; Export auch Steuerberater (Prüfzugriff)
+         PermissionDefinition("dms.document.purge"),
+         PermissionDefinition("dms.document.retention", roles: [.accountant]),
+         PermissionDefinition("dms.integrity.run", roles: [.accountant]),
+         PermissionDefinition("dms.export.run", roles: [.accountant, .taxAdvisor])]
     }
 
-    public var migrations: [any Migration] { [CreateDMSCore(), CreateDMSIngest(), CreateDMSSearch(), CreateDMSOCR()] }
+    public var migrations: [any Migration] { [CreateDMSCore(), CreateDMSIngest(), CreateDMSSearch(), CreateDMSOCR(), CreateDMSRevision()] }
     public var navigation: [NavigationItem] { [NavigationItem(key: "dms", labelKey: "nav.dms", path: "/dms", permission: "dms.document.read")] }
 
     func makeStore(_ req: Request) throws -> any ObjectStore {
@@ -132,6 +140,54 @@ public struct DMSModule: HubModule {
         // Suche (WP-S1, ADR 0005)
         routes.on(.GET, "search", permission: "dms.document.read") { req in
             try dmsJSON(try await DMSSearch.run(try DMSSearch.parse(req, tenant: try req.requireTenant().tenantID), on: req.db))
+        }
+
+        // Revisionssicherheit (WP-D5): Aufbewahrung, Löschsperre, endgültiges Löschen, Prüfläufe, Export
+        let years = defaultRetentionYears
+        routes.on(.GET, "documents", ":document", "retention", permission: "dms.document.read") { req in
+            try dmsJSON(try await DMSRetention.get(try dmsDocumentID(req), tenant: try req.requireTenant().tenantID, defaultYears: years, on: try sql(req.db)))
+        }
+        routes.on(.PATCH, "documents", ":document", "retention", permission: "dms.document.retention") { req in
+            let body = try req.content.decode(DMSRetentionBody.self)
+            return try dmsJSON(try await DMSRetention.update(try dmsDocumentID(req), body: body, tenant: try req.requireTenant().tenantID, actor: try req.requireAuth().user.id,
+                                                          requestID: req.requestId, defaultYears: years, on: req.db))
+        }
+        routes.on(.POST, "documents", ":document", "purge", permission: "dms.document.purge") { req in
+            try dmsJSON(try await DMSPurge.purge(try dmsDocumentID(req), tenant: try req.requireTenant().tenantID, actor: try req.requireAuth().user.id, requestID: req.requestId,
+                                              defaultYears: years, config: try module.objectStore.get(), db: req.db, logger: req.logger))
+        }
+        routes.on(.GET, "deletion-log", permission: "dms.document.trash") { req in
+            try dmsJSON(["items": try await DMSRetention.log(tenant: try req.requireTenant().tenantID, on: try sql(req.db))])
+        }
+        routes.on(.POST, "integrity-runs", permission: "dms.integrity.run") { req in
+            try dmsJSON(try await DMSIntegrity.enqueue(tenant: try req.requireTenant().tenantID, actor: try req.requireAuth().user.id, requestID: req.requestId, on: req.db), status: .accepted)
+        }
+        routes.on(.GET, "integrity-runs", permission: "dms.integrity.run") { req in
+            try dmsJSON(["items": try await DMSIntegrity.list(tenant: try req.requireTenant().tenantID, on: try sql(req.db))])
+        }
+        routes.on(.GET, "integrity-runs", ":run", permission: "dms.integrity.run") { req in
+            guard let id = req.parameters.get("run", as: UUID.self), let out = try await DMSIntegrity.load(id, tenant: try req.requireTenant().tenantID, on: try sql(req.db)) else { throw DMSError.notFound }
+            return try dmsJSON(out)
+        }
+        routes.on(.POST, "exports", permission: "dms.export.run") { req in
+            let body = (try? req.content.decode(DMSExportParams.self)) ?? DMSExportParams()
+            return try dmsJSON(try await DMSExport.enqueue(body, tenant: try req.requireTenant().tenantID, actor: try req.requireAuth().user.id, requestID: req.requestId, on: req.db), status: .accepted)
+        }
+        routes.on(.GET, "exports", permission: "dms.export.run") { req in
+            try dmsJSON(["items": try await DMSExport.list(tenant: try req.requireTenant().tenantID, on: try sql(req.db))])
+        }
+        routes.on(.GET, "exports", ":export", permission: "dms.export.run") { req in
+            guard let id = req.parameters.get("export", as: UUID.self), let out = try await DMSExport.load(id, tenant: try req.requireTenant().tenantID, on: try sql(req.db)) else { throw DMSError.notFound }
+            return try dmsJSON(out)
+        }
+        routes.on(.GET, "exports", ":export", "file", permission: "dms.export.run") { req in
+            let context = try req.requireTenant()
+            let s = try sql(req.db)
+            guard let id = req.parameters.get("export", as: UUID.self), let result = try await DMSExport.result(id, tenant: context.tenantID, on: s) else { throw DMSError.notFound }
+            try await AuditLog.record(AuditEvent(action: "dms.export.downloaded", actor: try req.requireAuth().user.id, tenant: context.tenantID, subjectType: "dms.export",
+                                                 subjectID: id.uuidString, requestID: req.requestId), on: s)
+            let file = DMSDocuments.StoredFile(sha256: result.sha256, size: result.size, mime: "application/zip", originalName: nil, title: "dms-export-\(id.uuidString.lowercased().prefix(8))")
+            return try await DMSDownload.response(file: file, tenant: context.tenantID, store: try module.makeStore(req), inline: false)
         }
 
         // Stammdaten: Lesen mit dms.document.read, Ändern mit dms.tag.manage bzw. dms.master.manage
