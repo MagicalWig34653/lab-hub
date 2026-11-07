@@ -31,3 +31,14 @@ grep -rlE "Permission to use, copy, modify" $D | wc -l
 | `apple/swift-crypto` | Bereich `3.8.1..<5.0.0`, aufgelöst 4.5.2 (vorher transitiv 5.0.3) | Apache-2.0 | Direkte Abhängigkeit (SHA-256, Tests: P-256); webauthn-swift verlangt `<5.0.0`, daher Rückstufung von 5.0.3. |
 
 Schluss BoringSSL: Der Befund ist **nicht erledigt**. Rückfalloption (1) aus F-03 („neuere `swift-nio-ssl`-Version“) entfällt, weil 2.37.5 bereits die neueste Version ist. Offen bleiben (2) TLS nur am Reverse Proxy und BoringSSL-freier Build (Machbarkeit zu verifizieren; Vapor/NIO ziehen `swift-nio-ssl` transitiv) und (3) AGPL-§7-Zusatzerlaubnis der Urheber mit juristischer Prüfung. Entscheidung durch den Nutzer; bis dahin keine Aussage in Doku/Releases, dass der Befund erledigt ist.
+
+## Neue Abhängigkeiten WP-F1 (PWA, `pwa/package-lock.json`, geprüft anhand der Lizenzangaben im Lockfile, keine Rechtsberatung)
+
+Direkte Abhängigkeiten (alle `devDependencies`, weil das Bundle statisch gebaut wird; ins Bundle gelangen nur Svelte-Laufzeit, bits-ui, clsx, tailwind-merge, tailwind-variants, lucide-Icons und die Inter-Schrift): `@sveltejs/kit`, `@sveltejs/adapter-static`, `@sveltejs/vite-plugin-svelte`, `svelte`, `svelte-check`, `vite`, `vitest`, `jsdom`, `tailwindcss`, `@tailwindcss/vite`, `tw-animate-css`, `tailwind-variants`, `tailwind-merge`, `clsx`, `bits-ui`, `shadcn-svelte` (CLI), `@testing-library/svelte`, `@testing-library/jest-dom`, `@types/node`, `openapi-typescript`: MIT. `@lucide/svelte`: ISC. `@playwright/test`, `typescript` (5.9, weil `openapi-typescript` 7 TypeScript ^5 verlangt): Apache-2.0. Die shadcn-svelte-Komponenten unter `src/lib/components/ui` sind MIT (`pwa/SHADCN-LICENSE.md`).
+
+Lizenzverteilung im Lockfile (alle 241 Pakete, auch transitiv): MIT 197, Apache-2.0 13, ISC 6, BSD-2/3-Clause 4, MIT-0 2, 0BSD 1, CC0-1.0 1, BlueOak-1.0.0 1, (MIT OR CC0-1.0) 1; außerhalb der Vorgabe MIT/Apache/ISC/BSD:
+- `@fontsource-variable/inter` 5.3.0: **OFL-1.1** (Schriftdateien der Inter-Schrift, wird mit ausgeliefert). OFL ist für eingebettete Schriften üblich und mit AGPL-Auslieferung des Programms vereinbar, der Schriftname bleibt unverändert; **Bestätigung durch den Nutzer offen** (Alternative: Systemschrift ohne Fontsource).
+- `lightningcss` (+ 11 Plattformpakete) 1.x: **MPL-2.0**, transitiv von `tailwindcss`/`@tailwindcss/vite`, nur Build-Zeit, nicht im Bundle. Unverändert verwendet; Bestätigung offen.
+- `argparse` (Python-2.0, nur Build-Zeit), `svelte-toolbelt` (Lockfile ohne Lizenzfeld; `LICENSE` im Paket ist MIT).
+
+`npm run build` schreibt eine Lizenzliste aller gesperrten Pakete nach `pwa/build/licenses.json` (`scripts/generate-licenses.mjs`); das vollständige Inventar und die SBOM folgen mit WP-H1.

@@ -1,6 +1,6 @@
 # Frontend (PWA) – Entwurf
 
-Status: Entwurf, Stand 01.11.2026. Entscheidung Stack: ADR 0002 (entschieden) und ADR 0007 (Details, vorgeschlagen). `pwa/` enthält noch keinen Code. Vorbild: `timetrack-pwa` (Nachbar-Checkout `../timetrack-pwa`) (gelesen: `package.json`, `AGENTS.md`, `vite.config.ts`, `components.json`, `playwright*.ts`, `src/`-Struktur, `src/lib/modules/map.ts`, `src/lib/i18n/index.ts`, `src/routes/(app)/+layout.ts`, `src/service-worker.ts`). Nicht gelesen: Komponentenquellen im Detail.
+Status: Entwurf, Stand 01.11.2026. Entscheidung Stack: ADR 0002 (entschieden) und ADR 0007 (Details, vorgeschlagen). `pwa/` enthält seit WP-F1 das Gerüst (Login/Passkey, Guard, API-Client, i18n, Mock-Backend). Vorbild: `timetrack-pwa` (Nachbar-Checkout `../timetrack-pwa`) (gelesen: `package.json`, `AGENTS.md`, `vite.config.ts`, `components.json`, `playwright*.ts`, `src/`-Struktur, `src/lib/modules/map.ts`, `src/lib/i18n/index.ts`, `src/routes/(app)/+layout.ts`, `src/service-worker.ts`). Nicht gelesen: Komponentenquellen im Detail.
 
 ## 1. Ziele
 
@@ -141,7 +141,14 @@ WCAG 2.2 AA als Ziel (Annahme): Tastaturbedienung aller Funktionen, sichtbarer F
 | PWA | Playwright mit Service Worker | Installierbarkeit, Offline-Shell, Update |
 | Typen | `svelte-check`, `tsc` | `npm run check` |
 
-Befehle (Ziel, mit WP-F1 festschreiben): `npm run dev`, `dev:mock`, `check`, `test`, `test:e2e`, `test:e2e:mock`, `test:e2e:pwa`, `build`.
+Befehle (festgeschrieben mit WP-F1, alle im Verzeichnis `pwa/`; `test:e2e:pwa` folgt mit WP-F3):
+- Installation: `npm ci`
+- Prüfung: `npm run check` (svelte-check plus Aktualität von `src/lib/api/types.ts`), `npm test` (Vitest)
+- Build: `npm run build` (Ausgabe `pwa/build/`)
+- Entwicklung: `npm run dev` (Proxy `/api` auf `BACKEND_URL`, Standard `http://127.0.0.1:8080`), `npm run dev:mock` (Mock-API im Vite-Server)
+- Vertragstypen neu erzeugen: `npm run gen:api`
+- E2E gegen Mock-Backend: `npm run test:e2e:mock` (baut und startet `mock/server.ts` auf `localhost:4173`)
+- E2E gegen echtes Backend: `E2E_BACKEND_URL=http://127.0.0.1:<port> E2E_SETUP_TOKEN=<token> npm run test:e2e` (frische Datenbank, Backend mit `SETUP_TOKEN`, `PUBLIC_URL=http://localhost:5173`, `WEBAUTHN_RP_ID=localhost`)
 
 ## 12. Build und Auslieferung
 

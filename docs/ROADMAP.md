@@ -24,7 +24,7 @@ Ausgangsstand (vorhanden, getestet laut `deploy/README.md`/Tests): `migrate`, `s
 | | O2 | OCR-Worker, Textspeicherung, Archivversion | O1 | L | P S1 (Teil) | offen |
 | | S1 | DMS-Suche (tsvector, pg_trgm, Filter) | D2 (O2 für OCR-Text) | M | P F1 | offen |
 | | S2 | Globale Suche im Kern | S1, K3 | M | P F2 | offen |
-| 3 PWA | F1 | PWA-Gerüst, Login, Shell | K1, K4 | M | P D2, S1 | offen |
+| 3 PWA | F1 | PWA-Gerüst, Login, Shell | K1, K4 | M | P D2, S1 | erledigt (Branch wp-F1, Handoff docs/handoff/WP-F1.md) |
 | | F2 | Modul-Navigation, Mandantenwechsel, Einstellungen | F1, K3 | M | P S2 | offen |
 | | F3 | Service Worker, Offline-Shell, Update | F1 | M | P F2, F4 | offen |
 | | F4 | DMS-UI: Upload, Liste, Detail, Suche | F2, D2, S1 | L | P F3 | offen |
@@ -98,6 +98,8 @@ Grundsatz: Hub ohne Swift-App nutzbar (`AGENTS.md`); die Rechnungsphase ist dahe
 ## Phase 3 – PWA und DMS-UI
 
 **WP-F1 PWA-Gerüst (M).** `FRONTEND.md` Abschnitte 2, 3, 5, 12: Projekt anlegen, shadcn-Basis, Login/Passkey, Guard, API-Client, i18n de/en, Mock-Backend, Build ins Backend-Image. Akzeptanz: AK-F1-1 `npm run check`/`test` grün; F1-2 E2E: Einladung → Passkey → Dashboard gegen echtes Backend; F1-3 `npm run build` erzeugt statisches Bundle, Backend liefert `/` und Deep-Link-Fallback; F1-4 i18n-Vollständigkeitstest. Abh.: K1, K4.
+
+*Status WP-F1: AK-F1-1…4 umgesetzt und getestet (Branch wp-F1); Backend-Auslieferung und Dockerfile-Stufe sind nur als Vorschlag im Handoff, siehe `docs/handoff/WP-F1.md`.*
 
 **WP-F2 Modulnavigation (M).** AK-F2-1…3 (`FRONTEND.md` 4), Mandantenwechsel, Einstellungsseiten (Profil, Passkeys, Sitzungen, Module). Abh.: F1, K3.
 

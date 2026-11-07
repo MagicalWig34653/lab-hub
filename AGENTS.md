@@ -45,7 +45,7 @@ swift run --scratch-path "$LH_SCRATCH" App serve     # /health, /ready
 
 - `timetrack-backend` braucht `--build-system native` wegen Codesign-Xattrs (`../timetrack-backend/EINRICHTUNG.md`). Für den Hub zu verifizieren; tritt der Fehler auf, Flag hier eintragen.
 - Datenbankzugang nur über Umgebung (`DB_HOST`, `DB_PASSWORD(_FILE)` …, siehe `deploy/README.md`). Tests ohne Datenbank dürfen Datenbank-Tests überspringen, müssen das aber ausgeben.
-- PWA (ab WP-F1): `cd pwa && npm ci && npm run check && npm test`, E2E `npm run test:e2e`. Befehle werden mit WP-F1 festgeschrieben, bis dahin nicht behaupten.
+- PWA (WP-F1): `cd pwa && npm ci && npm run check && npm test && npm run build`; E2E gegen Mock-Backend `npm run test:e2e:mock`, gegen echtes Backend `npm run test:e2e` (Umgebung siehe `docs/FRONTEND.md` Abschnitt 11).
 - Nur Befehle als „ausgeführt“ melden, die wirklich liefen. Nicht ausgeführte Prüfungen im Übergabevermerk als offen führen.
 
 ## 4. Stateless-Regeln (ADR 0003, verbindlich)

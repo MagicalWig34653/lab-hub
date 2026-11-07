@@ -1,0 +1,21 @@
+{
+	"extends": "$app/tsconfig",
+	"compilerOptions": {
+		"strict": true,
+		"paths": {
+			"#lib": ["./src/lib/index.ts"],
+			"#lib/*": ["./src/lib/*"]
+		}
+	},
+	"include": [
+		"src",
+		"mock",
+		"e2e",
+		"e2e-mock",
+		"vite.config.ts",
+		"vitest-setup.ts",
+		"playwright.config.ts",
+		"playwright.mock.config.ts"
+	],
+	"exclude": ["src/service-worker", "src/service-worker.ts"]
+}
