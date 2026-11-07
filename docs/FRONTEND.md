@@ -119,6 +119,15 @@ Vorbild `src/service-worker.ts` (Precache aus `$app/manifest` + static, Cache-fi
 
 Eigenes Konzept; Seiten: Eingang/Prüfen (Warteschlange mit Fehlern und Vorschlägen: annehmen/ablehnen per Tastatur), Dokumente (Liste + Facetten + Suche, Vorschau rechts), Dokument-Detail (Metadaten, Text, Verknüpfungen, Verlauf/Audit), Upload (Drag&Drop, Kamera/Scan auf Mobilgeräten), Stammdaten (Typen, Tags mit Gruppen und Merge, Pfade, Felder), Regeln (Trockenlauf), Quellen, Papierkorb, Export. Details und Akzeptanz: `MODUL-DMS.md`; UI-Akzeptanz je WP in `ROADMAP.md`.
 
+**Umsetzung WP-F4 (Stand 07.11.2026):** Routen `/dms` (Upload, Suche, Filter, Liste) und `/dms/[id]` (Vorschau, Metadaten, Aktionen); Code in `lib/modules-impl/dms/` (`DmsBrowser`, `DocumentDetail`, `UploadPanel`, `upload.svelte.ts` Warteschlange, `snippet.ts`, `masters.ts`), Texte im Manifest (`dms.*`, Test `messages.test.ts` prüft de/en und ungenutzte Schlüssel). Festlegungen:
+- **Zustand in der URL** (`q`, `type`, `corr`, `tags`, `from`, `to`, `trash`): Neuladen, Zurück-Taste, Lesezeichen. Mit Suchbegriff läuft `GET …/dms/search` (Facetten, Datum, mehrere Tags, Snippets), ohne Suchbegriff `GET …/dms/documents` (nur Typ, Korrespondent, ein Tag, Papierkorb; der Vertrag kennt dort weder Datum noch Facetten). Cursor-Pagination mit „Mehr laden“ (25 je Seite).
+- **Snippet:** `parseSnippet` zerlegt an U+E000/U+E001 in Textteile; Treffer erscheinen als `<mark>{text}</mark>`, nie als HTML (Test mit eingeschleustem `<script>`).
+- **Upload:** ein Aufruf je Datei (Roh-Body, `Idempotency-Key` je Datei, bei „Erneut versuchen“ derselbe Schlüssel), XHR wegen Fortschritt, zwei parallel. Zustände: wartet, lädt, verarbeitet, fertig, Duplikat (`duplicates` der Antwort, Link auf das vorhandene Dokument), Quarantäne, Fehler (415 nicht unterstützt, 413 zu groß, sonst übersetzter Fehlertext).
+- **Vorschau und Auslieferung:** Datei per `fetch` (Cookie) als Blob, Anzeige als `<img>` bzw. `<iframe>` mit `blob:`-URL (die Download-Route sendet CSP `sandbox` und `nosniff`; ein direkter Frame auf die Route würde im Chrome-PDF-Viewer scheitern). Vorschauquelle: Archivversion, sonst Original nur mit `dms.document.download_original`, sonst Thumbnail. Download-Link nur mit diesem Recht. **Für eine spätere Content-Security-Policy der PWA nötig:** `img-src blob:`, `frame-src blob:`.
+- **Tastatur:** Liste mit Roving-Tabindex (ein Tabstopp), Pfeil auf/ab oder J/K, Home/End, Enter öffnet; „/“ springt zur Suche. Alle Aktionen sind Schaltflächen/Formularelemente.
+- **A11y:** axe (`@axe-core/playwright`, Stufen serious/critical) auf Suchergebnis, Fehlerzuständen, Detail (de/en) und Papierkorb im Mock-E2E.
+- **Mock-Erweiterungen, nicht im Vertrag:** `ingest_state`/`ingest_error_code` am Dokument (Quarantäne `failed_permanent`); das echte Backend hat dafür noch keine Route (kommt mit O2/D3). Die UI nutzt die Felder nur, wenn vorhanden.
+
 ## 9. i18n
 
 - Schlüssel englisch gepunktet (`dms.document.title`), `t(key, params)` mit `{name}`-Platzhaltern, Plural per `Intl.PluralRules` (Hilfsfunktion `tn`), Zahlen/Datum/Währung per `Intl` mit Mandanten-Locale.

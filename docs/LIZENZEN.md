@@ -42,3 +42,12 @@ Lizenzverteilung im Lockfile (alle 241 Pakete, auch transitiv): MIT 197, Apache-
 - `argparse` (Python-2.0, nur Build-Zeit), `svelte-toolbelt` (Lockfile ohne Lizenzfeld; `LICENSE` im Paket ist MIT).
 
 `npm run build` schreibt eine Lizenzliste aller gesperrten Pakete nach `pwa/build/licenses.json` (`scripts/generate-licenses.mjs`); das vollständige Inventar und die SBOM folgen mit WP-H1.
+
+## Neue Abhängigkeiten WP-F4 (PWA, 07.11.2026, keine Rechtsberatung)
+
+| Paket | Version | Lizenz | Hinweis |
+| --- | --- | --- | --- |
+| `@axe-core/playwright` (devDependency) | 4.14.0 | MPL-2.0 | Nur für die E2E-Tests (a11y), nicht im Bundle. |
+| `axe-core` (transitiv) | 4.14.0 | MPL-2.0 | Wie oben; unverändert verwendet, nicht eingebunden oder modifiziert. MPL-2.0 ist mit AGPLv3 über die Sekundärlizenz-Regel (§ 3.3) vereinbar; Bestätigung durch den Nutzer wie bei `lightningcss` offen. |
+
+Hinweis zur Installation: `npm install` ohne `--force`/`--legacy-peer-deps` scheitert im Repo an der Peer-Auflösung (`@sveltejs/kit` 3 mit `typescript` 5.9, wegen `openapi-typescript` 7); das Lockfile wurde mit `npm install -D @axe-core/playwright --force` ergänzt, `npm ci` läuft damit sauber. Dabei entfielen drei nur optional/extraneous eingetragene Pakete (nested `@sveltejs/kit` 2.x unter `bits-ui`/`svelte-toolbelt`, `@types/cookie`, `kleur`, `set-cookie-parser`).

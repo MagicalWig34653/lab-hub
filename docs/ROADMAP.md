@@ -27,7 +27,7 @@ Ausgangsstand (vorhanden, getestet laut `deploy/README.md`/Tests): `migrate`, `s
 | 3 PWA | F1 | PWA-Gerüst, Login, Shell | K1, K4 | M | P D2, S1 | erledigt (Branch wp-F1, Handoff docs/handoff/WP-F1.md) |
 | | F2 | Modul-Navigation, Mandantenwechsel, Einstellungen | F1, K3 | M | P S2 | offen |
 | | F3 | Service Worker, Offline-Shell, Update | F1 | M | P F2, F4 | offen |
-| | F4 | DMS-UI: Upload, Liste, Detail, Suche | F2, D2, S1 | L | P F3 | offen |
+| | F4 | DMS-UI: Upload, Liste, Detail, Suche | F2, D2, S1 | L | P F3 | umgesetzt (Branch wp-F4, Handoff docs/handoff/WP-F4.md) |
 | 3b DMS vertiefen | D3 | Regeln, Vorschläge, Kontakt-Matching, Duplikate | O2, S1 | L | P F4 | offen |
 | | D4 | Quellen: Mail-Ingest, Konsumordner, Share-API | O1 | L | P D3 | offen |
 | | D5 | Revisionssicherheit: Löschkonzept, Prüf-Job, Export | D2 | M | P D3, D4 | offen |
@@ -110,6 +110,8 @@ Grundsatz: Hub ohne Swift-App nutzbar (`AGENTS.md`); die Rechnungsphase ist dahe
 **WP-F3 PWA/Offline (M).** AK siehe `FRONTEND.md` Abschnitt 7; Manifest, Icons, Service Worker, Update-Hinweis. Test: Playwright-PWA-Lauf. Abh.: F1.
 
 **WP-F4 DMS-UI (L).** Upload (Dropzone, Fortschritt), Liste + Suche + Filter, Detail + Vorschau, Metadaten bearbeiten, Papierkorb. Akzeptanz: AK-F4-1 E2E Upload → Verarbeitung abgeschlossen → Treffer in Suche; F4-2 a11y (axe) ohne serious/critical; F4-3 Tastaturbedienung der Liste; F4-4 Fehlerzustände (Quarantäne, Duplikat) sichtbar. Abh.: F2, D2, S1.
+
+*Status WP-F4: AK-F4-1…4 gegen das Mock-Backend umgesetzt und getestet (Branch wp-F4), E2E gegen das echte Backend nicht gelaufen; offen: Verarbeitungs-/Quarantänestatus (Backend-Route fehlt, O2), Datumsfilter/Facetten ohne Suchbegriff, siehe `docs/handoff/WP-F4.md`.*
 
 **WP-D3 Regeln und Vorschläge (L).** `MODUL-DMS.md` 5.4, Tabellen `dms_rules`, `dms_suggestions`, `dms_duplicates`; Kontakt-Matching. Akzeptanz: AK-D5, deterministische Vorschläge, Trockenlauf, Regex-Zeitlimit-Test, Duplikat-Stufen 1–2. Abh.: O2, S1.
 

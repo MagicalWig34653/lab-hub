@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { randomUUID } from 'node:crypto';
+import { createDmsMock } from './dms.ts';
 
 /**
  * In-memory mock of the lab-hub auth API (contracts/openapi.yaml, WP-K1/K2). Test double only: it does not verify
@@ -54,7 +55,10 @@ interface MockInvitation {
 const MOCK_MODULES = [{ key: 'dms', requires: [] as string[], enhances: [] as string[], installed: true }];
 const MOCK_NAVIGATION = [{ module: 'dms', key: 'dms', label_key: 'nav.dms', path: '/dms' }];
 const ROLES = ['owner', 'accountant', 'member', 'tax_advisor', 'customer_viewer'];
+const DMS_READ = ['dms.document.read', 'dms.document.create', 'dms.document.update', 'dms.document.download_original', 'contact.contact.read'];
 const OWNER_PERMISSIONS = [
+	...DMS_READ,
+	'dms.document.trash',
 	'tenant.tenant.read',
 	'tenant.member.read',
 	'tenant.member.invite',
@@ -62,7 +66,9 @@ const OWNER_PERMISSIONS = [
 	'tenant.module.read',
 	'tenant.module.manage'
 ];
-const MEMBER_PERMISSIONS = ['tenant.tenant.read', 'tenant.member.read', 'tenant.module.read'];
+const MEMBER_PERMISSIONS = ['tenant.tenant.read', 'tenant.member.read', 'tenant.module.read', ...DMS_READ];
+/** Reader without download right: sees metadata, cannot fetch the original (AK: original download only with permission). */
+const VIEWER_PERMISSIONS = ['tenant.tenant.read', 'tenant.module.read', 'dms.document.read'];
 
 export interface MockApi {
 	handle(req: IncomingMessage, res: ServerResponse): Promise<boolean>;
@@ -90,12 +96,14 @@ export function createMockApi(): MockApi {
 	let challenges = new Map<string, { purpose: string; handle?: string; displayName?: string; inviteToken?: string }>();
 	let tenants: MockTenant[] = [];
 	let invitations = new Map<string, MockInvitation>();
+	const dms = createDmsMock();
 
 	function reset() {
 		users = [];
 		sessions = new Map();
 		challenges = new Map();
 		tenants = [];
+		dms.reset();
 		invitations = new Map([[MOCK_INVITE_TOKEN, { tenantId: null, role: 'member', used: false }]]);
 	}
 	reset();
@@ -124,7 +132,7 @@ export function createMockApi(): MockApi {
 	}
 
 	function permissionsOf(role: string): string[] {
-		return role === 'owner' ? OWNER_PERMISSIONS : role === 'customer_viewer' ? ['tenant.tenant.read', 'tenant.module.read'] : MEMBER_PERMISSIONS;
+		return role === 'owner' ? OWNER_PERMISSIONS : role === 'customer_viewer' ? VIEWER_PERMISSIONS : MEMBER_PERMISSIONS;
 	}
 
 	function require(user: MockUser, tenant: MockTenant, permission: string) {
@@ -159,12 +167,16 @@ export function createMockApi(): MockApi {
 		});
 	}
 
-	async function readBody(req: IncomingMessage): Promise<Json> {
+	async function readRaw(req: IncomingMessage): Promise<Buffer> {
 		const chunks: Buffer[] = [];
 		for await (const chunk of req) chunks.push(chunk as Buffer);
-		if (chunks.length === 0) return {};
+		return Buffer.concat(chunks);
+	}
+
+	function parseBody(raw: Buffer): Json {
+		if (raw.length === 0) return {};
 		try {
-			return JSON.parse(Buffer.concat(chunks).toString('utf8')) as Json;
+			return JSON.parse(raw.toString('utf8')) as Json;
 		} catch {
 			throw new ProblemError(400, 'bad_request', 'Ungueltige Anfrage');
 		}
@@ -272,7 +284,10 @@ export function createMockApi(): MockApi {
 	async function route(req: IncomingMessage, res: ServerResponse, path: string) {
 		const method = req.method ?? 'GET';
 		const write = method !== 'GET' && method !== 'HEAD';
-		const body = write ? await readBody(req) : {};
+		const raw = write ? await readRaw(req) : Buffer.alloc(0);
+		const isBinary = (req.headers['content-type'] ?? '').startsWith('application/octet-stream');
+		const body = write && !isBinary ? parseBody(raw) : {};
+		const query = new URL(req.url ?? '/', 'http://localhost').searchParams;
 
 		if (method === 'GET' && path === '/api/version') return send(res, 200, { server: 'mock', api: '1', schema: null });
 
@@ -446,6 +461,32 @@ export function createMockApi(): MockApi {
 				else tenant.modules.delete(parts[3]);
 				return send(res, 200, moduleState(tenant, parts[3]));
 			}
+			if (parts[2] === 'dms' || (method === 'GET' && sub === 'contacts')) {
+				if (!tenant.modules.has('dms')) throw new ProblemError(404, 'module_disabled', 'Modul nicht aktiviert');
+				const ctx = {
+					method,
+					parts: parts.slice(2),
+					query,
+					headers: req.headers,
+					json: body,
+					raw,
+					tenantId: tenant.id,
+					permissions: permissionsOf(role),
+					send: (status: number, payload?: unknown, headers?: Record<string, string>) => send(res, status, payload, headers),
+					sendRaw: (status: number, buffer: Buffer, headers: Record<string, string>) => {
+						res.writeHead(status, { 'x-request-id': randomUUID(), ...headers });
+						res.end(buffer);
+					},
+					fail: (status: number, code: string, title: string): never => {
+						throw new ProblemError(status, code, title);
+					}
+				};
+				if (sub === 'contacts') {
+					require(user, tenant, 'contact.contact.read');
+					return dms.contacts(ctx);
+				}
+				if (dms.handle(ctx)) return;
+			}
 			if (method === 'GET' && sub === 'members') {
 				require(user, tenant, 'tenant.member.read');
 				const items = [...tenant.roles].map(([id, r]) => {
@@ -497,6 +538,14 @@ export function createMockApi(): MockApi {
 		async handle(req, res) {
 			const path = (req.url ?? '').split('?')[0];
 			if (!PATH.test(path)) return false;
+			if (path === '/api/__mock/dms/seed' && req.method === 'POST') {
+				// Test helper: `count` synthetic documents in the first tenant (pagination tests).
+				const raw = await readRaw(req);
+				const { count } = JSON.parse(raw.toString('utf8') || '{}') as { count?: number };
+				dms.seed(tenants[0].id, count ?? 0);
+				send(res, 204);
+				return true;
+			}
 			if (path === '/api/__mock/reset' && req.method === 'POST') {
 				reset();
 				send(res, 204);

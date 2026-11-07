@@ -34,7 +34,7 @@ test('AK-F2-1 menu shows only active modules; owner switches a module on and off
 
 	await page.getByTestId('nav-dms').click();
 	await expect(page).toHaveURL(/\/dms$/);
-	await expect(page.getByTestId('dms-placeholder')).toBeVisible();
+	await expect(page.getByTestId('dms-search')).toBeVisible();
 	await expect(page.getByTestId('nav-dms')).toHaveAttribute('aria-current', 'page');
 
 	// The change survives a reload: it is backend state, not UI state.

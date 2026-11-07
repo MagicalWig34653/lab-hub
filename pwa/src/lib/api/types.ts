@@ -960,6 +960,30 @@ export interface paths {
         patch: operations["updateDmsCustomField"];
         trace?: never;
     };
+    "/api/v1/tenants/{tenant}/dms/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Volltextsuche ueber Dokumente (Berechtigung dms.document.read); Papierkorb ausgeschlossen
+         * @description PostgreSQL-Suche (ADR 0005): Titel, Metadaten (Korrespondent, Typ, Tags, Dateiname des Originals) und aktueller Text (deutsch/englisch, mit Wortstamm, ohne Umlautzwang).
+         *     q folgt websearch_to_tsquery: Leerzeichen = und, "Phrase", or, -Ausschluss. Ohne Operatoren greift zusaetzlich ein Tippfehler-Fallback (pg_trgm) auf Titel und Metadaten; fuzzy=false schaltet ihn ab.
+         *     Sortierung nach Relevanz (absteigend), Volltexttreffer (score >= 1) vor Tippfehler-Treffern (score < 1). Cursor-Pagination wie ueberall (der Cursor ist an dieselbe Anfrage gebunden).
+         *     Treffer im snippet stehen zwischen U+E000 und U+E001 (private Zeichen, kein HTML; der Client escaped den Text selbst).
+         *     Facetten (facets=true) zaehlen ueber die gesamte gefilterte Treffermenge, je Facette die haeufigsten 20 Werte.
+         */
+        get: operations["searchDmsDocuments"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1247,6 +1271,50 @@ export interface components {
         /** @description Felder je Ressource; name ist Pflicht beim Anlegen, bei custom-fields zusaetzlich code und data_type (string, int, decimal, date, bool, select, contact) und fuer select options. */
         DmsMasterInput: {
             [key: string]: unknown;
+        };
+        DmsSearchHit: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            /** Format: date */
+            doc_date?: string | null;
+            /** Format: uuid */
+            document_type_id?: string | null;
+            /** Format: uuid */
+            storage_path_id?: string | null;
+            /** Format: uuid */
+            correspondent_id?: string | null;
+            /** Format: int64 */
+            asn?: number | null;
+            /** @enum {string} */
+            status: "processing" | "needs_review" | "archived";
+            /** Format: date-time */
+            created_at: string;
+            /**
+             * Format: double
+             * @description Relevanz; Volltexttreffer >= 1, reine Tippfehler-Treffer < 1
+             */
+            score: number;
+            /** @description Textauszug; Treffer zwischen U+E000 und U+E001, kein HTML */
+            snippet?: string | null;
+        };
+        DmsFacetEntry: {
+            /** @description ID (document_type, tag, correspondent, storage_path) bzw. Jahr (year) */
+            value: string;
+            count: number;
+        };
+        DmsFacets: {
+            document_type?: components["schemas"]["DmsFacetEntry"][];
+            tag?: components["schemas"]["DmsFacetEntry"][];
+            correspondent?: components["schemas"]["DmsFacetEntry"][];
+            storage_path?: components["schemas"]["DmsFacetEntry"][];
+            year?: components["schemas"]["DmsFacetEntry"][];
+        };
+        DmsSearchPage: {
+            items: components["schemas"]["DmsSearchHit"][];
+            next_cursor?: string | null;
+            total?: number | null;
+            facets?: components["schemas"]["DmsFacets"];
         };
     };
     responses: {
@@ -3346,6 +3414,53 @@ export interface operations {
             403: components["responses"]["Problem"];
             404: components["responses"]["Problem"];
             409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    searchDmsDocuments: {
+        parameters: {
+            query: {
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaker Cursor aus next_cursor der vorigen Seite. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Gesamtzahl nur auf Anforderung (teuer). */
+                count?: components["parameters"]["Count"];
+                q: string;
+                /** @description false schaltet den Tippfehler-Fallback ab */
+                fuzzy?: boolean;
+                facets?: boolean;
+                document_type_id?: string;
+                storage_path_id?: string;
+                correspondent_id?: string;
+                /** @description Eine oder mehrere Tag-IDs, durch Komma getrennt (hoechstens 10); alle muessen zutreffen */
+                tag_id?: string;
+                /** @description doc_date >= (inklusive) */
+                date_from?: string;
+                /** @description doc_date <= (inklusive) */
+                date_to?: string;
+            };
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Trefferseite */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmsSearchPage"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
         };
     };

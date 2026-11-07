@@ -1,7 +1,7 @@
 import FileText from '@lucide/svelte/icons/file-text';
 import type { ModuleManifest } from '#lib/modules/manifest';
 
-/** DMS hook-in point. WP-F4 adds the real pages below `src/routes/(app)/dms/`; until then there is only a placeholder. */
+/** DMS hook-in (WP-F2 mechanism, WP-F4 pages): routes live below `src/routes/(app)/dms/`, components next to this file. */
 export const dmsManifest: ModuleManifest = {
 	key: 'dms',
 	routePrefix: '/dms',
@@ -9,13 +9,185 @@ export const dmsManifest: ModuleManifest = {
 	messages: {
 		de: {
 			'nav.dms': 'Dokumente',
-			'dms.placeholder.title': 'Dokumente',
-			'dms.placeholder.text': 'Die Dokumentenverwaltung wird hier eingehängt. Die Oberfläche folgt in einem späteren Arbeitspaket.'
+			'dms.title': 'Dokumente',
+			'dms.noPermission': 'Für die Dokumente fehlt die Berechtigung.',
+
+			'dms.upload.title': 'Hochladen',
+			'dms.upload.hint': 'Dateien hierher ziehen oder auswählen (PDF, PNG, JPEG, TIFF, WebP).',
+			'dms.upload.choose': 'Dateien auswählen',
+			'dms.upload.state.waiting': 'Wartet auf Upload …',
+			'dms.upload.state.uploading': 'Wird hochgeladen … {percent} %',
+			'dms.upload.state.processing': 'Wird verarbeitet …',
+			'dms.upload.state.done': 'Fertig.',
+			'dms.upload.state.duplicate': 'Duplikat: Ein Dokument mit identischem Inhalt existiert bereits. Die Datei wurde trotzdem gespeichert.',
+			'dms.upload.state.quarantine': 'Quarantäne: Die Verarbeitung ist dauerhaft fehlgeschlagen ({code}). Das Original bleibt erhalten.',
+			'dms.upload.error.unsupported': 'Dieser Dateityp wird nicht unterstützt. Erlaubt sind PDF, PNG, JPEG, TIFF und WebP.',
+			'dms.upload.error.tooLarge': 'Die Datei ist zu groß.',
+			'dms.upload.open': 'Öffnen',
+			'dms.upload.openExisting': 'Vorhandenes Dokument öffnen',
+			'dms.upload.retry': 'Erneut versuchen',
+			'dms.upload.dismiss': 'Entfernen',
+
+			'dms.list.title': 'Dokumentenliste',
+			'dms.list.count': '{count} Dokumente geladen',
+			'dms.list.countHits': '{count} Treffer geladen',
+			'dms.list.countTrash': '{count} Dokumente im Papierkorb geladen',
+			'dms.list.empty': 'Noch keine Dokumente. Lade die erste Datei hoch.',
+			'dms.list.noHits': 'Keine Treffer für „{query}“.',
+			'dms.list.trashEmpty': 'Der Papierkorb ist leer.',
+			'dms.list.more': 'Mehr laden',
+
+			'dms.search.label': 'Dokumente durchsuchen',
+			'dms.search.placeholder': 'Suchen in Titel und Text …',
+			'dms.search.submit': 'Suchen',
+			'dms.search.shortcuts': 'Tastatur: „/“ springt zur Suche, Pfeiltasten (oder J/K) wechseln in der Liste, Enter öffnet.',
+
+			'dms.filter.title': 'Filter',
+			'dms.filter.all': 'Alle',
+			'dms.filter.dateFrom': 'Datum von',
+			'dms.filter.dateTo': 'Datum bis',
+			'dms.filter.dateNeedsSearch': 'Datumsfilter und Facetten gibt es nur mit Suchbegriff.',
+			'dms.filter.oneTagInList': 'Ohne Suchbegriff wird nur der erste Tag berücksichtigt.',
+			'dms.filter.trash': 'Papierkorb anzeigen',
+			'dms.filter.reset': 'Filter zurücksetzen',
+			'dms.facet.type': 'Typ',
+			'dms.facet.correspondent': 'Korrespondent',
+			'dms.facet.tag': 'Tags',
+			'dms.facet.year': 'Jahr',
+
+			'dms.field.title': 'Titel',
+			'dms.field.date': 'Datum',
+			'dms.field.type': 'Dokumenttyp',
+			'dms.field.correspondent': 'Korrespondent',
+			'dms.field.tags': 'Tags',
+			'dms.field.asn': 'ASN',
+			'dms.field.status': 'Status',
+			'dms.field.received': 'Eingang',
+			'dms.field.file': 'Datei',
+			'dms.field.pages': '{count} Seiten',
+			'dms.field.sha': 'SHA-256',
+
+			'dms.status.processing': 'In Verarbeitung',
+			'dms.status.needsReview': 'Zu prüfen',
+			'dms.status.archived': 'Archiviert',
+			'dms.status.quarantine': 'Quarantäne',
+
+			'dms.detail.back': 'Zurück zur Liste',
+			'dms.detail.download': 'Original herunterladen',
+			'dms.detail.noDownload': 'Das Original kann mit deiner Rolle nicht heruntergeladen werden.',
+			'dms.detail.quarantineText': 'Die Verarbeitung ist dauerhaft fehlgeschlagen ({code}). Das Original bleibt erhalten, ist aber nicht durchsuchbar.',
+
+			'dms.preview.title': 'Vorschau',
+			'dms.preview.frame': 'Vorschau von {title}',
+			'dms.preview.none': 'Keine Vorschau verfügbar.',
+
+			'dms.edit.title': 'Metadaten',
+			'dms.edit.save': 'Speichern',
+			'dms.edit.saved': 'Gespeichert.',
+			'dms.edit.none': '– keine –',
+			'dms.edit.titleRequired': 'Der Titel darf nicht leer sein.',
+			'dms.edit.readOnly': 'Mit deiner Rolle kannst du die Metadaten nur lesen.',
+
+			'dms.actions.title': 'Aktionen',
+			'dms.actions.archive': 'Archivieren',
+			'dms.actions.archiveHint': 'Vergibt die Archivnummer (ASN) dauerhaft.',
+
+			'dms.trash.banner': 'Dieses Dokument liegt im Papierkorb.',
+			'dms.trash.reasonLabel': 'Grund',
+			'dms.trash.reasonRequired': 'Bitte gib einen Grund an.',
+			'dms.trash.action': 'In den Papierkorb',
+			'dms.trash.restore': 'Wiederherstellen'
 		},
 		en: {
 			'nav.dms': 'Documents',
-			'dms.placeholder.title': 'Documents',
-			'dms.placeholder.text': 'Document management will be mounted here. The interface follows in a later work package.'
+			'dms.title': 'Documents',
+			'dms.noPermission': 'You lack the permission to view documents.',
+
+			'dms.upload.title': 'Upload',
+			'dms.upload.hint': 'Drop files here or choose them (PDF, PNG, JPEG, TIFF, WebP).',
+			'dms.upload.choose': 'Choose files',
+			'dms.upload.state.waiting': 'Waiting to upload …',
+			'dms.upload.state.uploading': 'Uploading … {percent} %',
+			'dms.upload.state.processing': 'Processing …',
+			'dms.upload.state.done': 'Done.',
+			'dms.upload.state.duplicate': 'Duplicate: a document with identical content already exists. The file was stored anyway.',
+			'dms.upload.state.quarantine': 'Quarantine: processing failed permanently ({code}). The original is kept.',
+			'dms.upload.error.unsupported': 'This file type is not supported. Allowed: PDF, PNG, JPEG, TIFF and WebP.',
+			'dms.upload.error.tooLarge': 'The file is too large.',
+			'dms.upload.open': 'Open',
+			'dms.upload.openExisting': 'Open existing document',
+			'dms.upload.retry': 'Try again',
+			'dms.upload.dismiss': 'Remove',
+
+			'dms.list.title': 'Document list',
+			'dms.list.count': '{count} documents loaded',
+			'dms.list.countHits': '{count} hits loaded',
+			'dms.list.countTrash': '{count} documents in the trash loaded',
+			'dms.list.empty': 'No documents yet. Upload the first file.',
+			'dms.list.noHits': 'No hits for “{query}”.',
+			'dms.list.trashEmpty': 'The trash is empty.',
+			'dms.list.more': 'Load more',
+
+			'dms.search.label': 'Search documents',
+			'dms.search.placeholder': 'Search title and text …',
+			'dms.search.submit': 'Search',
+			'dms.search.shortcuts': 'Keyboard: “/” jumps to search, arrow keys (or J/K) move in the list, Enter opens.',
+
+			'dms.filter.title': 'Filters',
+			'dms.filter.all': 'All',
+			'dms.filter.dateFrom': 'Date from',
+			'dms.filter.dateTo': 'Date to',
+			'dms.filter.dateNeedsSearch': 'Date filters and facets need a search term.',
+			'dms.filter.oneTagInList': 'Without a search term only the first tag is used.',
+			'dms.filter.trash': 'Show trash',
+			'dms.filter.reset': 'Reset filters',
+			'dms.facet.type': 'Type',
+			'dms.facet.correspondent': 'Correspondent',
+			'dms.facet.tag': 'Tags',
+			'dms.facet.year': 'Year',
+
+			'dms.field.title': 'Title',
+			'dms.field.date': 'Date',
+			'dms.field.type': 'Document type',
+			'dms.field.correspondent': 'Correspondent',
+			'dms.field.tags': 'Tags',
+			'dms.field.asn': 'ASN',
+			'dms.field.status': 'Status',
+			'dms.field.received': 'Received',
+			'dms.field.file': 'File',
+			'dms.field.pages': '{count} pages',
+			'dms.field.sha': 'SHA-256',
+
+			'dms.status.processing': 'Processing',
+			'dms.status.needsReview': 'Needs review',
+			'dms.status.archived': 'Archived',
+			'dms.status.quarantine': 'Quarantine',
+
+			'dms.detail.back': 'Back to the list',
+			'dms.detail.download': 'Download original',
+			'dms.detail.noDownload': 'Your role cannot download the original.',
+			'dms.detail.quarantineText': 'Processing failed permanently ({code}). The original is kept but not searchable.',
+
+			'dms.preview.title': 'Preview',
+			'dms.preview.frame': 'Preview of {title}',
+			'dms.preview.none': 'No preview available.',
+
+			'dms.edit.title': 'Metadata',
+			'dms.edit.save': 'Save',
+			'dms.edit.saved': 'Saved.',
+			'dms.edit.none': '– none –',
+			'dms.edit.titleRequired': 'The title must not be empty.',
+			'dms.edit.readOnly': 'Your role can only read the metadata.',
+
+			'dms.actions.title': 'Actions',
+			'dms.actions.archive': 'Archive',
+			'dms.actions.archiveHint': 'Assigns the archive serial number (ASN) permanently.',
+
+			'dms.trash.banner': 'This document is in the trash.',
+			'dms.trash.reasonLabel': 'Reason',
+			'dms.trash.reasonRequired': 'Please enter a reason.',
+			'dms.trash.action': 'Move to trash',
+			'dms.trash.restore': 'Restore'
 		}
 	}
 };
