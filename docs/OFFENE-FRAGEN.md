@@ -43,6 +43,9 @@ Priorität: **A** blockiert bald einen Meilenstein, **B** vor dem betroffenen WP
 - 28.10.2026 ADR 0001 PostgreSQL; ADR 0002 Stack/Betrieb/Lizenz AGPL-3.0-only; ADR 0003 stateless/Swarm (Nutzer).
 - 01.11.2026 (Nutzer): Der Hub muss ohne Swift-App vollständig nutzbar sein; alles, was die Apps können, ist in Backend + PWA abzubilden. Swift-Apps sind optionale Clients mit Offline-/Eigenständigkeit. (Folge: F-08, F-27 neu bewertet, F-31.)
 - Nummernvergabe in Taxlab: Finalisieren nur online, zentraler atomarer Zähler (Nutzer, taxlab `NUMMERNVERGABE.md`, Revision 18.10.2026); gilt für Hub-Modus.
+- 07.11.2026 (Nutzer): Annahmen aus K1, K2, K3, K5, D2, F1 bestätigt: `users.is_operator` statt `is_admin` (Spalte `is_admin` entfällt später per Contract-Migration), Betreiberschalter als Tabelle mit Admin-API, Kontakt-Merge nur Owner/Accountant, `member` darf Original laden, Papierkorb nur Accountant/Owner (`dms.master.manage`), F-14 (Swift-Targets) spätestens vor dem zweiten Modul, Lizenzen Inter (OFL-1.1) und lightningcss (MPL-2.0, Build-Zeit) akzeptiert.
+- 07.11.2026 (Nutzer): F-27 entschieden: Neuimplementierung des Rechenkerns im Hub gegen die gemeinsamen Testvektoren (`backend/Tests/Fixtures/taxlab-vectors/`), kein Eingriff ins taxlab-Repo; gemeinsames Paket später möglich.
+- 07.11.2026 (Nutzer): F-03 vorerst zurückgestellt: Repo bleibt privat, keine Weitergabe von Images, auf neue `swift-nio-ssl`-Version warten und Befund dann in WP-K0/H1 erneut prüfen.
 
 ## Vorschläge, die Zustimmung brauchen (ADRs im Status „vorgeschlagen“)
 
