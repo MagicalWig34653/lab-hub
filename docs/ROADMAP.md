@@ -50,6 +50,7 @@ Ausgangsstand (vorhanden, getestet laut `deploy/README.md`/Tests): `migrate`, `s
 | | H3 | Datenschutz: Export/Löschung je Kontakt/Mandant | K5, D5 | M | | offen |
 | | H4 | Update-/Swarm-Test real (Repliken, Rolling, Rollback) | K3, O2 | M | | offen |
 | | H5 | Last-/Skalierungstest (Suche, OCR-Backlog) | S1, O2 | M | | offen |
+| | H6 | Befunde Security-Review 07.11.2026 (Quota/Waisen-Blobs, merged_into-Prüfung, Idempotency-Hash bei Streams, Rate-Limit hinter Proxy, Audit-Trigger-Rechte) | O1, S1 | S | | offen |
 
 Grundsatz: Hub ohne Swift-App nutzbar (`AGENTS.md`); die Rechnungsphase ist daher kein optionaler Anhang, sondern gleichwertig. Kritische Pfade: **DMS** K0 → K1 → K2 → K3 → D2 → O1 → O2 → S1 → F4; **Rechnung** R0 (Linux-Rechenkern) → R1 → R2 → R6a/R6 (Renderer) → F6 → F7; beide laufen nach K3 parallel (getrennter Dateibesitz). Früh parallel starten: K4, D1, K6, R0, H1, F1 (sobald K1/K4).
 
@@ -164,3 +165,7 @@ Grundsatz: Hub ohne Swift-App nutzbar (`AGENTS.md`); die Rechnungsphase ist dahe
 ## Pflege dieser Datei
 
 Beim Start eines WP: Status auf „in Arbeit“ mit Agent/Branch. Beim Abschluss: „fertig (Commit)“, Übergabevermerk (Stand, ausgeführte Tests, offene Punkte, nächster Schritt) direkt unter dem WP. Neue WPs mit Nummer fortlaufend je Präfix ergänzen, nie umnummerieren.
+
+## Security-Review 07.11.2026 (WP-H6)
+
+Statischer Review (Skill `security-audit`) von K1, K2, K3, K4, K5, D1, D2: keine kritischen, hohen oder mittleren Befunde, alle WPs pass. Offene Punkte für WP-H6: (1) D2 Upload: Mandanten-Quota, Idempotency-Key vor `store.put` reservieren oder GC für unreferenzierte Blobs (`DMSUpload.swift`); (2) K5/D2: `ContactService.exists` um `merged_into IS NULL` ergänzen, damit nach einem Merge keine Links auf den Quellkontakt entstehen; (3) K4: Idempotency-Middleware hasht bei Stream-Routen den Body nicht, vor Einsatz auf Stream-Routen Inhalts-Hash ergänzen; (4) K1: Rate-Limit nutzt `remoteAddress`, Trusted-Proxy-Konfiguration fehlt; (5) K1: DB-Rolle darf Audit-Trigger evtl. deaktivieren (Rollenverteilung/REVOKE im Betrieb klären). Kein Review der PWA (F1).
