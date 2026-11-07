@@ -1,0 +1,29 @@
+# Übergabe WP-S1 (DMS-Suche)
+
+Stand 07.11.2026, Branch `wp-S1` (aufgesetzt auf `main` mit WP-D2, Commit d356350). Gate: `scripts/ci.sh` mit `TEST_DB_NAME=labhub_s1`, Ergebnis im Abschnitt Tests. Test und Implementierung entstanden in derselben Session (kein separat belegter Rot-Lauf; der erste Lauf scheiterte allerdings an echten Fehlern, siehe unten). Kein Reviewer-Lauf; empfohlen (Schwerpunkte: Mandanten-/Papierkorbfilter in `DMSSearch.hitsSQL`, Trigger auf `links`/`contacts`, SQL-Komposition).
+
+## Umgesetzt
+- Route `GET /api/v1/tenants/{tenant}/dms/search` (Berechtigung `dms.document.read`, Modul `dms`), im Vertrag (`contracts/openapi.yaml`: Pfad vor `components`, Schemas `DmsSearch*`/`DmsFacet*` am Ende). Parameter: `q` (Pflicht, 1…200 Zeichen), `limit`/`cursor`/`count` (K4), `fuzzy` (Standard true), `facets`, `document_type_id`, `storage_path_id`, `correspondent_id`, `tag_id` (kommagetrennt, alle müssen zutreffen), `date_from`/`date_to` (`doc_date`, inklusive). Antwort: `items` (id, title, doc_date, Typ/Pfad/Korrespondent, asn, status, created_at, `score`, `snippet`), `next_cursor`, `total`, `facets` (document_type, tag, correspondent, storage_path, year; je Top 20 mit `value`/`count`).
+- Migration `dms_018_search` (`DMSSearchMigration.swift`, in der Modulliste in `DMSModule.migrations` eine Zeile geändert; Revert vorhanden und getestet; `schema_version` unverändert). Extensions `pg_trgm` und `unaccent` per `CREATE EXTENSION IF NOT EXISTS` (beide „trusted“, Postgres 17 Image enthält sie; ein Datenbanknutzer ohne Besitzrecht an der Datenbank müsste sie vorab anlegen lassen). Tabelle `dms_document_texts` (Revisionen, zusammengesetzter Mandanten-Fremdschlüssel, `lang` de/en, höchste `version` gilt), Spalten `meta_text`, `body_tsv`, `search_tsv` (generiert), `trgm_src` (generiert) auf `dms_documents`, zwei GIN-Indizes, Suchkonfigurationen `dms_german`/`dms_english` (mit `unaccent`), Trigger (Text -> `body_tsv`; Tags, Original-Dateiname, Typ, Korrespondent-Link, Umbenennung von Kontakt/Tag/Typ -> `meta_text`). Kein Zustand in der Instanz; alle Instanzen lesen denselben Index.
+- `Modules/DMS/Search/DMSSearch.swift`: Parameter, SQL (Treffermenge `hits` = Mandant + Papierkorb + Treffertest + Filter in einem Statement, Seite per Keyset `(score DESC, id)`, Cursor = Standard-Cursor mit Score als Text), Facetten über die gesamte Treffermenge, Snippet per `ts_headline` nur für die Seite (Treffer zwischen U+E000 und U+E001, kein HTML). `DMSTexts.add` für O2 (neue Textrevision).
+- Ranking: Volltexttreffer (Score `1 + ts_rank_cd`, Gewichte Titel > Metadaten > Text) vor Tippfehler-Treffern (`word_similarity`, Schwelle 0,35, Score < 1). Operatoren (Phrase, `-`, `or`) schalten den Tippfehler-Fallback ab.
+- Geändert in bestehenden Tests (nicht abgeschwächt): `DMSTests` (Rechtematrix kennt die neue Route `GET search` samt `?q=probe`), `AuthTestSupport` (`dms_document_texts` in der Tabellenliste), `ObjectStoreTests` (`CreateDMSSearch` in der Rücknahmeliste vor `CreateDMSCore`).
+- Entscheidungen und Abweichungen vom Dokument: ADR 0005, Abschnitt „Umsetzung WP-S1 und Messwerte“ (Index auf dem Dokument, nicht auf dem Text; eigene Konfigurationen; Trigram nur Titel/Metadaten).
+
+## Tests (`Tests/HubKitTests/Modules/DMSSearchTests.swift`)
+AK-S1-1 (Wortstamm de/en, Umlaut, Komposita-Grenze dokumentiert), AK-S1-2 (Tippfehler Titel/Korrespondent/Tag/Typ/Dateiname, Nachführung bei Umbenennung/Tag-Entfernen/Titeländerung), AK-S1-3 (Phrase, `or`, `-`, Ausschluss über Text und Titel), AK-S1-4 (alle Filter einzeln und kombiniert, ungültige Filter, Facetten über die ganze Treffermenge), AK-S1-5 (fremder Mandant nichts, auch nicht per Trigram/Facette/Zähler; Rollen member/tax_advisor erlaubt, customer_viewer 403, anonym 401, Modul aus 404; Papierkorb ausgeschlossen, Restore), AK-S1-6 (Korpus), AK-S1-7 (Messlauf, standardmäßig übersprungen), dazu Trefferform/Ranking/Snippet/Cursor über zwei Instanzen, Index-Pflege über zwei Instanzen und Textrevisionen, Migration Revert/Wiederanwenden.
+Gate: siehe unten.
+
+## Messwerte
+Korpus (AK-S1-6): Recall@10 Wortstamm 1,00, Tippfehler/Titel 1,00, Precision@10 1,00; Schwellen im Test 0,9 bzw. 0,8. Antwortzeit (AK-S1-7) bei 100 000 synthetischen Dokumenten: siehe Tabelle in ADR 0005 (z. B. häufiger Wortstamm Median 227 ms, seltenes Wort 32 ms, Facetten + Zähler 1134 ms; Debug-Build, Docker-Postgres ohne Tuning, in-process). Ausgeführt: `LH_SEARCH_PERF=1 TEST_DB_NAME=labhub_s1 swift test --filter testAKS1_7` (83 s).
+
+## Offen / Annahmen
+- Text kommt erst mit O2 (OCR); bis dahin nur synthetische Testtexte. `DMSTexts.add` ist die Einstiegsstelle.
+- Rechte: es gibt nur die Rollenberechtigung der Route; Objektfreigaben (`grants`, Kundensicht) existieren noch nicht. Sie gehören in dieselbe WHERE-Klausel von `hitsSQL`.
+- Tippfehler gelten nur für Titel/Metadaten, nicht für den Volltext (OCR-Rauschen im Schlüsselwort bleibt unauffindbar). Komposita nur über den Titel-Fallback. Englisch und Deutsch werden per ODER abgefragt (kleine Fehltreffer möglich), weitere Sprachen: `lang` und Konfiguration ergänzen.
+- Facetten zählen innerhalb der gefilterten Treffermenge (kein „Drill-down gegen die eigene Facette“). Langsam bei sehr großen Treffermengen (siehe ADR); Optimierungen nicht umgesetzt.
+- Snippet-Markierungen sind private Unicode-Zeichen (U+E000/U+E001), damit kein HTML ausgeliefert wird; die PWA (F4) muss sie in eigene Markierung umsetzen.
+- Texte über 3 000 000 Zeichen werden abgelehnt (CHECK); `tsvector` hat zudem ein hartes Limit von 1 MB. O2 muss lange Texte begrenzen oder teilen.
+- Globale Suche (S2, Kern `search_documents`) nicht Teil dieses WP.
+- Die Testdatenbank `labhub_s1` enthält nach dem Messlauf bis zum nächsten Testlauf viele Zeilen (jeder Testlauf löscht die Tabellen zuerst).
+- Nächster Schritt: S2, O2 (befüllt `dms_document_texts` über `DMSTexts.add`), F4 (Such-UI gegen den Vertrag).

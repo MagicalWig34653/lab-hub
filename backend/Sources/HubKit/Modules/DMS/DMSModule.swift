@@ -32,7 +32,7 @@ public struct DMSModule: HubModule {
          PermissionDefinition("dms.master.manage", roles: [.accountant])]
     }
 
-    public var migrations: [any Migration] { [CreateDMSCore()] }
+    public var migrations: [any Migration] { [CreateDMSCore(), CreateDMSSearch()] }
     public var navigation: [NavigationItem] { [NavigationItem(key: "dms", labelKey: "nav.dms", path: "/dms", permission: "dms.document.read")] }
 
     func makeStore(_ req: Request) throws -> any ObjectStore {
@@ -108,6 +108,11 @@ public struct DMSModule: HubModule {
                                                      subjectType: "dms.document", subjectID: id.uuidString, meta: ["role": .token(role)], requestID: req.requestId), on: s)
             }
             return try await DMSDownload.response(file: file, tenant: context.tenantID, store: try module.makeStore(req), inline: disposition == "inline")
+        }
+
+        // Suche (WP-S1, ADR 0005)
+        routes.on(.GET, "search", permission: "dms.document.read") { req in
+            try dmsJSON(try await DMSSearch.run(try DMSSearch.parse(req, tenant: try req.requireTenant().tenantID), on: req.db))
         }
 
         // Stammdaten: Lesen mit dms.document.read, Ändern mit dms.tag.manage bzw. dms.master.manage

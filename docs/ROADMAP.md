@@ -22,7 +22,7 @@ Ausgangsstand (vorhanden, getestet laut `deploy/README.md`/Tests): `migrate`, `s
 | | D2 | DMS-Kern: Dokumente, Upload, Stammdaten, Papierkorb | K3, K5, D1 | L | | umgesetzt (Branch wp-D2, `docs/handoff/WP-D2.md`) |
 | 2 OCR/Suche | O1 | Job-Erweiterung, Ingest-Zustandsautomat, Worker-Befehl | D2 | M | | offen |
 | | O2 | OCR-Worker, Textspeicherung, Archivversion | O1 | L | P S1 (Teil) | offen |
-| | S1 | DMS-Suche (tsvector, pg_trgm, Filter) | D2 (O2 für OCR-Text) | M | P F1 | offen |
+| | S1 | DMS-Suche (tsvector, pg_trgm, Filter) | D2 (O2 für OCR-Text) | M | P F1 | umgesetzt (Branch wp-S1, `docs/handoff/WP-S1.md`) |
 | | S2 | Globale Suche im Kern | S1, K3 | M | P F2 | offen |
 | 3 PWA | F1 | PWA-Gerüst, Login, Shell | K1, K4 | M | P D2, S1 | erledigt (Branch wp-F1, Handoff docs/handoff/WP-F1.md) |
 | | F2 | Modul-Navigation, Mandantenwechsel, Einstellungen | F1, K3 | M | P S2 | offen |
@@ -94,6 +94,7 @@ Grundsatz: Hub ohne Swift-App nutzbar (`AGENTS.md`); die Rechnungsphase ist dahe
 **WP-O2 OCR (L).** Ziel: Job `dms.ocr` (`MODUL-DMS.md` 5.2, ADR 0006), Textextraktion, `dms_document_texts`, Archivversion, Worker-Image. Entscheidung F-07 nötig (Empfehlung Tesseract/ocrmypdf). Akzeptanz: AK-O2-1 synthetisches Scan-PDF (selbst erzeugte Bilder mit bekanntem Text) → Text enthält Soll-Wörter (Wortfehlerrate ≤ Schwelle, Schwelle im Test festlegen); O2-2 PDF mit Textschicht ohne OCR extrahiert; O2-3 Original bleibt byte-identisch; O2-4 Zeit-/Speicherlimit greift (Bombentest); O2-5 Worker schreibt nicht außerhalb `tmpfs` (Test mit read-only Root im Container); O2-6 AK-D2 (zwei Worker, genau einmal). Abh.: O1.
 
 **WP-S1 Suche (M).** `MODUL-DMS.md` Abschnitt 6, ADR 0005. Akzeptanz: AK-S1-1 Wortstamm („Rechnung“↔„Rechnungen“); S1-2 Tippfehler per Trigram; S1-3 Phrase/Operatoren (`websearch_to_tsquery`); S1-4 Filter + Facetten; S1-5 Mandant/Berechtigung je Treffer; S1-6 Qualitätskorpus (200 synthetische Texte) Recall@10-Schwelle, Ergebnis dokumentiert; S1-7 Antwortzeit bei 100 000 synthetischen Dokumenten dokumentiert (kein hartes Ziel, Messwert in ADR 0005 nachtragen). Abh.: D2. **P** F1.
+*Status WP-S1: AK-S1-1…7 umgesetzt und getestet (Branch wp-S1); Messlauf S1-7 nur mit `LH_SEARCH_PERF=1`, Messwerte in ADR 0005; offen: OCR-Text (O2), Objektfreigaben je Treffer (grants), Text-Tippfehler, siehe `docs/handoff/WP-S1.md`.*
 
 **WP-S2 Globale Suche (M).** Kern `search_documents`, `SearchIndexing`-Protokoll, Endpunkt `GET /search`. Akzeptanz: Kontakte und DMS-Dokumente in einer Trefferliste, Treffer ohne Berechtigung fehlen, deaktiviertes Modul fehlt. Abh.: S1, K3.
 

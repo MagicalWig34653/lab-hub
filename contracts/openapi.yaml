@@ -1466,6 +1466,43 @@ paths:
         "403": { $ref: "#/components/responses/Problem" }
         "404": { $ref: "#/components/responses/Problem" }
         "409": { $ref: "#/components/responses/Problem" }
+  # --- WP-S1 Suche ---
+  /api/v1/tenants/{tenant}/dms/search:
+    get:
+      operationId: searchDmsDocuments
+      summary: Volltextsuche ueber Dokumente (Berechtigung dms.document.read); Papierkorb ausgeschlossen
+      description: |
+        PostgreSQL-Suche (ADR 0005): Titel, Metadaten (Korrespondent, Typ, Tags, Dateiname des Originals) und aktueller Text (deutsch/englisch, mit Wortstamm, ohne Umlautzwang).
+        q folgt websearch_to_tsquery: Leerzeichen = und, "Phrase", or, -Ausschluss. Ohne Operatoren greift zusaetzlich ein Tippfehler-Fallback (pg_trgm) auf Titel und Metadaten; fuzzy=false schaltet ihn ab.
+        Sortierung nach Relevanz (absteigend), Volltexttreffer (score >= 1) vor Tippfehler-Treffern (score < 1). Cursor-Pagination wie ueberall (der Cursor ist an dieselbe Anfrage gebunden).
+        Treffer im snippet stehen zwischen U+E000 und U+E001 (private Zeichen, kein HTML; der Client escaped den Text selbst).
+        Facetten (facets=true) zaehlen ueber die gesamte gefilterte Treffermenge, je Facette die haeufigsten 20 Werte.
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Count" }
+        - { name: q, in: query, required: true, schema: { type: string, minLength: 1, maxLength: 200 } }
+        - { name: fuzzy, in: query, schema: { type: boolean, default: true }, description: "false schaltet den Tippfehler-Fallback ab" }
+        - { name: facets, in: query, schema: { type: boolean, default: false } }
+        - { name: document_type_id, in: query, schema: { type: string, format: uuid } }
+        - { name: storage_path_id, in: query, schema: { type: string, format: uuid } }
+        - { name: correspondent_id, in: query, schema: { type: string, format: uuid } }
+        - { name: tag_id, in: query, schema: { type: string }, description: "Eine oder mehrere Tag-IDs, durch Komma getrennt (hoechstens 10); alle muessen zutreffen" }
+        - { name: date_from, in: query, schema: { type: string, format: date }, description: "doc_date >= (inklusive)" }
+        - { name: date_to, in: query, schema: { type: string, format: date }, description: "doc_date <= (inklusive)" }
+      responses:
+        "200":
+          description: Trefferseite
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DmsSearchPage" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
 components:
   securitySchemes:
     bearer: { type: http, scheme: bearer, description: "Sitzungstoken fuer Apps (Header X-Auth-Transport: bearer bei der Anmeldung)" }
@@ -1843,3 +1880,41 @@ components:
       type: object
       description: Felder je Ressource; name ist Pflicht beim Anlegen, bei custom-fields zusaetzlich code und data_type (string, int, decimal, date, bool, select, contact) und fuer select options.
       additionalProperties: true
+    # --- WP-S1 ---
+    DmsSearchHit:
+      type: object
+      required: [id, title, status, created_at, score]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        doc_date: { type: [string, "null"], format: date }
+        document_type_id: { type: [string, "null"], format: uuid }
+        storage_path_id: { type: [string, "null"], format: uuid }
+        correspondent_id: { type: [string, "null"], format: uuid }
+        asn: { type: [integer, "null"], format: int64 }
+        status: { type: string, enum: [processing, needs_review, archived] }
+        created_at: { type: string, format: date-time }
+        score: { type: number, format: double, description: "Relevanz; Volltexttreffer >= 1, reine Tippfehler-Treffer < 1" }
+        snippet: { type: [string, "null"], description: "Textauszug; Treffer zwischen U+E000 und U+E001, kein HTML" }
+    DmsFacetEntry:
+      type: object
+      required: [value, count]
+      properties:
+        value: { type: string, description: "ID (document_type, tag, correspondent, storage_path) bzw. Jahr (year)" }
+        count: { type: integer }
+    DmsFacets:
+      type: object
+      properties:
+        document_type: { type: array, items: { $ref: "#/components/schemas/DmsFacetEntry" } }
+        tag: { type: array, items: { $ref: "#/components/schemas/DmsFacetEntry" } }
+        correspondent: { type: array, items: { $ref: "#/components/schemas/DmsFacetEntry" } }
+        storage_path: { type: array, items: { $ref: "#/components/schemas/DmsFacetEntry" } }
+        year: { type: array, items: { $ref: "#/components/schemas/DmsFacetEntry" } }
+    DmsSearchPage:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/DmsSearchHit" } }
+        next_cursor: { type: [string, "null"] }
+        total: { type: [integer, "null"] }
+        facets: { $ref: "#/components/schemas/DmsFacets" }
