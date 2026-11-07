@@ -115,7 +115,11 @@ enum DMSDocuments {
         let archive: Bool
         let kind: DMSFileKind
         let stored: StoredObject
-        let fileID: UUID
+        let backend: ObjectStoreKind
+        /// WP-H6: Speicherquota des Mandanten in Bytes (Summe aller `files` des Mandanten, Dedup zählt einmal).
+        let quotaBytes: Int64
+        /// WP-H6: prüft unter der Blob-Sperre, dass das Objekt noch im Speicher liegt (ein paralleler, fehlgeschlagener Upload darf es nicht verworfen haben).
+        var verifyBlob: (@Sendable (any SQLDatabase) async throws -> Bool)? = nil
         /// WP-O2: Priorität des OCR-Jobs; nil = kein OCR-Job (Modul ohne Worker-Anbindung, z. B. in Tests).
         var ocrPriority: Int? = nil
     }
@@ -124,6 +128,13 @@ enum DMSDocuments {
     /// Mit `archive` wird die ASN in derselben Transaktion vergeben (Rollback gibt die Nummer zurück).
     static func create(tenant: UUID, actor: UUID, requestID: String, doc n: NewDocument, on db: any Database) async throws -> DMSDocumentOut {
         try await dmsTransaction(db) { _, s in
+            // WP-H6: erst Blob-Sperre (serialisiert gegen das Verwerfen unreferenzierter Blobs), dann Mandanten-Quota-Sperre; Reihenfolge immer so.
+            try await DMSUpload.lockBlob(tenant: tenant, sha256: n.stored.key.sha256, on: s)
+            if try await s.raw("SELECT 1 AS x FROM files WHERE tenant_id = \(bind: tenant) AND sha256 = \(bind: n.stored.key.sha256)").first() == nil {
+                try await DMSUpload.enforceQuota(tenant: tenant, adding: n.stored.size, limit: n.quotaBytes, on: s)
+            }
+            if let verify = n.verifyBlob, !(try await verify(s)) { throw HubError(.conflict, "upload_interrupted") }
+            let fileID = try await FileRecordService(s).register(n.stored, backend: n.backend, contentType: n.kind.mime)
             if let typeID = n.typeID { try await requireRef("dms_document_types", typeID, tenant: tenant, field: "document_type_id", on: s) }
             let duplicates = try await s.raw("""
                 SELECT document_id FROM dms_document_files WHERE tenant_id = \(bind: tenant) AND sha256 = \(bind: n.stored.key.sha256) AND role = 'original'
@@ -136,7 +147,7 @@ enum DMSDocuments {
             let id = try row.decode(column: "id", as: UUID.self)
             try await s.raw("""
                 INSERT INTO dms_document_files (tenant_id, document_id, role, file_id, mime, size_bytes, sha256, original_name)
-                VALUES (\(bind: tenant), \(bind: id), 'original', \(bind: n.fileID), \(bind: n.kind.mime), \(bind: n.stored.size), \(bind: n.stored.key.sha256), \(bind: n.originalName))
+                VALUES (\(bind: tenant), \(bind: id), 'original', \(bind: fileID), \(bind: n.kind.mime), \(bind: n.stored.size), \(bind: n.stored.key.sha256), \(bind: n.originalName))
                 """).run()
             var asn: Int64?
             // WP-O1: Eingangsvorgang; Upload hat Speichern und Hash synchron erledigt, weitere Schritte (OCR usw.) führen Worker aus.

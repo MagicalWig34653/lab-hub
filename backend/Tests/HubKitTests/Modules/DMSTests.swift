@@ -555,7 +555,8 @@ final class DMSTests: DMSTestBase {
         let expected: [String: HTTPStatus] = [
             "POST uploads": .created, "GET documents": .ok, "GET documents/{document}": .ok, "PATCH documents/{document}": .ok,
             "POST documents/{document}/archive": .ok, "POST documents/{document}/trash": .ok, "POST documents/{document}/restore": .ok, "GET documents/{document}/file": .ok,
-            "GET search": .ok, "GET documents/{document}/processing": .ok]
+            "GET search": .ok, "GET documents/{document}/processing": .ok,
+            "POST documents/{document}/processing/retry": .conflict]   // WP-H6: Probe-Dokument ohne Quarantäne-Vorgang -> 409 ingest_not_failed
         let masters = ["types", "tag-groups", "tags", "storage-paths", "custom-fields"]
         var expectedAll = expected
         for m in masters { expectedAll["GET \(m)"] = .ok; expectedAll["POST \(m)"] = .created; expectedAll["PATCH \(m)/{id}"] = .ok; expectedAll["DELETE \(m)/{id}"] = .noContent }

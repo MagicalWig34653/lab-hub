@@ -275,9 +275,10 @@ final class DMSSearchTests: DMSTestBase {
         XCTAssertEqual(denied.status, .forbidden); XCTAssertEqual(denied.problemCode, "forbidden")
         let anon = try await call(app1, .GET, base(w.tenantA) + "/search?q=Zugangsdaten")
         XCTAssertEqual(anon.status, .unauthorized)
-        // Pflichtparameter
+        // WP-H6: leeres q ist kein Fehler mehr, sondern „Durchsuchen“ (Details in DMSBrowseTests); Mandanten- und Papierkorbfilter gelten dort unverändert
         for q in ["", "   "] {
-            let bad = try await search(w, q); XCTAssertEqual(bad.status, .unprocessableEntity, "\(bad.json)")
+            let browse = try await search(w, q); XCTAssertEqual(browse.status, .ok, "\(browse.json)")
+            XCTAssertEqual(ids(browse), [mine], "nur Dokumente des eigenen Mandanten")
         }
         let long = try await search(w, String(repeating: "a", count: 201)); XCTAssertEqual(long.status, .unprocessableEntity)
 

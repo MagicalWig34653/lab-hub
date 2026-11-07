@@ -3,6 +3,7 @@ import Foundation
 import Crypto
 import NIOCore
 import SQLKit
+import Fluent
 
 // WP-D2: Upload-Pfad. Der Request-Body wird gestreamt (kein Vollpuffern), der Typ per Magic Bytes bestimmt (nicht per Endung oder Content-Type),
 // das Größenlimit während des Streams durchgesetzt, der SHA-256 inkrementell vom ObjectStore berechnet. F-18: Upload immer über das Backend.
@@ -112,27 +113,73 @@ enum DMSUpload {
         return h.finalize().map { String(format: "%02x", $0) }.joined()
     }
 
+    // MARK: Blob-Lebenszyklus und Quota (WP-H6)
+
+    /// Sperre je (Mandant, Hash): `create` hält sie bis zum Commit, das Verwerfen nimmt sie vor der Prüfung der `files`-Zeile.
+    static func lockBlob(tenant: UUID, sha256: String, on s: any SQLDatabase) async throws {
+        try await s.raw("SELECT pg_advisory_xact_lock(hashtextextended(\(bind: "dms-blob:\(tenant.uuidString):\(sha256)"), 0))").run()
+    }
+
+    static func usedBytes(tenant: UUID, on s: any SQLDatabase) async throws -> Int64 {
+        try await s.raw("SELECT COALESCE(sum(size_bytes), 0)::bigint AS n FROM files WHERE tenant_id = \(bind: tenant)").first()?.decode(column: "n", as: Int64.self) ?? 0
+    }
+
+    /// Serialisiert die Quota-Prüfung je Mandant (Transaktionssperre) und lehnt ab, wenn `adding` das Limit überschreitet: 413 `storage_quota_exceeded`.
+    static func enforceQuota(tenant: UUID, adding: Int64, limit: Int64, on s: any SQLDatabase) async throws {
+        try await s.raw("SELECT pg_advisory_xact_lock(hashtextextended(\(bind: "dms-quota:\(tenant.uuidString)"), 0))").run()
+        if try await usedBytes(tenant: tenant, on: s) + adding > limit { throw HubError(.payloadTooLarge, "storage_quota_exceeded") }
+    }
+
+    /// Löscht den Blob nur, wenn im Mandanten keine `files`-Zeile auf ihn zeigt (Zeilen entstehen nur zusammen mit dem Dokument, siehe `DMSDocuments.create`).
+    /// Fehler beim Aufräumen sind nicht fatal (der ursprüngliche Fehler gilt); ein übrig gebliebener Blob ist nur Speicherverbrauch, kein Datenverlust.
+    static func discardIfUnreferenced(_ key: ObjectKey, config: ObjectStoreConfig, db: any Database, logger: Logger) async {
+        do {
+            try await db.transaction { tx in
+                let s = try sql(tx)
+                try await lockBlob(tenant: key.tenantID, sha256: key.sha256, on: s)
+                if try await s.raw("SELECT 1 AS x FROM files WHERE tenant_id = \(bind: key.tenantID) AND sha256 = \(bind: key.sha256)").first() == nil {
+                    try await config.makeStore(db: s).delete(key)
+                }
+            }
+        } catch {
+            logger.warning("upload cleanup failed", metadata: ["error": .string(String(describing: type(of: error)))])
+        }
+    }
+
     /// Kompletter Upload: Strom speichern, Datei registrieren, Dokument idempotent anlegen. Antwort 201 mit dem Dokument.
     static func handle(_ req: Request, module: DMSModule) async throws -> Response {
         let context = try req.requireTenant()
         let actor = try req.requireAuth().user.id
         guard let key = req.headers.first(name: IdempotencyMiddleware.header), !key.isEmpty, key.count <= 255 else { throw HubError(.badRequest, "idempotency_key_required") }
         let params = try DMSUploadParams(req)
-        let (kind, stream) = try await open(req, limit: module.maxUploadBytes)
-        let store = try module.makeStore(req)
-        let stored = try await store.put(tenant: context.tenantID, stream: stream, expectedSHA256: nil)
+        let config = try module.objectStore.get()
+        let store = try config.makeStore(db: try sql(req.db))
         let s = try sql(req.db)
-        let fileID = try await FileRecordService(s).register(stored, backend: store.kind, contentType: kind.mime)
         let requestID = req.requestId
         let tenant = context.tenantID
         let db = req.db
-        let result = try await IdempotencyService(s).execute(tenant: tenant, key: key, requestHash: requestHash(sha256: stored.key.sha256, params: params)) {
-            let doc = try await DMSDocuments.create(
-                tenant: tenant, actor: actor, requestID: requestID,
-                doc: .init(title: params.title, docDate: params.docDate, typeID: params.typeID, originalName: params.originalName, archive: params.archive,
-                           kind: kind, stored: stored, fileID: fileID, ocrPriority: module.enqueueOCR ? DMSOCR.priorityManual : nil), on: db)
-            let encoder = JSONEncoder()
-            return StoredResponse(status: 201, body: String(decoding: try encoder.encode(doc), as: UTF8.self))
+        // WP-H6: Quota schon vor dem Lesen des Bodys prüfen, wenn die Größe bekannt ist (Endprüfung unter Sperre in `DMSDocuments.create`).
+        if let length = req.headers.first(name: .contentLength).flatMap(Int64.init) {
+            let used = try await usedBytes(tenant: tenant, on: s)
+            if used + length > module.tenantQuotaBytes { throw HubError(.payloadTooLarge, "storage_quota_exceeded") }
+        }
+        let (kind, stream) = try await open(req, limit: module.maxUploadBytes)
+        let stored = try await store.put(tenant: tenant, stream: stream, expectedSHA256: nil)
+        let result: StoredResponse
+        do {
+            result = try await IdempotencyService(s).execute(tenant: tenant, key: key, requestHash: requestHash(sha256: stored.key.sha256, params: params)) {
+                let doc = try await DMSDocuments.create(
+                    tenant: tenant, actor: actor, requestID: requestID,
+                    doc: .init(title: params.title, docDate: params.docDate, typeID: params.typeID, originalName: params.originalName, archive: params.archive,
+                               kind: kind, stored: stored, backend: store.kind, quotaBytes: module.tenantQuotaBytes,
+                               verifyBlob: { s in try await config.makeStore(db: s).exists(stored.key) }, ocrPriority: module.enqueueOCR ? DMSOCR.priorityManual : nil), on: db)
+                let encoder = JSONEncoder()
+                return StoredResponse(status: 201, body: String(decoding: try encoder.encode(doc), as: UTF8.self))
+            }
+        } catch {
+            // WP-H6: Fehler oder Key-Konflikt nach dem Speichern: den Blob verwerfen, falls ihn keine `files`-Zeile referenziert (Dedup bleibt unberührt).
+            await discardIfUnreferenced(stored.key, config: config, db: db, logger: req.logger)
+            throw error
         }
         var headers = HTTPHeaders()
         headers.contentType = .json

@@ -74,7 +74,7 @@ enum DMSSearch {
     static func parse(_ req: Request, tenant: UUID) throws -> Params {
         let raw: String = req.query["q"] ?? ""
         let q = raw.replacingOccurrences(of: "\0", with: "").trimmingCharacters(in: .whitespacesAndNewlines).precomposedStringWithCanonicalMapping
-        guard !q.isEmpty else { throw DMSError.invalid("q", "required") }
+        // WP-H6: leeres q = Durchsuchen (nach Eingang, neueste zuerst) mit allen Filtern, Facetten und Paging
         guard q.count <= maxQueryLength else { throw DMSError.invalid("q", "too_long") }
         var p = Params(tenant: tenant, q: q, page: try HubPageRequest(req))
         if let f: String = req.query["fuzzy"] {
@@ -109,13 +109,23 @@ enum DMSSearch {
     static func hitsSQL(_ p: Params) -> SQLQueryString {
         let q = p.q, plain = p.q
         let tsq: SQLQueryString = "(websearch_to_tsquery('dms_german', \(bind: q)) || websearch_to_tsquery('dms_english', \(bind: q)))"
-        var s: SQLQueryString = """
-            SELECT d.id, (CASE WHEN d.search_tsv @@ \(tsq) THEN 1 + ts_rank_cd('{0.1, 0.2, 0.4, 1.0}', d.search_tsv, \(tsq), 32)
-                               ELSE word_similarity(\(bind: plain)::text, d.trgm_src) END)::float8 AS score
-            FROM dms_documents d
-            WHERE d.tenant_id = \(bind: p.tenant) AND d.trashed_at IS NULL
-              AND (d.search_tsv @@ \(tsq) OR (\(bind: p.trigramActive)::boolean AND \(bind: plain)::text <% d.trgm_src))
-            """
+        var s: SQLQueryString
+        if p.q.isEmpty {
+            // Durchsuchen ohne Suchbegriff: Score = Eingangszeit (Sekunden seit Epoche), damit Sortierung und Cursor (Score absteigend, id) unverändert greifen
+            s = """
+                SELECT d.id, extract(epoch FROM d.created_at)::float8 AS score
+                FROM dms_documents d
+                WHERE d.tenant_id = \(bind: p.tenant) AND d.trashed_at IS NULL
+                """
+        } else {
+            s = """
+                SELECT d.id, (CASE WHEN d.search_tsv @@ \(tsq) THEN 1 + ts_rank_cd('{0.1, 0.2, 0.4, 1.0}', d.search_tsv, \(tsq), 32)
+                                   ELSE word_similarity(\(bind: plain)::text, d.trgm_src) END)::float8 AS score
+                FROM dms_documents d
+                WHERE d.tenant_id = \(bind: p.tenant) AND d.trashed_at IS NULL
+                  AND (d.search_tsv @@ \(tsq) OR (\(bind: p.trigramActive)::boolean AND \(bind: plain)::text <% d.trgm_src))
+                """
+        }
         if let id = p.typeID { s += " AND d.document_type_id = \(bind: id)" }
         if let id = p.storagePathID { s += " AND d.storage_path_id = \(bind: id)" }
         if let id = p.correspondentID {
@@ -142,6 +152,11 @@ enum DMSSearch {
             let tsq: SQLQueryString = "(websearch_to_tsquery('dms_german', \(bind: q)) || websearch_to_tsquery('dms_english', \(bind: q)))"
             let options = "StartSel=\(startMark), StopSel=\(endMark), MaxFragments=2, MaxWords=30, MinWords=12"
 
+            let snippetSQL: SQLQueryString = q.isEmpty ? "NULL::text" : """
+                COALESCE(
+                    CASE WHEN t.text IS NOT NULL THEN ts_headline((CASE t.lang WHEN 'en' THEN 'dms_english' ELSE 'dms_german' END)::regconfig, left(t.text, 100000), \(tsq), \(bind: options)::text) END,
+                    ts_headline('dms_german'::regconfig, d.title, \(tsq), \(bind: options)::text))
+                """
             var curScore: String?, curID: UUID?
             if let c = p.page.cursor {
                 guard Double(c.createdAt) != nil else { throw HubError(.badRequest, "invalid_cursor") }
@@ -156,9 +171,7 @@ enum DMSSearch {
                   (SELECT l.to_id FROM links l WHERE l.tenant_id = d.tenant_id AND l.from_type = 'dms.document' AND l.from_id = d.id AND l.to_type = 'contact'
                      AND l.kind = 'correspondent' AND l.removed_at IS NULL ORDER BY l.created_at, l.id LIMIT 1) AS correspondent_id,
                   d.asn, d.status, d.created_at, p.score, p.score::text AS score_text,
-                  COALESCE(
-                    CASE WHEN t.text IS NOT NULL THEN ts_headline((CASE t.lang WHEN 'en' THEN 'dms_english' ELSE 'dms_german' END)::regconfig, left(t.text, 100000), \(tsq), \(bind: options)::text) END,
-                    ts_headline('dms_german'::regconfig, d.title, \(tsq), \(bind: options)::text)) AS snippet
+                  \(snippetSQL) AS snippet
                 FROM page p JOIN dms_documents d ON d.id = p.id
                 LEFT JOIN LATERAL (SELECT x.lang, x.text FROM dms_document_texts x WHERE x.document_id = d.id ORDER BY x.version DESC LIMIT 1) t ON true
                 ORDER BY p.score DESC, d.id

@@ -21,6 +21,8 @@ public struct HubConfig: Sendable {
     public var webAuthnRPID: String?
     /// Einmaliges Geheimnis für den ersten Nutzer (WP-K1). Ohne Wert gibt es kein Bootstrap-Fenster.
     public var setupToken: String?
+    /// Vertraute Reverse Proxys für `X-Forwarded-For` (WP-H6, `TRUSTED_PROXIES`). Standard: keine.
+    public var trustedProxies: TrustedProxies = .none
 
     public static func value(_ name: String, _ env: [String: String]) throws -> String? {
         if let path = env[name + "_FILE"], !path.isEmpty {
@@ -48,7 +50,7 @@ public struct HubConfig: Sendable {
         default: throw ConfigError(description: "DB_TLS muss disable oder require sein")
         }
         let auto = (try value("AUTO_MIGRATE", env) ?? "false").lowercased()
-        return HubConfig(
+        var config = HubConfig(
             dbHost: host, dbPort: port,
             dbName: try value("DB_NAME", env) ?? "labhub",
             dbUser: try value("DB_USER", env) ?? "labhub",
@@ -58,5 +60,7 @@ public struct HubConfig: Sendable {
             publicURL: try value("PUBLIC_URL", env),
             webAuthnRPID: try value("WEBAUTHN_RP_ID", env),
             setupToken: try value("SETUP_TOKEN", env))
+        config.trustedProxies = try TrustedProxies.parse(try value("TRUSTED_PROXIES", env))
+        return config
     }
 }

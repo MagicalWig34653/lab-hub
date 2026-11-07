@@ -55,6 +55,38 @@ enum DMSOCR {
         return job
     }
 
+    // MARK: Manuelles Wiederholen (WP-H6)
+
+    /// Setzt den dauerhaft fehlgeschlagenen (`failed_permanent`) Eingangsvorgang des Dokuments zurück und reiht einen neuen OCR-Job ein
+    /// (alles in einer Transaktion, Audit `dms.ingest.retried`). Kein solcher Vorgang: 409 `ingest_not_failed`; Papierkorb: 409 `document_trashed`;
+    /// fremdes/unbekanntes Dokument: 404. Zwei gleichzeitige Aufrufe: genau einer wirkt (Zeilensperre), der andere erhält 409.
+    static func retryPermanent(document: UUID, tenant: UUID, actor: UUID, requestID: String, priority: Int, on db: any Database) async throws -> DMSProcessingOut {
+        try await dmsTransaction(db) { _, s in
+            guard let doc = try await s.raw("SELECT trashed_at FROM dms_documents WHERE tenant_id = \(bind: tenant) AND id = \(bind: document) FOR SHARE").first()
+            else { throw DMSError.notFound }
+            if try doc.decode(column: "trashed_at", as: Date?.self) != nil { throw DMSError.trashed }
+            guard let row = try await s.raw("""
+                SELECT id FROM dms_ingest_items WHERE tenant_id = \(bind: tenant) AND document_id = \(bind: document) AND state = 'failed_permanent'
+                ORDER BY created_at DESC, id DESC LIMIT 1
+                """).first() else { throw HubError(.conflict, "ingest_not_failed") }
+            let item = try row.decode(column: "id", as: UUID.self)
+            guard try await DMSIngest.retry(item, tenant: tenant, on: s) else { throw HubError(.conflict, "ingest_not_failed") }
+            let state = try await s.raw("SELECT state FROM dms_ingest_items WHERE tenant_id = \(bind: tenant) AND id = \(bind: item)").first()?.decode(column: "state", as: String.self)
+            var queued = false
+            if state == "ocr_queued" || state == "hashed" {
+                if state == "ocr_queued" {
+                    // der alte Job ist `failed_permanent`: zurück auf `hashed`, damit `enqueue` den Übergang vollzieht und einen neuen Job anlegt
+                    try await s.raw("UPDATE dms_ingest_items SET state = 'hashed', updated_at = now() WHERE tenant_id = \(bind: tenant) AND id = \(bind: item)").run()
+                }
+                queued = try await enqueue(item: item, tenant: tenant, priority: priority, on: s) != nil
+            }
+            try await AuditLog.record(AuditEvent(action: "dms.ingest.retried", actor: actor, tenant: tenant, subjectType: "dms.ingest_item", subjectID: item.uuidString,
+                                                 meta: ["queued": .number(queued ? 1 : 0)], requestID: requestID), on: s)
+            guard let out = try await status(document: document, tenant: tenant, on: s) else { throw DMSError.notFound }
+            return out
+        }
+    }
+
     // MARK: Handler
 
     /// `storeFactory` liefert den Objektspeicher aus der Worker-Umgebung. `tempRoot`: tmpfs (Arbeitsverzeichnis je Auftrag, wird immer entfernt).

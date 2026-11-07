@@ -10,18 +10,21 @@ public struct DMSModule: HubModule {
     public let key = "dms"
     let objectStore: Result<ObjectStoreConfig, ConfigError>
     let maxUploadBytes: Int64
+    /// WP-H6: Speicherquota je Mandant in Bytes (`DMS_TENANT_QUOTA_BYTES`, Standard 1 TiB); Summe aller Dateien des Mandanten (Dedup zählt einmal).
+    let tenantQuotaBytes: Int64
     /// WP-O2: Upload reiht einen OCR-Job ein (`dms.ocr`). Produktiv an (`DMS_OCR_ENABLED`, Standard true); der Initialisierer ohne Angabe lässt es aus,
     /// damit Tests und Entwicklung ohne Worker das bisherige Verhalten (Zustand `hashed` nach dem Upload) behalten.
     let enqueueOCR: Bool
 
     /// Standard: Objektspeicher aus der Umgebung (`OBJECT_STORE*`), Upload-Limit `DMS_MAX_UPLOAD_BYTES` (Standard 100 MiB).
-    public init(objectStore: ObjectStoreConfig? = nil, maxUploadBytes: Int64? = nil, enqueueOCR: Bool = false, environment: [String: String] = ProcessInfo.processInfo.environment) {
+    public init(objectStore: ObjectStoreConfig? = nil, maxUploadBytes: Int64? = nil, tenantQuotaBytes: Int64? = nil, enqueueOCR: Bool = false, environment: [String: String] = ProcessInfo.processInfo.environment) {
         if let objectStore { self.objectStore = .success(objectStore) } else {
             do { self.objectStore = .success(try ObjectStoreConfig.fromEnvironment(environment)) }
             catch let e as ConfigError { self.objectStore = .failure(e) }
             catch { self.objectStore = .failure(ConfigError(description: "OBJECT_STORE ungültig")) }
         }
         self.enqueueOCR = enqueueOCR
+        self.tenantQuotaBytes = tenantQuotaBytes ?? environment["DMS_TENANT_QUOTA_BYTES"].flatMap(Int64.init).flatMap { $0 > 0 ? $0 : nil } ?? 1024 * 1024 * 1024 * 1024
         self.maxUploadBytes = maxUploadBytes ?? environment["DMS_MAX_UPLOAD_BYTES"].flatMap(Int64.init).flatMap { $0 > 0 ? $0 : nil } ?? 100 * 1024 * 1024
     }
 
@@ -82,6 +85,12 @@ public struct DMSModule: HubModule {
             let body = try req.content.decode(DMSDocumentPatch.self)
             return try dmsJSON(try await DMSDocuments.patch(try dmsDocumentID(req), tenant: try req.requireTenant().tenantID, actor: try req.requireAuth().user.id,
                                                          requestID: req.requestId, body: body, ifMatch: ifMatch, on: req.db))
+        }
+        routes.on(.POST, "documents", ":document", "processing", "retry", permission: "dms.document.update") { req in
+            let tenant = try req.requireTenant().tenantID
+            let id = try dmsDocumentID(req)
+            return try dmsJSON(try await DMSOCR.retryPermanent(document: id, tenant: tenant, actor: try req.requireAuth().user.id, requestID: req.requestId,
+                                                               priority: DMSOCR.priorityManual, on: req.db))
         }
         routes.on(.POST, "documents", ":document", "archive", permission: "dms.document.update") { req in
             try dmsJSON(try await DMSDocuments.archive(try dmsDocumentID(req), tenant: try req.requireTenant().tenantID, actor: try req.requireAuth().user.id,

@@ -36,6 +36,8 @@ services:
       AUTO_MIGRATE: "false"
       PUBLIC_URL: ${PUBLIC_URL:?PUBLIC_URL setzen}
       WEBAUTHN_RP_ID: ${WEBAUTHN_RP_ID:?WEBAUTHN_RP_ID setzen}
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
+      DMS_TENANT_QUOTA_BYTES: ${DMS_TENANT_QUOTA_BYTES:-}
       SECRET_KEY_FILE: /run/secrets/lh_secret_key
     secrets: [lh_db_password, lh_secret_key]
     read_only: true

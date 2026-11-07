@@ -284,7 +284,10 @@ enum ContactService {
         }
     }
 
+    /// Aktiver Kontakt: weder gelöscht noch zusammengeführt (WP-H6: nach einem Merge dürfen keine neuen Verweise auf den Quellkontakt entstehen;
+    /// der Aufrufer nutzt das Ziel). Bestehende Verweise schreibt der Merge selbst um.
+    /// `FOR SHARE` serialisiert gegen einen gleichzeitigen Merge (der sperrt die Kontakte `FOR UPDATE`): kein Link auf einen Quellkontakt, der gerade zusammengeführt wird.
     static func exists(_ id: UUID, tenant: UUID, on s: any SQLDatabase) async throws -> Bool {
-        try await s.raw("SELECT 1 AS x FROM contacts WHERE tenant_id = \(bind: tenant) AND id = \(bind: id) AND deleted_at IS NULL").first() != nil
+        try await s.raw("SELECT 1 AS x FROM contacts WHERE tenant_id = \(bind: tenant) AND id = \(bind: id) AND deleted_at IS NULL AND merged_into IS NULL FOR SHARE").first() != nil
     }
 }

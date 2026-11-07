@@ -117,6 +117,25 @@ struct CreateAuditLog: AsyncMigration {
     }
 }
 
+/// WP-H6 (K1-Befund 5): Rechte auf `audit_log` einschränken. Dem Anwendungsbenutzer (hier: Eigentümer der Tabelle) und PUBLIC werden alle Rechte entzogen;
+/// übrig bleiben INSERT und SELECT (kein UPDATE, DELETE, TRUNCATE, TRIGGER). Die Trigger aus 011 bleiben als zweite Schicht.
+/// Grenze (ehrlich): mit EINER Datenbankrolle, die Eigentümerin der Tabelle ist, kann diese Rolle per `GRANT` oder `ALTER TABLE … DISABLE TRIGGER` alles zurückholen;
+/// die Maßnahme schützt vor versehentlichem/automatisiertem DML (SQL-Injection ohne DDL-Fähigkeit) und macht jede Aufhebung zu einer eigenen, sichtbaren DDL-Anweisung.
+/// Vollständiger Schutz braucht getrennte Rollen (Migrationsrolle als Eigentümerin, Laufzeitrolle nur mit INSERT/SELECT): `deploy/README.md`, Abschnitt „Datenbankrollen“.
+/// Keine Schemaänderung, daher keine `schema_version` (wie bei 016).
+struct HardenAuditLog: AsyncMigration {
+    let name = "018_audit_hardening"
+    func prepare(on db: any Database) async throws {
+        try await run(db, [
+            "REVOKE ALL ON audit_log FROM PUBLIC",
+            "REVOKE ALL ON audit_log FROM CURRENT_USER",
+            "GRANT SELECT, INSERT ON audit_log TO CURRENT_USER"])
+    }
+    func revert(on db: any Database) async throws {
+        try await run(db, ["GRANT ALL ON audit_log TO CURRENT_USER"])
+    }
+}
+
 /// Hilfstabellen der Anmeldung: kurzlebige WebAuthn-Challenges und Rate-Limit-Ereignisse (beides in der DB, nie im Speicher).
 struct CreateAuthSupport: AsyncMigration {
     let name = "012_auth_support"

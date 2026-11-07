@@ -15,6 +15,8 @@ public struct AuthSettings: Sendable {
     public var invitationTTL = 7 * 24 * 3600
     public var rateLimitMax = 20
     public var rateLimitWindow = 60
+    /// WP-H6: Proxys, denen `X-Forwarded-For` geglaubt wird (Standard: keine).
+    public var trustedProxies: TrustedProxies = .none
     public var secureCookies: Bool { origin.hasPrefix("https://") }
 
     /// `nil`, wenn weder `PUBLIC_URL` noch `WEBAUTHN_RP_ID` eine Herkunft ergeben (Auth-Routen antworten dann mit 503).
@@ -23,6 +25,7 @@ public struct AuthSettings: Sendable {
         let origin = "\(scheme)://\(host)" + (url.port.map { ":\($0)" } ?? "")
         var s = AuthSettings(rpID: c.webAuthnRPID ?? host, origin: origin)
         s.setupToken = c.setupToken
+        s.trustedProxies = c.trustedProxies
         return s
     }
 }
@@ -111,12 +114,11 @@ struct RateLimiter: Sendable {
     }
 }
 
-/// Zählt Anfragen an die Anmeldungs-Routen je Client-Adresse. Weitergeleitete Header werden nicht ausgewertet
-/// (Vertrauensstellung zu Reverse Proxys ist eine offene Entscheidung, siehe Handoff WP-K1).
+/// Zählt Anfragen an die Anmeldungs-Routen je Client-Adresse. `X-Forwarded-For` zählt nur von vertrauten Proxys (`TRUSTED_PROXIES`, WP-H6), sonst die Verbindungsadresse.
 struct AuthRateLimitMiddleware: AsyncMiddleware {
     func respond(to request: Request, chainingTo next: any AsyncResponder) async throws -> Response {
         let service = try request.application.authService()
-        let client = request.remoteAddress?.ipAddress ?? "unknown"
+        let client = request.clientAddress
         let limiter = RateLimiter(max: service.settings.rateLimitMax, windowSeconds: service.settings.rateLimitWindow)
         guard try await limiter.hit("auth:" + AuthSecrets.hash(client), on: request.db) else {
             throw HubError(.tooManyRequests, "too_many_requests", headers: ["Retry-After": String(service.settings.rateLimitWindow)])

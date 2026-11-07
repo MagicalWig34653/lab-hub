@@ -869,6 +869,9 @@ paths:
         gleicher Key + gleicher Inhalt/Parameter liefert die gespeicherte Antwort, anderer Inhalt 422 idempotency_key_reused.
         Ein bereits vorhandenes Original im Mandanten wird nicht abgelehnt, sondern als duplicates gemeldet.
         Zu gross 413 payload_too_large, unbekannter Typ 415 unsupported_media_type.
+        Speicherquota je Mandant (Summe aller Dateien des Mandanten, Dedup zaehlt einmal; Betreiber-Einstellung DMS_TENANT_QUOTA_BYTES, Standard 1 TiB): ueberschreitet der Upload sie, 413 storage_quota_exceeded.
+        Schlaegt ein Upload nach dem Speichern fehl (Validierung, Key-Konflikt, Quota), wird der Blob verworfen, sofern ihn kein Dokument referenziert. Trifft ein Upload gleichzeitig auf einen
+        gerade verworfenen Blob gleicher Bytes, antwortet er 409 upload_interrupted; der Client wiederholt mit demselben Idempotency-Key.
       security: [{ bearer: [] }, { cookie: [] }]
       parameters:
         - { $ref: "#/components/parameters/Tenant" }
@@ -998,6 +1001,28 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/DmsDocument" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/dms/documents/{document}/processing/retry:
+    post:
+      operationId: retryDmsDocumentProcessing
+      summary: Dauerhaft fehlgeschlagene Verarbeitung (Quarantaene, failed_permanent) erneut anstossen (Berechtigung dms.document.update)
+      description: |
+        Setzt den Eingangsvorgang des Dokuments auf den letzten guten Zustand zurueck, reiht einen neuen OCR-Job ein (Prioritaet manuell) und schreibt einen Audit-Eintrag (dms.ingest.retried).
+        Kein Body. Gibt den neuen Verarbeitungsstatus zurueck (wie GET .../processing). Ohne Quarantaene-Vorgang: 409 ingest_not_failed; Dokument im Papierkorb: 409 document_trashed;
+        zwei gleichzeitige Aufrufe: genau einer wirkt, der andere erhaelt 409 ingest_not_failed. Die Ursache (z. B. verschluesseltes PDF) wird nicht behoben; scheitert der Lauf erneut, steht das Dokument wieder in Quarantaene.
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/DmsDocument" }
+      responses:
+        "200":
+          description: Status nach dem Einreihen
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DmsProcessing" }
         "401": { $ref: "#/components/responses/Problem" }
         "403": { $ref: "#/components/responses/Problem" }
         "404": { $ref: "#/components/responses/Problem" }
@@ -1495,6 +1520,8 @@ paths:
       summary: Volltextsuche ueber Dokumente (Berechtigung dms.document.read); Papierkorb ausgeschlossen
       description: |
         PostgreSQL-Suche (ADR 0005): Titel, Metadaten (Korrespondent, Typ, Tags, Dateiname des Originals) und aktueller Text (deutsch/englisch, mit Wortstamm, ohne Umlautzwang).
+        Leeres oder fehlendes q durchsucht ohne Suchbegriff (Durchsuchen): alle Dokumente des Mandanten ausser Papierkorb, neueste Eingaenge zuerst (score = Eingangszeit in Sekunden seit Epoche, snippet null),
+        mit denselben Filtern (Datum, Typ, Ablagepfad, Korrespondent, mehrere Tags), Facetten, Zaehlung und Cursor-Pagination wie die Suche. Der Cursor gilt nur fuer dieselbe Anfrage.
         q folgt websearch_to_tsquery: Leerzeichen = und, "Phrase", or, -Ausschluss. Ohne Operatoren greift zusaetzlich ein Tippfehler-Fallback (pg_trgm) auf Titel und Metadaten; fuzzy=false schaltet ihn ab.
         Sortierung nach Relevanz (absteigend), Volltexttreffer (score >= 1) vor Tippfehler-Treffern (score < 1). Cursor-Pagination wie ueberall (der Cursor ist an dieselbe Anfrage gebunden).
         Treffer im snippet stehen zwischen U+E000 und U+E001 (private Zeichen, kein HTML; der Client escaped den Text selbst).
@@ -1505,7 +1532,7 @@ paths:
         - { $ref: "#/components/parameters/Limit" }
         - { $ref: "#/components/parameters/Cursor" }
         - { $ref: "#/components/parameters/Count" }
-        - { name: q, in: query, required: true, schema: { type: string, minLength: 1, maxLength: 200 } }
+        - { name: q, in: query, schema: { type: string, maxLength: 200 }, description: "Suchbegriff; leer oder weggelassen = Durchsuchen ohne Suchbegriff" }
         - { name: fuzzy, in: query, schema: { type: boolean, default: true }, description: "false schaltet den Tippfehler-Fallback ab" }
         - { name: facets, in: query, schema: { type: boolean, default: false } }
         - { name: document_type_id, in: query, schema: { type: string, format: uuid } }
@@ -1732,6 +1759,7 @@ components:
             - idempotency_in_progress
             - idempotency_key_required
             - idempotency_key_reused
+            - ingest_not_failed
             - internal_error
             - invalid_cursor
             - invalid_limit
@@ -1751,10 +1779,12 @@ components:
             - recovery_session_restricted
             - service_unavailable
             - setup_token_invalid
+            - storage_quota_exceeded
             - tenant_required
             - too_many_requests
             - unauthorized
             - unsupported_media_type
+            - upload_interrupted
             - validation_failed
         detail: { type: string }
         request_id: { type: string }

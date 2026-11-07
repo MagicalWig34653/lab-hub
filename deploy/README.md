@@ -30,3 +30,20 @@ docker build -f Dockerfile.worker -t ghcr.io/ORG/lab-hub:1.2.0-worker .        #
 Einstellungen (alle optional, als Umgebung des Dienstes): `OCR_TIMEOUT_SECONDS` (Gesamtzeit je Dokument, 600), `OCR_MEMORY_MB` (Adressraumlimit je Werkzeugprozess, 4096; Container-Limit zusätzlich `OCR_WORKER_MEMORY`, 6g), `OCR_MAX_PAGES` (300), `OCR_LANGUAGES` (`deu+eng`), `OCR_JOBS` (2), `OCR_DEHYPHENATE` (`false` schaltet die Silbentrennungs-Bereinigung ab), `DMS_OCR_ENABLED=false` am Backend (Uploads reihen dann keinen OCR-Job ein). Der Worker prüft beim Start Werkzeuge und Sprachpakete und beendet sich mit Fehlermeldung, wenn etwas fehlt. Objektspeicher: wie das Backend (`OBJECT_STORE*`); bei `OBJECT_STORE=fs` muss das Volume auch am Worker hängen (Compose-Datei nicht vorbereitet), sonst `db` oder später S3.
 
 Stand: Compose-Datei real getestet (siehe `docs/handoff/WP-O2.md`); `swarm/stack.yaml` (Dienst `worker`, `WORKER_REPLICAS`) und die Swarm-Zweige in `setup.sh`/`update.sh` sind **nicht unter Swarm getestet** (nur Syntaxprüfung der Datei).
+
+## Härtung (WP-H6)
+
+**Reverse Proxy und Rate-Limit (`TRUSTED_PROXIES`).** Das Rate-Limit der Anmelderouten zählt je Client-Adresse. Standard: keine vertrauten Proxys, dann zählt nur die Adresse der TCP-Verbindung und `X-Forwarded-For` wird ignoriert. Steht das Backend hinter einem Reverse Proxy (Ingress, Traefik, nginx), sehen alle Clients sonst wie der Proxy aus (ein gemeinsamer Zähler). Dann `TRUSTED_PROXIES` auf die Adressen oder Netze der Proxys setzen, kommagetrennt, IPv4/IPv6, optional mit Präfix, z. B. `TRUSTED_PROXIES=10.0.0.0/8,192.0.2.7,fd00::/8` (Beispielwerte). Nur Verbindungen von diesen Adressen werden bei `X-Forwarded-For` von rechts gelesen (der erste nicht vertraute Eintrag ist der Client). Ein ungültiger Eintrag lässt den Start scheitern. Der Proxy muss `X-Forwarded-For` anhängen oder setzen, nie ungeprüft durchreichen; im Swarm ist die Quelladresse hinter dem Ingress-Netz oft die Overlay-Adresse, nicht die des Proxys: Adresse mit einem Test prüfen.
+
+**Speicherquota je Mandant (`DMS_TENANT_QUOTA_BYTES`).** Obergrenze für die Summe aller gespeicherten Dateien eines Mandanten (Originale und abgeleitete Dateien, gleiche Bytes zählen einmal). Standard 1099511627776 (1 TiB). Überschreitung: Upload 413 mit Code `storage_quota_exceeded`. Die Grenze gilt für Uploads; vom OCR-Worker erzeugte Archivdateien zählen mit, werden aber nicht abgelehnt.
+
+**Datenbankrollen und Audit-Log.** Die Migration `018_audit_hardening` entzieht dem Anwendungsbenutzer und PUBLIC auf `audit_log` UPDATE, DELETE, TRUNCATE und TRIGGER (übrig: INSERT, SELECT); die Trigger aus `011_audit_log` bleiben als zweite Schicht. Mit **einer** Rolle, die zugleich Eigentümerin der Tabellen ist, ist das nur eine Hürde, kein Schutz: Eigentümer können per `GRANT` oder `ALTER TABLE audit_log DISABLE TRIGGER …` alles zurückholen. Empfehlung für den Betrieb (noch nicht von `setup.sh` umgesetzt): zwei Rollen. `labhub_owner` (Eigentümerin, nur für den Migrationsjob, `DB_USER` des Dienstes `migrate`) und `labhub_app` (Laufzeit von Backend und Worker, Mitglied von nichts, ohne Eigentum). Nach jeder Migration:
+
+```
+GRANT USAGE ON SCHEMA public TO labhub_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO labhub_app;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO labhub_app;
+REVOKE UPDATE, DELETE, TRUNCATE ON audit_log FROM labhub_app;
+```
+
+Die Laufzeitrolle darf keine DDL-Rechte haben (`CREATE` im Schema entziehen) und kein Superuser sein. Offen bleibt, dass Tabellen ohne eigene Trigger (z. B. `dms_*`) für die Laufzeitrolle voll schreibbar sind; das ist gewollt. Superuser und Eigentümer umgehen jede dieser Maßnahmen.
