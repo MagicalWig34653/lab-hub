@@ -42,6 +42,7 @@ public func configure(_ app: Application, environment: [String: String] = Proces
         throw ConfigError(description: "DB_HOST fehlt")
     }
     app.asyncCommands.use(MigrateCommand(), as: "migrate")
+    app.asyncCommands.use(WorkerCommand(), as: "worker")  // WP-O1
     // WP-K4: X-Request-Id außen, Problem-Details-Fehler statt Vapors Standard-ErrorMiddleware
     ContentConfiguration.global.use(decoder: JSONDecoder(), for: HTTPMediaType(type: "application", subType: "problem+json"))
     app.middleware = Middlewares()

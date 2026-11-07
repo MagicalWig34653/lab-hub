@@ -32,7 +32,7 @@ public struct DMSModule: HubModule {
          PermissionDefinition("dms.master.manage", roles: [.accountant])]
     }
 
-    public var migrations: [any Migration] { [CreateDMSCore(), CreateDMSSearch()] }
+    public var migrations: [any Migration] { [CreateDMSCore(), CreateDMSIngest(), CreateDMSSearch()] }
     public var navigation: [NavigationItem] { [NavigationItem(key: "dms", labelKey: "nav.dms", path: "/dms", permission: "dms.document.read")] }
 
     func makeStore(_ req: Request) throws -> any ObjectStore {

@@ -123,31 +123,51 @@ public struct IdempotencyService: Sendable {
     }
 }
 
-public struct ClaimedJob: Sendable { public let id: UUID; public let kind: String; public let payload: String }
+public struct ClaimedJob: Sendable {
+    public let id: UUID
+    public let kind: String
+    public let payload: String
+    /// Versuche inklusive dieses Abholens (1 beim ersten Mal).
+    public let attempts: Int
+}
 
-/// Datenbank-Jobs mit Lease: `FOR UPDATE SKIP LOCKED`, Zeiten von der Datenbank.
+/// Ergebnis von `JobService.fail`.
+public enum JobFailOutcome: Sendable, Equatable { case retry, failedPermanent, notOwner }
+
+/// Datenbank-Jobs mit Lease: `FOR UPDATE SKIP LOCKED`, Zeiten von der Datenbank (nie die Instanzuhr).
+/// Zustände: `queued`, `running`, `done`, `failed_permanent` (Quarantäne nach `maxAttempts` Versuchen, WP-O1, ADR 0006).
+/// Jeder Übergang ist idempotent: nur der Besitzer wirkt, jede Wiederholung ist ohne Effekt.
 public struct JobService: Sendable {
     let db: any SQLDatabase
-    public init(_ db: any SQLDatabase) { self.db = db }
+    public let maxAttempts: Int
+    public init(_ db: any SQLDatabase, maxAttempts: Int = 3) { self.db = db; self.maxAttempts = maxAttempts }
 
+    /// `priority`: höhere Zahl zuerst (manuelle Uploads vor Massenimport), bei Gleichstand `run_at`, dann Anlage.
     @discardableResult
-    public func enqueue(kind: String, payload: String = "{}") async throws -> UUID {
+    public func enqueue(kind: String, payload: String = "{}", priority: Int = 0) async throws -> UUID {
         let id = UUID()
-        try await db.raw("INSERT INTO jobs (id, kind, payload) VALUES (\(bind: id), \(bind: kind), \(bind: payload))").run()
+        try await db.raw("INSERT INTO jobs (id, kind, payload, priority) VALUES (\(bind: id), \(bind: kind), \(bind: payload), \(bind: priority))").run()
         return id
     }
 
-    public func claim(owner: String, leaseSeconds: Int) async throws -> ClaimedJob? {
+    /// Holt den nächsten fälligen Job (optional nur bestimmter Arten). Ein Job, dessen Lease `maxAttempts`-mal ablief (Absturzschleife),
+    /// wird nicht erneut vergeben, sondern `failed_permanent`.
+    public func claim(owner: String, leaseSeconds: Int, kinds: [String]? = nil) async throws -> ClaimedJob? {
+        try await db.raw("""
+            UPDATE jobs SET state = 'failed_permanent', lease_owner = NULL, lease_until = NULL, finished_at = now(), last_error = 'lease_expired'
+            WHERE state = 'running' AND lease_until < now() AND attempts >= \(bind: maxAttempts)
+            """).run()
+        let kindFilter: SQLQueryString = (kinds?.isEmpty ?? true) ? "TRUE" : "kind IN (\(binds: kinds ?? []))"
         guard let row = try await db.raw("""
             UPDATE jobs SET state = 'running', lease_owner = \(bind: owner),
               lease_until = now() + make_interval(secs => \(bind: leaseSeconds)), attempts = attempts + 1
-            WHERE id = (SELECT id FROM jobs WHERE state <> 'done' AND run_at <= now()
-                        AND (lease_until IS NULL OR lease_until < now())
-                        ORDER BY run_at, created_at FOR UPDATE SKIP LOCKED LIMIT 1)
-            RETURNING id, kind, payload
+            WHERE id = (SELECT id FROM jobs WHERE state IN ('queued', 'running') AND run_at <= now()
+                        AND (lease_until IS NULL OR lease_until < now()) AND attempts < \(bind: maxAttempts) AND \(kindFilter)
+                        ORDER BY priority DESC, run_at, created_at FOR UPDATE SKIP LOCKED LIMIT 1)
+            RETURNING id, kind, payload, attempts
             """).first() else { return nil }
         return ClaimedJob(id: try row.decode(column: "id", as: UUID.self), kind: try row.decode(column: "kind", as: String.self),
-                          payload: try row.decode(column: "payload", as: String.self))
+                          payload: try row.decode(column: "payload", as: String.self), attempts: try row.decode(column: "attempts", as: Int.self))
     }
 
     /// Nur der aktuelle Besitzer kann abschließen oder verlängern.
@@ -165,8 +185,25 @@ public struct JobService: Sendable {
             """).all().count == 1
     }
 
-    /// Gibt die Lease frei (Graceful Shutdown); der Job wird sofort wieder abholbar.
+    /// Gibt die Lease frei (Graceful Shutdown); der Job wird sofort wieder abholbar und der Versuch zählt nicht.
     public func release(_ id: UUID, owner: String) async throws {
-        try await db.raw("UPDATE jobs SET lease_owner = NULL, lease_until = NULL, state = 'queued' WHERE id = \(bind: id) AND lease_owner = \(bind: owner)").run()
+        try await db.raw("""
+            UPDATE jobs SET lease_owner = NULL, lease_until = NULL, state = 'queued', attempts = GREATEST(attempts - 1, 0)
+            WHERE id = \(bind: id) AND lease_owner = \(bind: owner) AND state = 'running'
+            """).run()
+    }
+
+    /// Meldet Misserfolg (nur Besitzer, auch bei abgelaufener Lease, solange niemand übernahm). Wiederholung nach `retryAfterSeconds`;
+    /// nach `maxAttempts` Versuchen oder mit `permanent` Quarantäne (`failed_permanent`). `code` ist ein kurzer Fehlercode, keine Nutzdaten.
+    public func fail(_ id: UUID, owner: String, code: String, retryAfterSeconds: Int, permanent: Bool = false) async throws -> JobFailOutcome {
+        let safe = String(code.unicodeScalars.filter { $0.isASCII && ($0.properties.isAlphabetic || $0.properties.numericType != nil || "_.-".unicodeScalars.contains($0)) }.prefix(64))
+        guard let row = try await db.raw("""
+            UPDATE jobs SET lease_owner = NULL, lease_until = NULL, last_error = \(bind: safe.isEmpty ? "error" : safe),
+              state = CASE WHEN \(bind: permanent) OR attempts >= \(bind: maxAttempts) THEN 'failed_permanent' ELSE 'queued' END,
+              finished_at = CASE WHEN \(bind: permanent) OR attempts >= \(bind: maxAttempts) THEN now() ELSE NULL END,
+              run_at = now() + make_interval(secs => \(bind: retryAfterSeconds))
+            WHERE id = \(bind: id) AND lease_owner = \(bind: owner) AND state = 'running' RETURNING state
+            """).first() else { return .notOwner }
+        return try row.decode(column: "state", as: String.self) == "failed_permanent" ? .failedPermanent : .retry
     }
 }

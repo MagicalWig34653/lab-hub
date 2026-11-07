@@ -813,18 +813,20 @@ final class DMSTests: DMSTestBase {
     func testMigrationRevertAndReapply() async throws {
         _ = try await world(enable: false)
         try await aEq(try await count("_fluent_migrations", where: "name = 'dms_016_core'"), 1)
-        try await aEq(try await scalar("SELECT max(version)::bigint AS v FROM schema_version", as: Int64.self), 15)
+        try await aEq(try await scalar("SELECT max(version)::bigint AS v FROM schema_version", as: Int64.self), 17)  // WP-O1: 017 (Jobs-Priorität); das Modul selbst ändert die Version nicht
         try await app1.test(.GET, "ready") { res async throws in XCTAssertEqual(res.status, .ok) }
         try await aEq(try await count("pg_trigger", where: "tgname IN ('dms_document_files_protect', 'dms_files_protect', 'dms_documents_protect_asn')"), 3)
 
         let migration = CreateDMSCore()
         try await CreateDMSSearch().revert(on: app1.db(.psql))   // WP-S1 baut auf dem Kern auf und wird zuerst zurückgenommen
+        try await CreateDMSIngest().revert(on: app1.db(.psql))  // WP-O1: Ingest-Tabellen verweisen auf dms_documents
         try await migration.revert(on: app1.db(.psql))
         try await aEq(try await count("information_schema.tables", where: "table_name LIKE 'dms\\_%'"), 0)
         try await aEq(try await count("pg_trigger", where: "tgname IN ('dms_document_files_protect', 'dms_files_protect')"), 0)
         try await migration.prepare(on: app1.db(.psql))
         try await aEq(try await count("information_schema.tables", where: "table_name LIKE 'dms\\_%'"), 9)
         try await aEq(try await count("pg_trigger", where: "tgname IN ('dms_document_files_protect', 'dms_files_protect', 'dms_documents_protect_asn')"), 3)
+        try await CreateDMSIngest().prepare(on: app1.db(.psql))
         try await CreateDMSSearch().prepare(on: app1.db(.psql))
     }
 }

@@ -567,8 +567,9 @@ final class ContactTests: AuthTestCase {
     /// AK-K5-8: Expand/Contract: Version 15, Revert entfernt alle Tabellen und stellt die Vorversion wieder her, erneutes Anwenden funktioniert.
     func testAKK5_8_MigrationVersionAndRevert() async throws {
         let v = try await scalar("SELECT max(version)::bigint AS v FROM schema_version", as: Int64.self)
-        XCTAssertEqual(v, 15)
+        XCTAssertEqual(v, 17)  // WP-O1 (017) liegt über 015
         let database = app1.db(.psql)
+        try await CreateJobsPriority().revert(on: database)
         try await CreateContacts().revert(on: database)
         let reverted = try await scalar("SELECT max(version)::bigint AS v FROM schema_version", as: Int64.self)
         XCTAssertEqual(reverted, 14)  // Vorgänger ist 014 (WP-K3)
@@ -580,6 +581,7 @@ final class ContactTests: AuthTestCase {
         try await CreateContacts().prepare(on: database)
         let again = try await scalar("SELECT max(version)::bigint AS v FROM schema_version", as: Int64.self)
         XCTAssertEqual(again, 15)
+        try await CreateJobsPriority().prepare(on: database)
         // Datenbankregeln: Zusammenführen in sich selbst und ungültige Arten scheitern
         let id = try await insertContact(UUID().uuidString, name: "X")
         do { try await db.raw("UPDATE contacts SET merged_into = id, merged_at = now() WHERE id = \(bind: id)").run(); XCTFail() } catch {}

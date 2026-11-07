@@ -20,7 +20,7 @@ Ausgangsstand (vorhanden, getestet laut `deploy/README.md`/Tests): `migrate`, `s
 | | K7 | Events/Outbox, Webhooks | K3 | M | P K5 | offen |
 | 1 DMS M1 | D1 | ObjectStore (FS, DB, S3), `files`, Hash | K0 | M | P K1, K4 | offen |
 | | D2 | DMS-Kern: Dokumente, Upload, Stammdaten, Papierkorb | K3, K5, D1 | L | | umgesetzt (Branch wp-D2, `docs/handoff/WP-D2.md`) |
-| 2 OCR/Suche | O1 | Job-Erweiterung, Ingest-Zustandsautomat, Worker-Befehl | D2 | M | | offen |
+| 2 OCR/Suche | O1 | Job-Erweiterung, Ingest-Zustandsautomat, Worker-Befehl | D2 | M | | umgesetzt (Branch wp-O1, `docs/handoff/WP-O1.md`) |
 | | O2 | OCR-Worker, Textspeicherung, Archivversion | O1 | L | P S1 (Teil) | offen |
 | | S1 | DMS-Suche (tsvector, pg_trgm, Filter) | D2 (O2 für OCR-Text) | M | P F1 | umgesetzt (Branch wp-S1, `docs/handoff/WP-S1.md`) |
 | | S2 | Globale Suche im Kern | S1, K3 | M | P F2 | offen |

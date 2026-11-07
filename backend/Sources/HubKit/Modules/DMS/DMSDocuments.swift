@@ -137,6 +137,10 @@ enum DMSDocuments {
                 VALUES (\(bind: tenant), \(bind: id), 'original', \(bind: n.fileID), \(bind: n.kind.mime), \(bind: n.stored.size), \(bind: n.stored.key.sha256), \(bind: n.originalName))
                 """).run()
             var asn: Int64?
+            // WP-O1: Eingangsvorgang; Upload hat Speichern und Hash synchron erledigt, weitere Schritte (OCR usw.) führen Worker aus.
+            let ingestID = try await DMSIngest.create(tenant: tenant, document: id, source: .upload, actor: actor, upTo: .hashed, on: s)
+            try await AuditLog.record(AuditEvent(action: "dms.ingest.received", actor: actor, tenant: tenant, subjectType: "dms.ingest_item", subjectID: ingestID.uuidString,
+                                                 meta: ["source": .safe("upload")], requestID: requestID), on: s)
             if n.archive { asn = try await assignASN(id, tenant: tenant, actor: actor, requestID: requestID, on: s) }
             try await AuditLog.record(AuditEvent(action: "dms.document.created", actor: actor, tenant: tenant, subjectType: "dms.document", subjectID: id.uuidString,
                                                  meta: ["kind": .safe(n.kind.rawValue), "size": .number(n.stored.size), "duplicates": .number(Int64(duplicates.count)),
