@@ -32,9 +32,16 @@ final class ZIPWriter {
         self.handle = handle
         var cal = Calendar(identifier: .gregorian); cal.timeZone = TimeZone(identifier: "UTC")!
         let c = cal.dateComponents([.year, .month, .day, .hour, .minute, .second], from: timestamp)
-        let year = max((c.year ?? 1980) - 1980, 0)
-        dosDate = UInt16(year << 9 | (c.month ?? 1) << 5 | (c.day ?? 1))
-        dosTime = UInt16((c.hour ?? 0) << 11 | (c.minute ?? 0) << 5 | (c.second ?? 0) / 2)
+        let year: Int = max((c.year ?? 1980) - 1980, 0)
+        let month: Int = c.month ?? 1
+        let day: Int = c.day ?? 1
+        let hour: Int = c.hour ?? 0
+        let minute: Int = c.minute ?? 0
+        let second: Int = c.second ?? 0
+        let date: Int = (year << 9) | (month << 5) | day
+        let time: Int = (hour << 11) | (minute << 5) | (second / 2)
+        dosDate = UInt16(date)
+        dosTime = UInt16(time)
     }
 
     private func u16(_ v: UInt16) -> [UInt8] { [UInt8(v & 0xFF), UInt8(v >> 8)] }
