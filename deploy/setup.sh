@@ -175,7 +175,7 @@ case "$MODE" in
     FILES=(-c "$HERE/swarm/stack.yaml"); [ "$MODE" = 1 ] && FILES+=(-c "$HERE/swarm/stack.db.yaml")
     [ "$MODE" = 1 ] && say "Hinweis: Der Datenbankdienst braucht einen Knoten mit Label: docker node update --label-add labhub-db=true <knoten>"
     # Erst-Deploy: Backend mit 0 Repliken, Migration abwarten, dann hochskalieren
-    BACKEND_REPLICAS=0 docker stack deploy --with-registry-auth "${FILES[@]}" "$STACK"
+    BACKEND_REPLICAS=0 WORKER_REPLICAS=0 docker stack deploy --with-registry-auth "${FILES[@]}" "$STACK"
     say "Warte auf den Migrationsjob …"
     for _ in $(seq 1 60); do
       state="$(docker service ps "${STACK}_migrate" --format '{{.CurrentState}}' 2>/dev/null | head -n1 || true)"
@@ -183,6 +183,6 @@ case "$MODE" in
       sleep 5
     done
     case "${state:-}" in Complete*) ;; *) die "Migration nicht abgeschlossen (Zeitüberschreitung): docker service logs ${STACK}_migrate" ;; esac
-    docker service scale "${STACK}_backend=$REPLICAS"
+    docker service scale "${STACK}_backend=$REPLICAS" "${STACK}_worker=${WORKER_REPLICAS:-1}"
     say "Gestartet: $PUBLIC_URL (Reverse Proxy auf Port 8080 eines Knotens richten)." ;;
 esac

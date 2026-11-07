@@ -116,6 +116,8 @@ enum DMSDocuments {
         let kind: DMSFileKind
         let stored: StoredObject
         let fileID: UUID
+        /// WP-O2: Priorität des OCR-Jobs; nil = kein OCR-Job (Modul ohne Worker-Anbindung, z. B. in Tests).
+        var ocrPriority: Int? = nil
     }
 
     /// Dokument mit Original in einer Transaktion. Gleiches Original im Mandanten: Hinweis `duplicates`, kein Abbruch.
@@ -141,12 +143,14 @@ enum DMSDocuments {
             let ingestID = try await DMSIngest.create(tenant: tenant, document: id, source: .upload, actor: actor, upTo: .hashed, on: s)
             try await AuditLog.record(AuditEvent(action: "dms.ingest.received", actor: actor, tenant: tenant, subjectType: "dms.ingest_item", subjectID: ingestID.uuidString,
                                                  meta: ["source": .safe("upload")], requestID: requestID), on: s)
+            if let priority = n.ocrPriority { try await DMSOCR.enqueue(item: ingestID, tenant: tenant, priority: priority, on: s) }
             if n.archive { asn = try await assignASN(id, tenant: tenant, actor: actor, requestID: requestID, on: s) }
             try await AuditLog.record(AuditEvent(action: "dms.document.created", actor: actor, tenant: tenant, subjectType: "dms.document", subjectID: id.uuidString,
                                                  meta: ["kind": .safe(n.kind.rawValue), "size": .number(n.stored.size), "duplicates": .number(Int64(duplicates.count)),
                                                         "archived": .number(asn == nil ? 0 : 1)], requestID: requestID), on: s)
             guard var out = try await load(id, tenant: tenant, on: s) else { throw Abort(.internalServerError) }
             out.duplicates = duplicates
+            out.ingest_item_id = ingestID
             return out
         }
     }

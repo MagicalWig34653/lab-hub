@@ -555,7 +555,7 @@ final class DMSTests: DMSTestBase {
         let expected: [String: HTTPStatus] = [
             "POST uploads": .created, "GET documents": .ok, "GET documents/{document}": .ok, "PATCH documents/{document}": .ok,
             "POST documents/{document}/archive": .ok, "POST documents/{document}/trash": .ok, "POST documents/{document}/restore": .ok, "GET documents/{document}/file": .ok,
-            "GET search": .ok]
+            "GET search": .ok, "GET documents/{document}/processing": .ok]
         let masters = ["types", "tag-groups", "tags", "storage-paths", "custom-fields"]
         var expectedAll = expected
         for m in masters { expectedAll["GET \(m)"] = .ok; expectedAll["POST \(m)"] = .created; expectedAll["PATCH \(m)/{id}"] = .ok; expectedAll["DELETE \(m)/{id}"] = .noContent }
@@ -818,6 +818,7 @@ final class DMSTests: DMSTestBase {
         try await aEq(try await count("pg_trigger", where: "tgname IN ('dms_document_files_protect', 'dms_files_protect', 'dms_documents_protect_asn')"), 3)
 
         let migration = CreateDMSCore()
+        try await CreateDMSOCR().revert(on: app1.db(.psql))      // WP-O2: Spalte an dms_ingest_items
         try await CreateDMSSearch().revert(on: app1.db(.psql))   // WP-S1 baut auf dem Kern auf und wird zuerst zurückgenommen
         try await CreateDMSIngest().revert(on: app1.db(.psql))  // WP-O1: Ingest-Tabellen verweisen auf dms_documents
         try await migration.revert(on: app1.db(.psql))
@@ -828,6 +829,7 @@ final class DMSTests: DMSTestBase {
         try await aEq(try await count("pg_trigger", where: "tgname IN ('dms_document_files_protect', 'dms_files_protect', 'dms_documents_protect_asn')"), 3)
         try await CreateDMSIngest().prepare(on: app1.db(.psql))
         try await CreateDMSSearch().prepare(on: app1.db(.psql))
+        try await CreateDMSOCR().prepare(on: app1.db(.psql))
     }
 }
 

@@ -1048,6 +1048,28 @@ paths:
         "403": { $ref: "#/components/responses/Problem" }
         "404": { $ref: "#/components/responses/Problem" }
         "409": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/dms/documents/{document}/processing:
+    get:
+      operationId: getDmsDocumentProcessing
+      summary: Verarbeitungsstatus (Eingangsvorgang, OCR) eines Dokuments (Berechtigung dms.document.read)
+      description: |
+        Fortschritt der Ingest-Kette fuer die Anzeige. state ist der Ingest-Zustand (none, wenn es keinen Vorgang gibt), phase die Anzeigestufe:
+        none, pending (noch nicht eingereiht), queued (OCR-Job wartet), processing (Job laeuft bzw. Nachbearbeitung), done, retrying (vorlaeufiger Fehler, Wiederholung folgt),
+        failed (Quarantaene, error_code nennt den Grund, z. B. pdf_encrypted, too_many_pages, ocr_timeout). text beschreibt die aktuelle Textrevision, has_archive zeigt die Archivversion
+        (GET .../file?role=archive). Abfragen genuegen (Polling), es gibt noch keine Ereignisse.
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/DmsDocument" }
+      responses:
+        "200":
+          description: Status
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DmsProcessing" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
   /api/v1/tenants/{tenant}/dms/documents/{document}/file:
     get:
       operationId: getDmsDocumentFile
@@ -1867,6 +1889,7 @@ components:
         fields: { type: object, additionalProperties: true, description: "Wert je Feldcode (nur Einzelansicht)" }
         files: { type: array, items: { $ref: "#/components/schemas/DmsFile" } }
         duplicates: { type: array, items: { type: string, format: uuid }, description: "Nur beim Upload: Dokumente mit gleichem Original" }
+        ingest_item_id: { type: string, format: uuid, description: "Nur beim Upload: Eingangsvorgang; Fortschritt ueber GET .../documents/{document}/processing" }
     DmsMaster:
       type: object
       required: [id, created_at]
@@ -1918,3 +1941,30 @@ components:
         next_cursor: { type: [string, "null"] }
         total: { type: [integer, "null"] }
         facets: { $ref: "#/components/schemas/DmsFacets" }
+    DmsProcessing:
+      type: object
+      required: [document_id, state, phase, steps, has_archive]
+      properties:
+        document_id: { type: string, format: uuid }
+        ingest_item_id: { type: [string, "null"], format: uuid }
+        state: { type: string, enum: [none, received, stored, hashed, ocr_queued, ocr_done, classified, done, failed_retryable, failed_permanent] }
+        phase: { type: string, enum: [none, pending, queued, processing, done, retrying, failed] }
+        error_code: { type: [string, "null"], description: "Kurzer Token (kein Freitext), nur bei Fehlerzustaenden" }
+        steps:
+          type: array
+          items:
+            type: object
+            required: [state, at]
+            properties:
+              state: { type: string }
+              at: { type: string, format: date-time }
+        text:
+          type: [object, "null"]
+          required: [engine, lang, version, characters]
+          properties:
+            engine: { type: string, description: "pdftotext (Textschicht) oder ocrmypdf" }
+            lang: { type: string, enum: [de, en] }
+            version: { type: integer }
+            characters: { type: integer }
+        has_archive: { type: boolean }
+        updated_at: { type: [string, "null"], format: date-time }

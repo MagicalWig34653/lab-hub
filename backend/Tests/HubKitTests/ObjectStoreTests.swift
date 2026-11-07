@@ -41,10 +41,12 @@ func syntheticStream(mib: Int) -> ByteStream {
 }
 
 func peakRSSBytes() -> Int {
-    var u = rusage(); getrusage(RUSAGE_SELF, &u)
+    var u = rusage()
     #if os(Linux)
+    getrusage(__rusage_who_t(RUSAGE_SELF.rawValue), &u)
     return Int(u.ru_maxrss) * 1024
     #else
+    getrusage(RUSAGE_SELF, &u)
     return Int(u.ru_maxrss)
     #endif
 }
@@ -258,7 +260,7 @@ final class PostgresObjectStoreTests: XCTestCase {
         // WP-K1: Migrationen nach `files` (Auth, 006-012) zuerst zurücknehmen, damit der Stand dieses Tests (Version 5) gilt.
         let later: [any AsyncMigration] = [CreateUsers(), CreatePasskeyCredentials(), CreateSessions(), CreateInvitations(),
                                            CreateRecoveryCodes(), CreateAuditLog(), CreateAuthSupport(), CreateTenants(), CreateModules(), CreateContacts(),
-                                           CreateDMSCore(), CreateDMSIngest(), CreateDMSSearch(), CreateJobsPriority()]  // WP-D2/O1/S1: DMS-Tabellen verweisen auf `files`
+                                           CreateDMSCore(), CreateDMSIngest(), CreateDMSSearch(), CreateDMSOCR(), CreateJobsPriority()]  // WP-D2/O1/S1/O2: DMS-Tabellen verweisen auf `files`
         for m in later.reversed() { try await m.revert(on: app.db(.psql)) }
         var v = try await db.raw("SELECT version FROM schema_version").first()!.decode(column: "version", as: Int.self)
         XCTAssertEqual(v, 5)

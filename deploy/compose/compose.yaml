@@ -59,6 +59,30 @@ services:
       retries: 6
       start_period: 20s
 
+  # WP-O2: OCR-Worker (Dockerfile.worker). Gleiche Datenbank wie das Backend, kein Port, read-only Root, Schreiben nur nach /tmp (tmpfs).
+  # Objektspeicher: wie das Backend (OBJECT_STORE*); bei OBJECT_STORE=fs muss dasselbe Volume eingehängt werden (Betriebsart mit mehreren Hosts: S3).
+  worker:
+    image: ${LABHUB_WORKER_IMAGE:-${LABHUB_IMAGE:?LABHUB_IMAGE setzen}-worker}
+    command: ["worker", "--kinds", "dms.ocr"]
+    restart: unless-stopped
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    environment:
+      <<: *dbenv
+      OCR_TMPDIR: /tmp
+      OCR_TIMEOUT_SECONDS: ${OCR_TIMEOUT_SECONDS:-600}
+      OCR_MEMORY_MB: ${OCR_MEMORY_MB:-4096}
+      OCR_MAX_PAGES: ${OCR_MAX_PAGES:-300}
+    secrets: [lh_db_password]
+    read_only: true
+    tmpfs: ["/tmp:size=2g"]
+    stop_grace_period: 30s
+    mem_limit: ${OCR_WORKER_MEMORY:-6g}
+    cpus: ${OCR_WORKER_CPUS:-2.0}
+    pids_limit: 512
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
 secrets:
   lh_db_password:
     file: ./secrets/lh_db_password

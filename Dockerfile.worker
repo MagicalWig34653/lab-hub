@@ -1,0 +1,32 @@
+# Worker-Image mit OCR-Werkzeugen (WP-O2, ADR 0006, F-07). Referenz-Engine: ocrmypdf + Tesseract (deu, eng), Ghostscript, poppler-utils.
+# Das API-Image (Dockerfile) bleibt ohne diese Pakete. Alle Werkzeuge laufen nur als eigene Prozesse (Lizenzen: docs/LIZENZEN.md).
+#
+#   Worker-Image:   docker build -f Dockerfile.worker -t lab-hub:latest-worker .
+#   Test-Image:     docker build -f Dockerfile.worker --target worker-test -t lab-hub-worker-test .   (scripts/ocr-container-test.sh)
+#
+# Betrieb: read-only Root, Schreiben nur nach /tmp (tmpfs). Der Worker legt je Auftrag ein Arbeitsverzeichnis unter $OCR_TMPDIR (Standard /tmp) an.
+ARG OCR_PACKAGES="ocrmypdf tesseract-ocr-deu tesseract-ocr-eng ghostscript poppler-utils qpdf ca-certificates tzdata curl libcurl4t64"
+
+FROM swift:6.2-noble AS build
+WORKDIR /src
+COPY backend/ ./
+RUN swift build -c release --product App --static-swift-stdlib
+
+# Basis mit den OCR-Werkzeugen (Ubuntu 24.04: ocrmypdf 15.x, Tesseract 5.3.x, Ghostscript 10.x)
+FROM ubuntu:24.04 AS ocr-tools
+ARG OCR_PACKAGES
+RUN apt-get update && apt-get install -y --no-install-recommends ${OCR_PACKAGES} && rm -rf /var/lib/apt/lists/* \
+ && (id -u labhub >/dev/null 2>&1 || useradd --system --uid 10001 --create-home labhub)
+
+FROM ocr-tools AS worker
+COPY --from=build /src/.build/release/App /usr/local/bin/lab-hub
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+USER labhub
+ENV OCR_TMPDIR=/tmp HOME=/tmp
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+CMD ["worker", "--kinds", "dms.ocr"]
+
+# Nur für Tests: Swift-Toolchain plus dieselben Werkzeuge (swift test mit echtem ocrmypdf, siehe scripts/ocr-container-test.sh)
+FROM swift:6.2-noble AS worker-test
+ARG OCR_PACKAGES
+RUN apt-get update && apt-get install -y --no-install-recommends ${OCR_PACKAGES} git && rm -rf /var/lib/apt/lists/*

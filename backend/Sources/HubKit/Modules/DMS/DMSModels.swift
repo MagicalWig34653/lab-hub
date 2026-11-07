@@ -41,6 +41,8 @@ struct DMSDocumentOut: Content, Sendable {
     var files: [DMSFileOut]?
     /// Nur bei Upload: andere Dokumente des Mandanten mit demselben Original (Hinweis, nie Ablehnung).
     var duplicates: [UUID]?
+    /// Nur bei Upload (WP-O2): Eingangsvorgang; Fortschritt über `GET documents/{id}/processing`.
+    var ingest_item_id: UUID?
 }
 
 /// Wert eines benutzerdefinierten Feldes (JSON-Skalar).

@@ -93,6 +93,9 @@ case "$MODE" in
     say "Migration …"; "${COMPOSE[@]}" run --rm migrate || die "Migration fehlgeschlagen; Backend wurde nicht angefasst. Alte Version läuft weiter."
     say "Backend neu erstellen …"; "${COMPOSE[@]}" up -d --no-deps backend
     wait_ready "http://${BACKEND_BIND:-127.0.0.1}:${BACKEND_PORT:-8080}" || die "Backend meldet nicht /ready: ${COMPOSE[*]} logs backend"
+    # WP-O2: OCR-Worker (eigenes Image <Image>-worker, Dockerfile.worker). Ein Fehler hier stoppt das Backend-Update nicht, OCR-Aufträge warten dann in der Warteschlange.
+    say "OCR-Worker aktualisieren …"
+    { "${COMPOSE[@]}" pull worker && "${COMPOSE[@]}" up -d --no-deps worker; } || say "Hinweis: Worker-Image nicht ladbar oder Start fehlgeschlagen (docker build -f Dockerfile.worker -t ${TARGET}-worker .); OCR-Aufträge bleiben in der Warteschlange."
     ;;
   1|2)
     FILES=(-c "$HERE/swarm/stack.yaml"); [ "$MODE" = 1 ] && FILES+=(-c "$HERE/swarm/stack.db.yaml")
@@ -107,6 +110,10 @@ case "$MODE" in
     case "${state:-}" in Complete*) say "Migration abgeschlossen" ;; *) die "Migration nicht abgeschlossen: docker service logs ${STACK}_migrate" ;; esac
     say "Backend rollierend aktualisieren (start-first, Rollback bei Fehler) …"
     docker service update --with-registry-auth --image "$TARGET" "${STACK}_backend" || die "Update fehlgeschlagen; Swarm hat ggf. zurückgerollt: docker service ps ${STACK}_backend"
+    # WP-O2 (ungetestet unter Swarm): OCR-Worker mit dem Worker-Image nachziehen; Fehler stoppt das Update nicht
+    say "OCR-Worker aktualisieren …"
+    WORKER_IMAGE="$(get LABHUB_WORKER_IMAGE)"; WORKER_IMAGE="${WORKER_IMAGE:-${TARGET}-worker}"
+    docker service update --with-registry-auth --image "$WORKER_IMAGE" "${STACK}_worker" || say "Hinweis: Worker-Update fehlgeschlagen: docker service ps ${STACK}_worker"
     wait_ready "$BASE" || say "Hinweis: $BASE/ready nicht erreichbar (Reverse Proxy/DNS prüfen); Dienststatus: docker service ps ${STACK}_backend"
     ;;
 esac

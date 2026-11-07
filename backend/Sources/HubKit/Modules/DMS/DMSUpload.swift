@@ -130,7 +130,7 @@ enum DMSUpload {
             let doc = try await DMSDocuments.create(
                 tenant: tenant, actor: actor, requestID: requestID,
                 doc: .init(title: params.title, docDate: params.docDate, typeID: params.typeID, originalName: params.originalName, archive: params.archive,
-                           kind: kind, stored: stored, fileID: fileID), on: db)
+                           kind: kind, stored: stored, fileID: fileID, ocrPriority: module.enqueueOCR ? DMSOCR.priorityManual : nil), on: db)
             let encoder = JSONEncoder()
             return StoredResponse(status: 201, body: String(decoding: try encoder.encode(doc), as: UTF8.self))
         }

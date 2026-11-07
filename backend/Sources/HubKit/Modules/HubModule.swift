@@ -53,7 +53,7 @@ public extension HubModule {
 
 /// Feste, zur Build-Zeit bekannte Modulliste (ADR 0004). Hier trägt WP-D2 usw. ein Modul ein.
 public enum InstalledModules {
-    public static let all: [any HubModule] = [DMSModule()]
+    public static let all: [any HubModule] = [DMSModule(enqueueOCR: ProcessInfo.processInfo.environment["DMS_OCR_ENABLED"] != "false")]
 }
 
 /// Geprüfte Modulliste. Ein Registrierungsfehler ist ein Programmierfehler und bricht den Start ab.

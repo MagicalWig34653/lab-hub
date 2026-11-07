@@ -10,6 +10,11 @@ public enum WorkerHandlers {
     public static func registry(environment: [String: String] = ProcessInfo.processInfo.environment) -> [String: JobHandler] {
         var map: [String: JobHandler] = [:]
         if environment["WORKER_ENABLE_SELFTEST"] == "1" { map[selftestKind] = selftest }
+        // WP-O2: OCR; Objektspeicher aus der Umgebung (wie das Backend), Arbeitsverzeichnis auf tmpfs (OCR_TMPDIR, Standard TMPDIR)
+        let ocr = OCRConfig.fromEnvironment(environment)
+        map[DMSOCR.kind] = DMSOCR.handler(engine: OCRToolEngine(config: ocr), tempRoot: ocr.tempRoot) { s in
+            try ObjectStoreConfig.fromEnvironment(environment).makeStore(db: s)
+        }
         return map
     }
 
@@ -50,6 +55,10 @@ public struct WorkerCommand: AsyncCommand {
         let registry = WorkerHandlers.registry()
         let unknown = kinds.filter { registry[$0] == nil }
         guard unknown.isEmpty else { fail("Kein Handler für: \(unknown.joined(separator: ","))") }
+        if kinds.contains(DMSOCR.kind) {
+            let config = OCRConfig.fromEnvironment()
+            if let problem = await OCRToolEngine.preflight(config: config, workDir: URL(fileURLWithPath: config.tempRoot, isDirectory: true)) { fail(problem) }
+        }
         guard await schemaIsCurrent(app) else { fail("Schema nicht aktuell (zuerst `migrate`)") }
 
         let worker = JobWorker(db: try sql(app.db(.psql)), kinds: kinds, handlers: registry.filter { kinds.contains($0.key) }, leaseSeconds: lease,

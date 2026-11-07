@@ -56,6 +56,34 @@ services:
       resources:
         limits: { cpus: "1.0", memory: 512M }
 
+  # WP-O2: OCR-Worker (Dockerfile.worker), UNGETESTET unter Swarm (nur Syntaxprüfung mit `docker compose config`). Wie das Backend ohne Port;
+  # Repliken nach Last (jeder Worker holt Aufträge per Lease aus der Datenbank, mehrere sind sicher, ADR 0006). Objektspeicher wie das Backend (S3 empfohlen).
+  worker:
+    image: ${LABHUB_WORKER_IMAGE:-${LABHUB_IMAGE:?LABHUB_IMAGE setzen}-worker}
+    command: ["worker", "--kinds", "dms.ocr"]
+    environment:
+      DB_HOST: ${DB_HOST:?DB_HOST setzen}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_NAME: ${DB_NAME:-labhub}
+      DB_USER: ${DB_USER:-labhub}
+      DB_PASSWORD_FILE: /run/secrets/lh_db_password
+      DB_TLS: ${DB_TLS:-require}
+      AUTO_MIGRATE: "false"
+      OCR_TMPDIR: /tmp
+      OCR_TIMEOUT_SECONDS: ${OCR_TIMEOUT_SECONDS:-600}
+      OCR_MEMORY_MB: ${OCR_MEMORY_MB:-4096}
+      OCR_MAX_PAGES: ${OCR_MAX_PAGES:-300}
+    secrets: [lh_db_password]
+    read_only: true
+    tmpfs: ["/tmp:size=2g"]
+    stop_grace_period: 30s
+    deploy:
+      replicas: ${WORKER_REPLICAS:-1}
+      update_config: { order: stop-first, parallelism: 1, failure_action: rollback }
+      restart_policy: { condition: on-failure }
+      resources:
+        limits: { cpus: "2.0", memory: 6G }
+
 secrets:
   lh_db_password:
     external: true

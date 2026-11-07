@@ -37,9 +37,24 @@ struct VirtualAuthenticator: @unchecked Sendable {
     func registration(_ publicKey: [String: Any], flags: UInt8 = 0x45) throws -> [String: Any] {
         let challenge = publicKey["challenge"] as! String
         let xy = Array(privateKey.publicKey.x963Representation.dropFirst())
-        let cose: [UInt8] = [0xa5, 0x01, 0x02, 0x03, 0x26, 0x20, 0x01, 0x21] + bytes(Array(xy.prefix(32))) + [0x22] + bytes(Array(xy.suffix(32)))
-        let auth = Array(SHA256.hash(data: Data(rpID.utf8))) + [flags, 0, 0, 0, 0] + Array(repeating: UInt8(0), count: 16) + [0, 32] + Array(credentialID) + cose
-        let attestation = [UInt8(0xa3)] + text("fmt") + text("none") + text("attStmt") + [0xa0] + text("authData") + bytes(auth)
+        // in Teilausdrücken, weil der Linux-Compiler die Verkettung nicht in vertretbarer Zeit auflöst (WP-O2, Container-Tests)
+        var cose: [UInt8] = [0xa5, 0x01, 0x02, 0x03, 0x26, 0x20, 0x01, 0x21]
+        cose += bytes(Array(xy.prefix(32)))
+        cose += [0x22]
+        cose += bytes(Array(xy.suffix(32)))
+        var auth: [UInt8] = Array(SHA256.hash(data: Data(rpID.utf8)))
+        auth += [flags, 0, 0, 0, 0]
+        auth += Array(repeating: UInt8(0), count: 16)
+        auth += [0, 32]
+        auth += Array(credentialID)
+        auth += cose
+        var attestation: [UInt8] = [0xa3]
+        attestation += text("fmt")
+        attestation += text("none")
+        attestation += text("attStmt")
+        attestation += [0xa0]
+        attestation += text("authData")
+        attestation += bytes(auth)
         let client = try clientData(challenge: challenge, type: "webauthn.create")
         return ["id": credentialID.base64URL, "rawId": credentialID.base64URL, "type": "public-key",
                 "response": ["clientDataJSON": client.base64URL, "attestationObject": Data(attestation).base64URL, "transports": ["internal"]]]

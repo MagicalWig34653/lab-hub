@@ -51,3 +51,18 @@ Lizenzverteilung im Lockfile (alle 241 Pakete, auch transitiv): MIT 197, Apache-
 | `axe-core` (transitiv) | 4.14.0 | MPL-2.0 | Wie oben; unverändert verwendet, nicht eingebunden oder modifiziert. MPL-2.0 ist mit AGPLv3 über die Sekundärlizenz-Regel (§ 3.3) vereinbar; Bestätigung durch den Nutzer wie bei `lightningcss` offen. |
 
 Hinweis zur Installation: `npm install` ohne `--force`/`--legacy-peer-deps` scheitert im Repo an der Peer-Auflösung (`@sveltejs/kit` 3 mit `typescript` 5.9, wegen `openapi-typescript` 7); das Lockfile wurde mit `npm install -D @axe-core/playwright --force` ergänzt, `npm ci` läuft damit sauber. Dabei entfielen drei nur optional/extraneous eingetragene Pakete (nested `@sveltejs/kit` 2.x unter `bits-ui`/`svelte-toolbelt`, `@types/cookie`, `kleur`, `set-cookie-parser`).
+
+## Worker-Image WP-O2 (`Dockerfile.worker`, OCR-Werkzeuge, Stand 07.11.2026, keine Rechtsberatung)
+
+Geprüft anhand der Paketangaben (`dpkg-query`, `/usr/share/doc/<paket>/copyright`) im gebauten Image auf Ubuntu 24.04 (Kurzfassung der Hauptlizenzen; die Pakete enthalten weitere Teillizenzen, die vollständige Liste liefert WP-H1 mit der SBOM). Das **API-Image enthält nichts davon**; die Werkzeuge liegen nur im Worker-Image.
+
+| Werkzeug (Paket, Version) | Hauptlizenz | Nutzung im Hub |
+| --- | --- | --- |
+| `ocrmypdf` 15.2.0 | MPL-2.0 (einzelne Teile Expat/MIT) | Eigener Prozess (`ocrmypdf …`), erzeugt Archiv-PDF (PDF/A-2b) und OCR-Textschicht |
+| Tesseract `tesseract-ocr` 5.3.4, Sprachpakete `tesseract-ocr-deu`/`-eng` | Apache-2.0 | Von ocrmypdf als Prozess aufgerufen (Sprachen `deu+eng`) |
+| Ghostscript `ghostscript` 10.02.1 | **AGPL-3.0-or-later** (Artifex) | Nur als **separates Programm** (Aufruf durch ocrmypdf für Rasterung/PDF-A-Erzeugung; Testdokumente werden damit erzeugt). **Keine Linkabhängigkeit**: weder das Swift-Backend noch der Worker binden `libgs` ein; es gibt keine Header, kein FFI, keine Swift-Paketabhängigkeit. Hub und Ghostscript sind beide AGPL-3.0, eine Kombination wäre daher lizenzrechtlich kein Hindernis; die Trennung bleibt Absicht, damit das Backend austauschbar bleibt |
+| `poppler-utils` 24.02 (`pdftotext`, `pdfinfo`) | GPL-2.0-or-later / GPL-3.0-or-later | Nur als Programm aufgerufen (Textschicht lesen, Seitenzahl) |
+| `qpdf` 11.9 | Apache-2.0 | Abhängigkeit von ocrmypdf/pikepdf (Prozess/Bibliothek innerhalb von ocrmypdf) |
+| Python-Bibliotheken von ocrmypdf (u. a. `pikepdf` MPL-2.0, `img2pdf` LGPL-3.0-or-later, `Pillow` HPND, `pdfminer.six` MIT) | siehe links | Laufen im Python-Prozess von ocrmypdf; vom Hub nicht gelinkt |
+
+Pflichten bei **Weitergabe** des Worker-Images (Registry): Ghostscript (AGPL-3.0), Poppler (GPL) und die übrigen Pakete werden als Binärpakete der Distribution ausgeliefert; die Quellen stammen aus den Ubuntu-Quellpaketen (`apt-get source <paket>`), der Lizenztext liegt im Image unter `/usr/share/doc/<paket>/copyright`. Bei eigenem Hosting ohne Weitergabe entsteht keine zusätzliche Pflicht über die AGPL-Netzwerkklausel des Hubs hinaus. **Offen:** Bestätigung durch den Nutzer/Juristen, SBOM mit WP-H1, Quellangebot-Text für ein veröffentlichtes Image.
