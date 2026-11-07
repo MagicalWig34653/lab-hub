@@ -1877,7 +1877,7 @@ paths:
     post:
       operationId: previewDmsRule
       summary: Trockenlauf einer gespeicherten Regel gegen vorhandene Dokumente (Berechtigung dms.rule.manage); schreibt nichts
-      description: Wie der Entwurfs-Trockenlauf; optionaler Body {"limit": n}.
+      description: 'Wie der Entwurfs-Trockenlauf; optionaler Body {"limit": n}.'
       security: [{ bearer: [] }, { cookie: [] }]
       parameters:
         - { $ref: "#/components/parameters/Tenant" }

@@ -1194,6 +1194,198 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tenants/{tenant}/dms/rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Regeln des Mandanten (Berechtigung dms.rule.read), aelteste zuerst; ohne geloeschte */
+        get: operations["listDmsRules"];
+        put?: never;
+        /**
+         * Regel anlegen (Berechtigung dms.rule.manage); Modus Standard suggest, Audit dms.rule.created
+         * @description Bedingungen (conditions.conditions, match all|any): text_contains, text_regex, filename_contains, filename_regex, sender_contains, source_is.
+         *     Regex hoechstens 200 Zeichen und mit Zeitlimit bei der Auswertung (Standard 250 ms je Dokument, Betrieb DMS_REGEX_TIMEOUT_MS); ein Abbruch zaehlt als "nicht erfuellt".
+         *     Aktionen: correspondent_id, document_type_id, tag_ids, storage_path_id, doc_date (extracted oder yyyy-MM-dd), title_template ({filename}, {match}, {date}).
+         *     Modus auto wendet nur bei leeren Einzelwerten an (F-25), Standard suggest aendert nie Metadaten. Unbekannte Schluessel und fremde Verweise: 422. Gleicher Name (ohne Gross-/Kleinschreibung): 409.
+         */
+        post: operations["createDmsRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/dms/rules/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Trockenlauf eines Entwurfs gegen vorhandene Dokumente (Berechtigung dms.rule.manage); schreibt nichts
+         * @description Prueft die juengsten Dokumente (limit 1..500, Standard 100, ohne Papierkorb) gegen den Entwurf. Kein Audit, keine Zeile, keine Aenderung.
+         *     Antwort: geprueft, getroffen, Regex-Abbrueche (timed_out), truncated (Zeitbudget 20 s aufgebraucht), Treffer mit Fundstelle und den Vorschlaegen, die entstaenden.
+         */
+        post: operations["previewDmsRuleDraft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/dms/rules/{rule}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Regel mit Statistik (Berechtigung dms.rule.read) */
+        get: operations["getDmsRule"];
+        put?: never;
+        post?: never;
+        /** Regel loeschen (Berechtigung dms.rule.manage); weich, bestehende Vorschlaege bleiben */
+        delete: operations["deleteDmsRule"];
+        options?: never;
+        head?: never;
+        /** Regel aendern (Berechtigung dms.rule.manage); nur gesetzte Felder; die Version steigt bei Aenderung von Bedingungen, Aktionen, Modus oder Konfidenz */
+        patch: operations["updateDmsRule"];
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/dms/rules/{rule}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Trockenlauf einer gespeicherten Regel gegen vorhandene Dokumente (Berechtigung dms.rule.manage); schreibt nichts
+         * @description Wie der Entwurfs-Trockenlauf; optionaler Body {"limit": n}.
+         */
+        post: operations["previewDmsRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/dms/suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Vorschlaege des Mandanten (Berechtigung dms.suggestion.read); Standard nur offene, Papierkorb-Dokumente ausgeblendet */
+        get: operations["listDmsSuggestions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/dms/documents/{document}/suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Vorschlaege zu einem Dokument (Berechtigung dms.suggestion.read); state wie bei der Mandantenliste */
+        get: operations["listDmsDocumentSuggestions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/dms/suggestions/{suggestion}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Vorschlag annehmen (Berechtigung dms.suggestion.decide); schreibt die Aenderung ans Dokument, Audit dms.suggestion.accepted
+         * @description Bereits entschieden 409 suggestion_decided; Ziel nicht mehr vorhanden oder exklusive Tag-Gruppe belegt 409 suggestion_stale; Dokument im Papierkorb 409 document_trashed.
+         */
+        post: operations["acceptDmsSuggestion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/dms/suggestions/{suggestion}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Vorschlag ablehnen (Berechtigung dms.suggestion.decide); aendert nichts am Dokument, Audit dms.suggestion.rejected, fliesst in die Regelstatistik */
+        post: operations["rejectDmsSuggestion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/dms/duplicates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Duplikat-Hinweise mit Gegenueberstellung (Berechtigung dms.document.read); Standard nur offene
+         * @description Stufe 1 sha256 (gleiches Original), Stufe 2 text_hash (gleicher normalisierter Text) und similarity (Text-Shingles, bei mittlerer Aehnlichkeit nur mit gleichem Belegdatum und aehnlichem Titel). Nie wird ein Dokument verworfen.
+         */
+        get: operations["listDmsDuplicates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/dms/duplicates/{duplicate}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Duplikat-Hinweis entscheiden (Berechtigung dms.document.update); loescht und verschiebt nichts, Audit dms.duplicate.resolved */
+        post: operations["resolveDmsDuplicate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1310,7 +1502,7 @@ export interface components {
              * @description Stabiler maschinenlesbarer Code
              * @enum {string}
              */
-            code: "bad_request" | "conflict" | "contact_merged" | "csrf_invalid" | "document_linked" | "document_not_trashed" | "document_trashed" | "forbidden" | "handle_taken" | "idempotency_in_progress" | "idempotency_key_required" | "idempotency_key_reused" | "ingest_not_failed" | "internal_error" | "invalid_cursor" | "invalid_limit" | "invitation_invalid" | "last_owner" | "last_passkey" | "legal_hold" | "login_failed" | "method_not_allowed" | "module_disabled" | "module_required_by" | "module_requires" | "module_unavailable" | "not_found" | "passkey_invalid" | "payload_too_large" | "precondition_failed" | "recovery_session_restricted" | "retention_not_expired" | "service_unavailable" | "setup_token_invalid" | "storage_quota_exceeded" | "tenant_required" | "too_many_requests" | "unauthorized" | "unsupported_media_type" | "upload_interrupted" | "validation_failed";
+            code: "bad_request" | "conflict" | "contact_merged" | "csrf_invalid" | "document_linked" | "document_not_trashed" | "document_trashed" | "forbidden" | "handle_taken" | "idempotency_in_progress" | "idempotency_key_required" | "idempotency_key_reused" | "ingest_not_failed" | "internal_error" | "invalid_cursor" | "invalid_limit" | "invitation_invalid" | "last_owner" | "last_passkey" | "legal_hold" | "login_failed" | "method_not_allowed" | "module_disabled" | "module_required_by" | "module_requires" | "module_unavailable" | "not_found" | "passkey_invalid" | "payload_too_large" | "precondition_failed" | "recovery_session_restricted" | "retention_not_expired" | "service_unavailable" | "setup_token_invalid" | "storage_quota_exceeded" | "suggestion_decided" | "suggestion_stale" | "tenant_required" | "too_many_requests" | "unauthorized" | "unsupported_media_type" | "upload_interrupted" | "validation_failed";
             detail?: string;
             request_id: string;
             errors?: components["schemas"]["FieldError"][];
@@ -1681,6 +1873,192 @@ export interface components {
             /** @description integrity_failed, export_too_large, export_failed */
             error_code?: string | null;
         };
+        DmsRuleCondition: {
+            /** @enum {string} */
+            type: "text_contains" | "text_regex" | "filename_contains" | "filename_regex" | "sender_contains" | "source_is";
+            /** @description fuer *_contains; bei source_is upload|folder|mail|share_ext|api */
+            value?: string;
+            /** @description fuer *_regex (mit Zeitlimit) */
+            pattern?: string;
+            /** @default false */
+            case_sensitive: boolean;
+        };
+        DmsRuleConditions: {
+            /** @enum {integer} */
+            version?: 1;
+            /**
+             * @default all
+             * @enum {string}
+             */
+            match: "all" | "any";
+            conditions: components["schemas"]["DmsRuleCondition"][];
+        };
+        /** @description Mindestens eine Aktion. Verweise muessen zum Mandanten gehoeren. */
+        DmsRuleActions: {
+            /** Format: uuid */
+            correspondent_id?: string;
+            /** Format: uuid */
+            document_type_id?: string;
+            tag_ids?: string[];
+            /** Format: uuid */
+            storage_path_id?: string;
+            /** @description extracted (erstes gueltiges Datum im Text) oder yyyy-MM-dd */
+            doc_date?: string;
+            /** @description Platzhalter {filename}, {match}, {date} */
+            title_template?: string;
+        };
+        DmsRuleInput: {
+            name?: string;
+            /**
+             * @description hoehere zuerst
+             * @default 0
+             */
+            priority: number;
+            /** @default true */
+            enabled: boolean;
+            /**
+             * @default suggest
+             * @enum {string}
+             */
+            mode: "suggest" | "auto";
+            /** @default 0.8 */
+            confidence: number;
+            conditions?: components["schemas"]["DmsRuleConditions"];
+            actions?: components["schemas"]["DmsRuleActions"];
+            /** @description nur Trockenlauf */
+            limit?: number;
+        };
+        DmsRule: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            priority: number;
+            enabled: boolean;
+            /** @enum {string} */
+            mode: "suggest" | "auto";
+            confidence: number;
+            conditions: components["schemas"]["DmsRuleConditions"];
+            actions: components["schemas"]["DmsRuleActions"];
+            version: number;
+            /** Format: uuid */
+            created_by?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            stats: {
+                suggested: number;
+                open: number;
+                accepted: number;
+                rejected: number;
+                automatic: number;
+            };
+        };
+        DmsRulePage: {
+            items: components["schemas"]["DmsRule"][];
+            next_cursor: string | null;
+            total?: number | null;
+        };
+        DmsRulePreview: {
+            /** Format: uuid */
+            rule_id?: string | null;
+            /** @enum {string} */
+            mode: "suggest" | "auto";
+            checked: number;
+            matched: number;
+            /** @description Dokumente, bei denen ein Regex das Zeitlimit ueberschritt */
+            timed_out: number;
+            truncated: boolean;
+            /** @description Hoechstens 100 Treffer. */
+            items: {
+                /** Format: uuid */
+                document_id: string;
+                title: string;
+                matches: {
+                    type: string;
+                    /** @description gekuerzter Fundtext */
+                    matched: string;
+                    /** @description UTF-16-Offset im Text */
+                    offset?: number | null;
+                    length?: number | null;
+                }[];
+                suggestions: {
+                    kind: string;
+                    value: {
+                        [key: string]: string;
+                    };
+                    confidence: number;
+                    reason: string;
+                }[];
+            }[];
+        };
+        DmsSuggestion: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            document_id: string;
+            document_title: string;
+            /** @enum {string} */
+            kind: "correspondent" | "type" | "tag" | "date" | "title" | "path";
+            /** @description z. B. {contact_id}, {document_type_id}, {tag_id}, {doc_date}, {title}, {storage_path_id} */
+            value: {
+                [key: string]: string;
+            };
+            /** @enum {string} */
+            source: "rule" | "contact_match";
+            /** Format: uuid */
+            rule_id?: string | null;
+            rule_version?: number | null;
+            confidence: number;
+            /** @description z. B. Regel "X", Treffer "Y" oder Kontakt-Abgleich, Treffer IBAN ...1234 */
+            reason: string;
+            evidence: {
+                [key: string]: string;
+            };
+            /** @enum {string} */
+            state: "open" | "accepted" | "rejected";
+            applied_automatically: boolean;
+            /** Format: uuid */
+            decided_by?: string | null;
+            /** Format: date-time */
+            decided_at?: string | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        DmsSuggestionPage: {
+            items: components["schemas"]["DmsSuggestion"][];
+            next_cursor: string | null;
+            total?: number | null;
+        };
+        DmsDuplicate: {
+            /** Format: uuid */
+            id: string;
+            /**
+             * Format: uuid
+             * @description das jeweils juengere Dokument
+             */
+            document_id: string;
+            document_title: string;
+            /** Format: uuid */
+            duplicate_of: string;
+            duplicate_of_title: string;
+            /** @enum {string} */
+            method: "sha256" | "text_hash" | "similarity";
+            score: number;
+            /** @enum {string} */
+            state: "open" | "confirmed" | "dismissed";
+            /** Format: uuid */
+            decided_by?: string | null;
+            /** Format: date-time */
+            decided_at?: string | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        DmsDuplicatePage: {
+            items: components["schemas"]["DmsDuplicate"][];
+            next_cursor: string | null;
+            total?: number | null;
+        };
     };
     responses: {
         /** @description Fehler (RFC 9457) */
@@ -1726,6 +2104,9 @@ export interface components {
         LinkId: string;
         DmsDocument: string;
         DmsMasterId: string;
+        DmsRule: string;
+        DmsSuggestion: string;
+        DmsDuplicate: string;
     };
     requestBodies: never;
     headers: {
@@ -4196,6 +4577,425 @@ export interface operations {
             401: components["responses"]["Problem"];
             403: components["responses"]["Problem"];
             404: components["responses"]["Problem"];
+        };
+    };
+    listDmsRules: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaker Cursor aus next_cursor der vorigen Seite. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Gesamtzahl nur auf Anforderung (teuer). */
+                count?: components["parameters"]["Count"];
+            };
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Regelseite */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmsRulePage"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    createDmsRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DmsRuleInput"];
+            };
+        };
+        responses: {
+            /** @description Regel */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmsRule"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    previewDmsRuleDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DmsRuleInput"];
+            };
+        };
+        responses: {
+            /** @description Trockenlauf */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmsRulePreview"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getDmsRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                rule: components["parameters"]["DmsRule"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Regel */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmsRule"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    deleteDmsRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                rule: components["parameters"]["DmsRule"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Geloescht */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    updateDmsRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                rule: components["parameters"]["DmsRule"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DmsRuleInput"];
+            };
+        };
+        responses: {
+            /** @description Regel */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmsRule"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    previewDmsRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                rule: components["parameters"]["DmsRule"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    limit?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Trockenlauf */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmsRulePreview"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listDmsSuggestions: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaker Cursor aus next_cursor der vorigen Seite. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Gesamtzahl nur auf Anforderung (teuer). */
+                count?: components["parameters"]["Count"];
+                state?: "open" | "accepted" | "rejected" | "all";
+                kind?: "correspondent" | "type" | "tag" | "date" | "title" | "path";
+                document_id?: string;
+                rule_id?: string;
+            };
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Vorschlagsseite */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmsSuggestionPage"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listDmsDocumentSuggestions: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaker Cursor aus next_cursor der vorigen Seite. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Gesamtzahl nur auf Anforderung (teuer). */
+                count?: components["parameters"]["Count"];
+                state?: "open" | "accepted" | "rejected" | "all";
+            };
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                document: components["parameters"]["DmsDocument"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Vorschlagsseite */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmsSuggestionPage"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    acceptDmsSuggestion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                suggestion: components["parameters"]["DmsSuggestion"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Vorschlag */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmsSuggestion"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+        };
+    };
+    rejectDmsSuggestion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                suggestion: components["parameters"]["DmsSuggestion"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Vorschlag */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmsSuggestion"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+        };
+    };
+    listDmsDuplicates: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaker Cursor aus next_cursor der vorigen Seite. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Gesamtzahl nur auf Anforderung (teuer). */
+                count?: components["parameters"]["Count"];
+                state?: "open" | "confirmed" | "dismissed" | "all";
+                method?: "sha256" | "text_hash" | "similarity";
+                /** @description Paare, in denen dieses Dokument vorkommt */
+                document_id?: string;
+            };
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Duplikatseite */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmsDuplicatePage"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    resolveDmsDuplicate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                duplicate: components["parameters"]["DmsDuplicate"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    state: "confirmed" | "dismissed";
+                };
+            };
+        };
+        responses: {
+            /** @description Duplikat */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmsDuplicate"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
         };
     };
 }

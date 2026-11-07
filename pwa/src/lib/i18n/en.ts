@@ -163,6 +163,8 @@ export const en: Record<MessageKey, string> = {
 	'error.contact_merged': 'The contact was merged into another one.',
 	'error.csrf_invalid': 'The security check failed. Please reload the page.',
 	'error.document_trashed': 'The document is in the trash.',
+	'error.suggestion_decided': 'The suggestion has already been decided.',
+	'error.suggestion_stale': 'The suggestion no longer matches the current state of the document.',
 	'error.document_not_trashed': 'The document must be moved to the trash first.',
 	'error.retention_not_expired': 'The retention period has not expired yet.',
 	'error.legal_hold': 'The document is under a legal hold.',
