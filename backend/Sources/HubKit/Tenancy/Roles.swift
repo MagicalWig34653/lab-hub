@@ -15,6 +15,7 @@ public enum Role: String, CaseIterable, Sendable {
 public enum Permissions {
     public static let catalog: [String] = [
         "tenant.tenant.read", "tenant.member.read", "tenant.member.invite", "tenant.member.manage",
+        "tenant.module.read", "tenant.module.manage",
         "dms.document.read", "dms.document.create", "dms.document.update", "dms.document.delete",
         "invoice.document.read", "invoice.document.create", "invoice.document.update", "invoice.document.finalize",
         "contact.contact.read", "contact.contact.create", "contact.contact.update", "contact.contact.delete"
@@ -23,17 +24,17 @@ public enum Permissions {
     private static let table: [Role: Set<String>] = [
         .owner: Set(catalog),
         .accountant: [
-            "tenant.tenant.read", "tenant.member.read",
+            "tenant.tenant.read", "tenant.member.read", "tenant.module.read",
             "dms.document.read", "dms.document.create", "dms.document.update", "dms.document.delete",
             "invoice.document.read", "invoice.document.create", "invoice.document.update", "invoice.document.finalize",
             "contact.contact.read", "contact.contact.create", "contact.contact.update", "contact.contact.delete"],
         .member: [
-            "tenant.tenant.read", "tenant.member.read",
+            "tenant.tenant.read", "tenant.member.read", "tenant.module.read",
             "dms.document.read", "dms.document.create", "dms.document.update",
             "invoice.document.read", "invoice.document.create", "invoice.document.update",
             "contact.contact.read", "contact.contact.create", "contact.contact.update"],
-        .taxAdvisor: ["tenant.tenant.read", "dms.document.read", "invoice.document.read", "contact.contact.read"],
-        .customerViewer: ["tenant.tenant.read"]
+        .taxAdvisor: ["tenant.tenant.read", "tenant.module.read", "dms.document.read", "invoice.document.read", "contact.contact.read"],
+        .customerViewer: ["tenant.tenant.read", "tenant.module.read"]
     ]
 
     public static func of(_ role: Role) -> Set<String> { table[role] ?? [] }

@@ -6,7 +6,7 @@ import Crypto
 
 /// Alle Hub-Tabellen in abhängigkeitssicherer Reihenfolge (für saubere Testzustände). Nur synthetische Daten.
 enum HubTestDB {
-    static let tables = ["memberships", "audit_log", "rate_limit_events", "auth_challenges", "recovery_codes", "invitations", "tenants", "sessions",
+    static let tables = ["ping_items", "tenant_modules", "installation_modules", "memberships", "audit_log", "rate_limit_events", "auth_challenges", "recovery_codes", "invitations", "tenants", "sessions",
                          "passkey_credentials", "users", "object_chunks", "files", "jobs", "idempotency_keys", "counters",
                          "schema_version", "_fluent_migrations"]
     static func dropAll(_ db: any SQLDatabase) async throws {
@@ -91,9 +91,12 @@ class AuthTestCase: XCTestCase, @unchecked Sendable {
         return env
     }
 
+    /// Module der Testinstanz (WP-K3); Unterklassen überschreiben, Standard: keine.
+    var testModules: [any HubModule] { [] }
+
     func makeApp() async throws -> Application {
         let app = try await Application.make(.testing)
-        try configure(app, environment: Self.makeEnv())
+        try configure(app, environment: Self.makeEnv(), modules: testModules)
         app.authSettings?.rateLimitMax = 10_000  // einzelne Tests setzen niedrige Werte
         return app
     }

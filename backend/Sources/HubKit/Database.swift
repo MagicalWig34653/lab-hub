@@ -25,6 +25,7 @@ public func configureDatabase(_ app: Application, _ config: HubConfig) throws {
     pg.coreConfiguration.options.connectTimeout = .seconds(5)
     app.databases.use(.postgres(configuration: pg, connectionPoolTimeout: .seconds(5)), as: .psql)
     app.migrations.add(HubMigrations.all, to: .psql)
+    app.migrations.add(app.hubModules.migrations, to: .psql)  // WP-K3: Migrationen aller Module laufen immer, auch bei deaktiviertem Modul
     app.hubConfig = config
 }
 
@@ -40,7 +41,7 @@ public func schemaIsCurrent(_ app: Application) async -> Bool {
         let db = try sql(app.db(.psql))
         let rows = try await db.raw("SELECT name FROM _fluent_migrations").all()
         let applied = Set(try rows.map { try $0.decode(column: "name", as: String.self) })
-        return HubMigrations.all.allSatisfy { applied.contains($0.name) }
+        return (HubMigrations.all + app.hubModules.migrations).allSatisfy { applied.contains($0.name) }
     } catch {
         return false
     }

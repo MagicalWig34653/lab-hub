@@ -13,7 +13,7 @@ Ausgangsstand (vorhanden, getestet laut `deploy/README.md`/Tests): `migrate`, `s
 | 0 Kern | K0 | Baseline: Build/Test verifizieren, CI-Skript | – | S | P zu allen | fertig (Baseline); F-03 offen |
 | | K1 | Auth: Nutzer, Passkeys, Sitzungen, Einladung, Audit | K0 | L | P K4, D1 | offen |
 | | K2 | Mandanten, Mitgliedschaft, Rollen, Berechtigungen | K1 | M | | erledigt (Branch wp-K2, Handoff docs/handoff/WP-K2.md) |
-| | K3 | Modul-System (`HubModule`, Aktivierung, Guard) | K2 | M | P K4, K6 | offen |
+| | K3 | Modul-System (`HubModule`, Aktivierung, Guard) | K2 | M | P K4, K6 | erledigt (Branch wp-K3, Handoff docs/handoff/WP-K3.md) |
 | | K4 | OpenAPI-Vertrag, Fehlerformat, Pagination, Vertragstest | K0 | M | P K1, D1 | erledigt (Branch wp-K4, Handoff docs/handoff/WP-K4.md) |
 | | K5 | Kontakte und `links` | K2, K4 | M | P K6, K7 | offen |
 | | K6 | Zähler-Erweiterung (transaktional, Schlüsselraum) | K0 | S | P K3, K5 | umgesetzt (Branch wp-K6, `docs/handoff/WP-K6.md`) |
@@ -67,6 +67,8 @@ Grundsatz: Hub ohne Swift-App nutzbar (`AGENTS.md`); die Rechnungsphase ist dahe
 *Status WP-K2: AK-K2-1 und AK-K2-2 umgesetzt und getestet (Branch wp-K2); AK-K2-3 (RLS-Spike, F-15) nicht durchgeführt, siehe `docs/handoff/WP-K2.md`.*
 
 **WP-K3 Modul-System (M).** Ziel: `HubModule`, Registry, `tenant_modules`, `ModuleGuard`, `/api/v1/modules`, Beispielmodul `ping` (nur Test). Akzeptanz: AK-K3-1…6 (`ARCHITEKTUR.md` 3.5). Test: Zwei-Instanzen-Aktivierung, Guard-Test über alle Routen, Migration deaktivierter Module. Abh.: K2. ADR 0004 auf „akzeptiert“ setzen, wenn Nutzer bestätigt.
+
+*Status WP-K3: AK-K3-1…6 umgesetzt und getestet (Branch wp-K3); offen: Aufteilung in Swift-Targets (F-14) beim ersten echten Modul, Events/Jobs/Suchindex-Hook im Protokoll, siehe `docs/handoff/WP-K3.md`.*
 
 **WP-K4 API-Vertrag (M).** Ziel: `contracts/openapi.yaml`, Problem-Details-Fehler, Cursor-Pagination-Helfer, `Idempotency-Key`-Middleware (nutzt `IdempotencyService`), `X-Request-Id`, Versionsendpunkt. Akzeptanz: AK-K4-1…3 (`ARCHITEKTUR.md` Abschnitt 5). Test: Vertragstest Routen↔Vertrag (Vorbild `timetrack-backend/Tests/.../Contract/`), Pagination-Parallelitätstest. Abh.: K0.
 

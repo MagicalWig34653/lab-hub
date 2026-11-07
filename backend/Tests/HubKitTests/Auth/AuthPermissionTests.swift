@@ -21,7 +21,10 @@ final class AuthPermissionTests: AuthTestCase {
         ("GET", "/api/v1/tenants", .normalSession), ("POST", "/api/v1/tenants", .operator),
         ("GET", "/api/v1/tenants/{tenant}", .tenant), ("GET", "/api/v1/tenants/{tenant}/members", .tenant),
         ("PATCH", "/api/v1/tenants/{tenant}/members/{user}", .tenant), ("DELETE", "/api/v1/tenants/{tenant}/members/{user}", .tenant),
-        ("POST", "/api/v1/tenants/{tenant}/invitations", .tenant)
+        ("POST", "/api/v1/tenants/{tenant}/invitations", .tenant),
+        // WP-K3: Modul-Katalog (jede normale Sitzung), Betreiberschalter, Mandantenschalter (Matrix in ModuleTests/TenantTests)
+        ("GET", "/api/v1/modules", .normalSession), ("PUT", "/api/v1/modules/{module}", .operator),
+        ("GET", "/api/v1/tenants/{tenant}/modules", .tenant), ("PUT", "/api/v1/tenants/{tenant}/modules/{module}", .tenant)
     ]
 
     /// AK-K1-*: Die Matrix deckt genau die Routen des Servers unter /api/v1 ab.
@@ -34,6 +37,7 @@ final class AuthPermissionTests: AuthTestCase {
     private func path(_ template: String) -> String {
         String(template.dropFirst()).replacingOccurrences(of: "{id}", with: UUID().uuidString)
             .replacingOccurrences(of: "{tenant}", with: UUID().uuidString).replacingOccurrences(of: "{user}", with: UUID().uuidString)
+            .replacingOccurrences(of: "{module}", with: "ping")
     }
 
     private func method(_ m: String) -> HTTPMethod { HTTPMethod(rawValue: m) }

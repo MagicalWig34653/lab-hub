@@ -5,7 +5,11 @@ import SQLKit
 struct TenantContext: Sendable {
     let tenantID: UUID
     let role: Role
-    var permissions: Set<String> { Permissions.of(role) }
+    /// Kernberechtigungen der Rolle; bei Modulrouten zusätzlich die Berechtigungen des Moduls (WP-K3).
+    let permissions: Set<String>
+    init(tenantID: UUID, role: Role, permissions: Set<String>? = nil) {
+        self.tenantID = tenantID; self.role = role; self.permissions = permissions ?? Permissions.of(role)
+    }
 }
 
 struct TenantContextKey: StorageKey { typealias Value = TenantContext }

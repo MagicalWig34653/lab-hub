@@ -12,6 +12,7 @@ public func routes(_ app: Application) throws {
     registerVersionRoute(app)
     registerAuthRoutes(app)
     registerTenancyRoutes(app)
+    try registerModuleRoutes(app)
 }
 
 public struct Readiness: Sendable {
@@ -29,7 +30,9 @@ extension Application {
 }
 
 /// Liest die Konfiguration aus der Umgebung. Ohne `DB_HOST` läuft nur im Entwicklungs-/Testmodus ohne Datenbank.
-public func configure(_ app: Application, environment: [String: String] = ProcessInfo.processInfo.environment) throws {
+public func configure(_ app: Application, environment: [String: String] = ProcessInfo.processInfo.environment,
+                      modules: [any HubModule] = InstalledModules.all) throws {
+    app.hubModules = try ModuleRegistry(modules)
     if let config = try HubConfig.fromEnvironment(environment) {
         try configureDatabase(app, config)
         app.hubReadiness = Readiness(check: { [unowned app] in await schemaIsCurrent(app) })

@@ -5,6 +5,8 @@ import SQLKit
 
 /// WP-K2: Mandanten, Mitgliedschaften, Rollen, Berechtigungen. Alle Daten synthetisch.
 final class TenantTests: AuthTestCase {
+    override var testModules: [any HubModule] { [PingModule()] }  // WP-K3: die Moduleschalter-Routen brauchen ein registriertes Modul
+
     // MARK: Hilfen
 
     func addUser(_ role: String, handle: String, tenant: String, by: TestSession, via: Application? = nil) async throws -> TestSession {
@@ -42,6 +44,7 @@ final class TenantTests: AuthTestCase {
     func send(_ app: Application, _ method: String, _ template: String, tenant: String, user: String = UUID().uuidString,
               body: [String: Any]? = nil, token: String?) async throws -> Resp {
         let path = String(template.dropFirst()).replacingOccurrences(of: "{tenant}", with: tenant).replacingOccurrences(of: "{user}", with: user)
+            .replacingOccurrences(of: "{module}", with: "ping")
         return try await call(app, HTTPMethod(rawValue: method), path, json: body ?? (method == "GET" || method == "DELETE" ? nil : [:]), token: token)
     }
 
@@ -78,7 +81,8 @@ final class TenantTests: AuthTestCase {
         let expectedSuccess: [String: HTTPStatus] = [
             "GET /api/v1/tenants/{tenant}": .ok, "GET /api/v1/tenants/{tenant}/members": .ok,
             "POST /api/v1/tenants/{tenant}/invitations": .created,
-            "PATCH /api/v1/tenants/{tenant}/members/{user}": .ok, "DELETE /api/v1/tenants/{tenant}/members/{user}": .noContent]
+            "PATCH /api/v1/tenants/{tenant}/members/{user}": .ok, "DELETE /api/v1/tenants/{tenant}/members/{user}": .noContent,
+            "GET /api/v1/tenants/{tenant}/modules": .ok, "PUT /api/v1/tenants/{tenant}/modules/{module}": .ok]
         XCTAssertEqual(Set(routes.map { "\($0.method) \($0.path)" }), Set(expectedSuccess.keys))
         XCTAssertTrue(routes.allSatisfy { Permissions.catalog.contains($0.permission) })
 
@@ -89,6 +93,7 @@ final class TenantTests: AuthTestCase {
                 var body: [String: Any]?
                 if route.method == "PATCH" { body = ["role": "customer_viewer"] }
                 if route.path.hasSuffix("/invitations") { body = ["role": "member"] }
+                if route.method == "PUT" { body = ["enabled": true] }
                 let app = cells % 2 == 0 ? app1! : app2!  // abwechselnd beide Instanzen
                 let r = try await send(app, route.method, route.path, tenant: tenant, user: user, body: body, token: sessions[role]!.token)
                 cells += 1
@@ -294,8 +299,10 @@ final class TenantTests: AuthTestCase {
     /// Expand/Contract: Version 13, Revert stellt Version 12 wieder her, Bestandsnutzer werden übernommen (is_admin -> Rolle/Betreiber).
     func testAKK2_MigrationBackfillsAndReverts() async throws {
         let v = try await scalar("SELECT max(version)::bigint AS v FROM schema_version", as: Int64.self)
-        XCTAssertEqual(v, 13)
+        XCTAssertEqual(v, 14)
         let database = app1.db(.psql)
+        try await db.raw("DROP TABLE ping_items").run()  // WP-K3: Modul- und Schalter-Tabellen hängen an tenants
+        try await CreateModules().revert(on: database)
         try await CreateTenants().revert(on: database)
         let reverted = try await scalar("SELECT max(version)::bigint AS v FROM schema_version", as: Int64.self)
         XCTAssertEqual(reverted, 12)
@@ -328,6 +335,8 @@ final class TenantTests: AuthTestCase {
         let admins = try await scalar("SELECT count(*)::bigint AS v FROM users WHERE is_admin", as: Int64.self)
         XCTAssertEqual(admins, 1)
         try await CreateTenants().prepare(on: database)
+        try await CreateModules().prepare(on: database)
+        try await CreatePingItems().prepare(on: database)
     }
 
     /// Eine Mitgliedschaft existiert höchstens einmal je (Mandant, Nutzer); ungültige Rollen lehnt die Datenbank ab.

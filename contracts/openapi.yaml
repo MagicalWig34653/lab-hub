@@ -377,6 +377,149 @@ paths:
         "403": { $ref: "#/components/responses/Problem" }
         "404": { $ref: "#/components/responses/Problem" }
         "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/modules:
+    get:
+      operationId: listModules
+      summary: Katalog der installierten Module der Installation (ohne Mandantenbezug)
+      description: Status je Mandant liefert GET /api/v1/tenants/{tenant}/modules.
+      security: [{ bearer: [] }, { cookie: [] }]
+      responses:
+        "200":
+          description: Module
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [key, requires, enhances, installed]
+                      properties:
+                        key: { type: string }
+                        requires: { type: array, items: { type: string } }
+                        enhances: { type: array, items: { type: string } }
+                        installed: { type: boolean, description: "false = vom Betreiber fuer die ganze Installation abgeschaltet" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+  /api/v1/modules/{module}:
+    put:
+      operationId: setModuleInstalled
+      summary: Modul fuer die ganze Installation ein- oder ausschalten (nur Betreiber)
+      description: Ausgeschaltet ist das Modul fuer alle Mandanten unwirksam (404 module_disabled auf seinen Routen); Daten bleiben erhalten. Wird im Audit protokolliert.
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { name: module, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [enabled]
+              properties:
+                enabled: { type: boolean }
+      responses:
+        "200":
+          description: Neuer Stand
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [key, installed]
+                properties:
+                  key: { type: string }
+                  installed: { type: boolean }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/modules:
+    get:
+      operationId: listTenantModules
+      summary: Modulstatus und Navigation des Mandanten (Berechtigung tenant.module.read)
+      description: >-
+        `effective` = vom Betreiber installiert, im Mandanten an und alle requires wirksam. `navigation` enthaelt nur Eintraege wirksamer Module,
+        die die Rolle des Aufrufers sehen darf.
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+      responses:
+        "200":
+          description: Module und Navigation
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, navigation]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [key, requires, enhances, installed, enabled, effective]
+                      properties:
+                        key: { type: string }
+                        requires: { type: array, items: { type: string } }
+                        enhances: { type: array, items: { type: string } }
+                        installed: { type: boolean }
+                        enabled: { type: boolean }
+                        effective: { type: boolean }
+                  navigation:
+                    type: array
+                    items:
+                      type: object
+                      required: [module, key, label_key, path]
+                      properties:
+                        module: { type: string }
+                        key: { type: string }
+                        label_key: { type: string, description: i18n-Schluessel }
+                        path: { type: string }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/modules/{module}:
+    put:
+      operationId: setTenantModule
+      summary: Modul im Mandanten ein- oder ausschalten (Berechtigung tenant.module.manage)
+      description: >-
+        Idempotent. Einschalten scheitert mit 409 module_requires (Abhaengigkeit nicht aktiv; errors nennt sie) oder 409 module_unavailable
+        (vom Betreiber abgeschaltet). Ausschalten scheitert mit 409 module_required_by, solange ein aktives Modul davon abhaengt. Daten bleiben erhalten.
+        Eigene Routen eines Moduls (`/api/v1/tenants/{tenant}/<modul>/...`) liefern bei unwirksamem Modul 404 module_disabled; sie stehen im Vertrag
+        des jeweiligen Moduls, nicht hier.
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { name: module, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [enabled]
+              properties:
+                enabled: { type: boolean }
+      responses:
+        "200":
+          description: Neuer Stand
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [key, enabled, installed, effective]
+                properties:
+                  key: { type: string }
+                  enabled: { type: boolean }
+                  installed: { type: boolean }
+                  effective: { type: boolean }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
   /api/v1/me/recovery-codes:
     get:
       operationId: getRecoveryCodeStatus
@@ -662,6 +805,10 @@ components:
             - last_passkey
             - login_failed
             - method_not_allowed
+            - module_disabled
+            - module_required_by
+            - module_requires
+            - module_unavailable
             - not_found
             - passkey_invalid
             - payload_too_large
