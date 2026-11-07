@@ -6,7 +6,8 @@ import Crypto
 
 /// Alle Hub-Tabellen in abhängigkeitssicherer Reihenfolge (für saubere Testzustände). Nur synthetische Daten.
 enum HubTestDB {
-    static let tables = ["links", "contact_aliases", "contact_bank_accounts", "contact_emails", "contact_addresses", "contacts", "ping_items", "tenant_modules", "installation_modules", "memberships", "audit_log", "rate_limit_events", "auth_challenges", "recovery_codes", "invitations", "tenants", "sessions",
+    static let tables = ["dms_document_fields", "dms_document_tags", "dms_document_files", "dms_documents", "dms_custom_fields", "dms_storage_paths", "dms_tags",
+                         "dms_tag_groups", "dms_document_types", "links", "contact_aliases", "contact_bank_accounts", "contact_emails", "contact_addresses", "contacts", "ping_items", "tenant_modules", "installation_modules", "memberships", "audit_log", "rate_limit_events", "auth_challenges", "recovery_codes", "invitations", "tenants", "sessions",
                          "passkey_credentials", "users", "object_chunks", "files", "jobs", "idempotency_keys", "counters",
                          "schema_version", "_fluent_migrations"]
     static func dropAll(_ db: any SQLDatabase) async throws {

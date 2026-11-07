@@ -19,7 +19,7 @@ Ausgangsstand (vorhanden, getestet laut `deploy/README.md`/Tests): `migrate`, `s
 | | K6 | Zähler-Erweiterung (transaktional, Schlüsselraum) | K0 | S | P K3, K5 | umgesetzt (Branch wp-K6, `docs/handoff/WP-K6.md`) |
 | | K7 | Events/Outbox, Webhooks | K3 | M | P K5 | offen |
 | 1 DMS M1 | D1 | ObjectStore (FS, DB, S3), `files`, Hash | K0 | M | P K1, K4 | offen |
-| | D2 | DMS-Kern: Dokumente, Upload, Stammdaten, Papierkorb | K3, K5, D1 | L | | offen |
+| | D2 | DMS-Kern: Dokumente, Upload, Stammdaten, Papierkorb | K3, K5, D1 | L | | umgesetzt (Branch wp-D2, `docs/handoff/WP-D2.md`) |
 | 2 OCR/Suche | O1 | Job-Erweiterung, Ingest-Zustandsautomat, Worker-Befehl | D2 | M | | offen |
 | | O2 | OCR-Worker, Textspeicherung, Archivversion | O1 | L | P S1 (Teil) | offen |
 | | S1 | DMS-Suche (tsvector, pg_trgm, Filter) | D2 (O2 für OCR-Text) | M | P F1 | offen |
@@ -84,6 +84,7 @@ Grundsatz: Hub ohne Swift-App nutzbar (`AGENTS.md`); die Rechnungsphase ist dahe
 *Status WP-D1: Protokoll, FS, DB, `files` fertig und getestet (Branch wp-D1); S3 offen, siehe `docs/handoff/WP-D1.md`.*
 
 **WP-D2 DMS-Kern (L).** Ziel: Tabellen `dms_*` (Dokument, Dateien, Typ, Tag/Gruppe, Pfad, Felder, Papierkorb), Upload-Route, Audit, Events, Berechtigungen (`MODUL-DMS.md` Abschnitte 3, 4.1, 7, 9). Akzeptanz: AK-D1 (Modul gesamt, Upload), AK-D8, Papierkorb/Restore, ASN-Vergabe atomar (AK-D7), Original per DB-Constraint unveränderlich (AK-D-REV-1), Mandantentrennung. Test wie genannt, plus Zwei-Instanzen-Upload. Abh.: K3, K5, D1.
+*Status WP-D2: AK-D1 (Upload, ohne Event), AK-D7, AK-D8, AK-D-REV-1, Papierkorb/Restore, Mandantentrennung, Rechte je Route, Zwei-Instanzen-Upload umgesetzt und getestet (Branch wp-D2); offen: Events (K7), `purge`, Versionen, Archiv-/Thumbnail-Erzeugung (O2), siehe `docs/handoff/WP-D2.md`.*
 
 ## Phase 2 – OCR und Suche
 

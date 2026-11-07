@@ -52,9 +52,11 @@ public struct ModuleRoutes {
     }
 
     /// `permission` muss vom Modul deklariert sein; ohne Deklaration entsteht keine Route.
-    public func on(_ method: HTTPMethod, _ path: PathComponent..., permission: String, use handler: @escaping @Sendable (Request) async throws -> Response) {
+    /// `body: .stream` (WP-D2, Uploads) liefert den Body gestreamt statt gepuffert; die Größe begrenzt dann der Handler selbst.
+    public func on(_ method: HTTPMethod, _ path: PathComponent..., permission: String, body: HTTPBodyStreamStrategy = .collect,
+                   use handler: @escaping @Sendable (Request) async throws -> Response) {
         precondition(app.hubModules.module(key)?.permissions.contains { $0.name == permission } == true, "Berechtigung \(permission) nicht von Modul \(key) deklariert")
-        group.grouped(ModuleGuard(module: key, permission: permission)).on(method, path, use: handler)
+        group.grouped(ModuleGuard(module: key, permission: permission)).on(method, path, body: body, use: handler)
         let rest = path.map { "\($0)" }.map { $0.hasPrefix(":") ? "{\($0.dropFirst())}" : $0 }
         let template = (["api", "v1", "tenants", "{tenant}", key] + rest).joined(separator: "/")
         app.moduleRoutes.append(ModuleRouteInfo(module: key, method: method.rawValue, path: "/" + template, permission: permission))

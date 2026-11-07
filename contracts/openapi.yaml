@@ -859,6 +859,613 @@ paths:
         "403": { $ref: "#/components/responses/Problem" }
         "404": { $ref: "#/components/responses/Problem" }
         "409": { $ref: "#/components/responses/Problem" }
+  # --- WP-D2: DMS-Kern (Modul dms; Modul nicht aktiv: 404 module_disabled; Berechtigungen dms.*) ---
+  /api/v1/tenants/{tenant}/dms/uploads:
+    post:
+      operationId: dmsUpload
+      summary: Datei hochladen (Berechtigung dms.document.create). Body = Dateiinhalt, gestreamt; Typ wird an den Magic Bytes erkannt (PDF, PNG, JPEG, TIFF, WebP), nicht an Endung oder Content-Type
+      description: |
+        Query: filename, title, doc_date (yyyy-MM-dd), document_type_id, archive (true vergibt die ASN sofort). Idempotency-Key ist Pflicht;
+        gleicher Key + gleicher Inhalt/Parameter liefert die gespeicherte Antwort, anderer Inhalt 422 idempotency_key_reused.
+        Ein bereits vorhandenes Original im Mandanten wird nicht abgelehnt, sondern als duplicates gemeldet.
+        Zu gross 413 payload_too_large, unbekannter Typ 415 unsupported_media_type.
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+        - { name: filename, in: query, schema: { type: string, maxLength: 255 } }
+        - { name: title, in: query, schema: { type: string, maxLength: 300 } }
+        - { name: doc_date, in: query, schema: { type: string, format: date } }
+        - { name: document_type_id, in: query, schema: { type: string, format: uuid } }
+        - { name: archive, in: query, schema: { type: boolean, default: false } }
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema: { type: string, format: binary }
+      responses:
+        "201":
+          description: Dokument angelegt
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DmsDocument" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "413": { $ref: "#/components/responses/Problem" }
+        "415": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/dms/documents:
+    get:
+      operationId: listDmsDocuments
+      summary: Dokumente (Berechtigung dms.document.read); trashed=true zeigt den Papierkorb
+      description: Filter status, document_type_id, tag_id, correspondent_id, asn, q (Titel enthaelt). Cursor-Pagination wie ueberall.
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Count" }
+        - { name: trashed, in: query, schema: { type: boolean, default: false } }
+        - { name: status, in: query, schema: { type: string, enum: [processing, needs_review, archived] } }
+        - { name: document_type_id, in: query, schema: { type: string, format: uuid } }
+        - { name: tag_id, in: query, schema: { type: string, format: uuid } }
+        - { name: correspondent_id, in: query, schema: { type: string, format: uuid } }
+        - { name: asn, in: query, schema: { type: integer, format: int64, minimum: 1 } }
+        - { name: q, in: query, schema: { type: string } }
+      responses:
+        "200":
+          description: Seite
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/DmsDocument" } }
+                  next_cursor: { type: [string, "null"] }
+                  total: { type: [integer, "null"] }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/dms/documents/{document}:
+    get:
+      operationId: getDmsDocument
+      summary: Dokument mit Tags, Feldern und Dateien (Berechtigung dms.document.read); fremde ID 404
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/DmsDocument" }
+      responses:
+        "200":
+          description: Dokument
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DmsDocument" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+    patch:
+      operationId: updateDmsDocument
+      summary: Metadaten aendern (Berechtigung dms.document.update); nur gesetzte Felder, null loescht doc_date, Typ, Pfad, Korrespondent; tag_ids ersetzt; fields setzt Werte je Code (null entfernt)
+      description: Optional If-Match mit der rev des Dokuments (412 bei Abweichung). Dokument im Papierkorb 409 document_trashed. Korrespondent = Kontakt (Kern-links, ueberlebt Kontakt-Merge).
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/DmsDocument" }
+        - { name: If-Match, in: header, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string, maxLength: 300 }
+                doc_date: { type: [string, "null"], format: date }
+                document_type_id: { type: [string, "null"], format: uuid }
+                storage_path_id: { type: [string, "null"], format: uuid }
+                correspondent_id: { type: [string, "null"], format: uuid }
+                tag_ids: { type: array, items: { type: string, format: uuid } }
+                fields: { type: object, additionalProperties: true }
+      responses:
+        "200":
+          description: Aktualisiertes Dokument
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DmsDocument" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "412": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/dms/documents/{document}/archive:
+    post:
+      operationId: archiveDmsDocument
+      summary: Archivnummer (ASN) atomar vergeben und Dokument archivieren (Berechtigung dms.document.update); idempotent, eine vorhandene ASN bleibt
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/DmsDocument" }
+      responses:
+        "200":
+          description: Dokument
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DmsDocument" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/dms/documents/{document}/trash:
+    post:
+      operationId: trashDmsDocument
+      summary: In den Papierkorb (Berechtigung dms.document.trash); Grund ist Pflicht, Original und Metadaten bleiben
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/DmsDocument" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string, minLength: 1, maxLength: 500 }
+      responses:
+        "200":
+          description: Dokument (trashed_at gesetzt)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DmsDocument" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/dms/documents/{document}/restore:
+    post:
+      operationId: restoreDmsDocument
+      summary: Aus dem Papierkorb wiederherstellen (Berechtigung dms.document.trash)
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/DmsDocument" }
+      responses:
+        "200":
+          description: Dokument
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DmsDocument" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/dms/documents/{document}/file:
+    get:
+      operationId: getDmsDocumentFile
+      summary: Datei ausliefern (Streaming; Berechtigung dms.document.read, fuer role=original zusaetzlich dms.document.download_original)
+      description: |
+        role original (Standard), archive, thumbnail, derivative. disposition attachment (Standard) oder inline (Vorschau).
+        Der Dateiname kommt aus dem Titel. Header nosniff, CSP sandbox, Cache-Control private, no-store. Download des Originals wird im Audit protokolliert.
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/DmsDocument" }
+        - { name: role, in: query, schema: { type: string, enum: [original, archive, thumbnail, derivative], default: original } }
+        - { name: disposition, in: query, schema: { type: string, enum: [attachment, inline], default: attachment } }
+      responses:
+        "200":
+          description: Dateiinhalt
+          content:
+            "*/*":
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/dms/types:
+    get:
+      operationId: listDmsTypes
+      summary: Liste Dokumenttypen (Berechtigung dms.document.read)
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+      responses:
+        "200":
+          description: Eintraege
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/DmsMaster" } }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+    post:
+      operationId: createDmsType
+      summary: "Dokumenttyp anlegen (Berechtigung dms.master.manage); doppelter Name/Code 409"
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DmsMasterInput" }
+      responses:
+        "201":
+          description: Angelegt
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DmsMaster" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/dms/types/{id}:
+    patch:
+      operationId: updateDmsType
+      summary: "Dokumenttyp aendern (Berechtigung dms.master.manage); unveraenderliche Felder (code, data_type) 422"
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/DmsMasterId" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DmsMasterInput" }
+      responses:
+        "200":
+          description: Aktualisiert
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DmsMaster" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+    delete:
+      operationId: deleteDmsType
+      summary: "Dokumenttyp loeschen (Berechtigung dms.master.manage); solange etwas darauf verweist 409"
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/DmsMasterId" }
+      responses:
+        "204": { description: Geloescht }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/dms/tag-groups:
+    get:
+      operationId: listDmsTagGroups
+      summary: Liste Tag-Gruppen (Berechtigung dms.document.read)
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+      responses:
+        "200":
+          description: Eintraege
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/DmsMaster" } }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+    post:
+      operationId: createDmsTagGroup
+      summary: "Tag-Gruppe anlegen (Berechtigung dms.tag.manage); doppelter Name/Code 409"
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DmsMasterInput" }
+      responses:
+        "201":
+          description: Angelegt
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DmsMaster" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/dms/tag-groups/{id}:
+    patch:
+      operationId: updateDmsTagGroup
+      summary: "Tag-Gruppe aendern (Berechtigung dms.tag.manage); unveraenderliche Felder (code, data_type) 422"
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/DmsMasterId" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DmsMasterInput" }
+      responses:
+        "200":
+          description: Aktualisiert
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DmsMaster" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+    delete:
+      operationId: deleteDmsTagGroup
+      summary: "Tag-Gruppe loeschen (Berechtigung dms.tag.manage); solange etwas darauf verweist 409"
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/DmsMasterId" }
+      responses:
+        "204": { description: Geloescht }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/dms/tags:
+    get:
+      operationId: listDmsTags
+      summary: Liste Tags (Berechtigung dms.document.read)
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+      responses:
+        "200":
+          description: Eintraege
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/DmsMaster" } }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+    post:
+      operationId: createDmsTag
+      summary: "Tag anlegen (Berechtigung dms.tag.manage); doppelter Name/Code 409"
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DmsMasterInput" }
+      responses:
+        "201":
+          description: Angelegt
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DmsMaster" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/dms/tags/{id}:
+    patch:
+      operationId: updateDmsTag
+      summary: "Tag aendern (Berechtigung dms.tag.manage); unveraenderliche Felder (code, data_type) 422"
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/DmsMasterId" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DmsMasterInput" }
+      responses:
+        "200":
+          description: Aktualisiert
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DmsMaster" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+    delete:
+      operationId: deleteDmsTag
+      summary: "Tag loeschen (Berechtigung dms.tag.manage); solange etwas darauf verweist 409"
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/DmsMasterId" }
+      responses:
+        "204": { description: Geloescht }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/dms/storage-paths:
+    get:
+      operationId: listDmsStoragePaths
+      summary: Liste Ablagepfade (Berechtigung dms.document.read)
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+      responses:
+        "200":
+          description: Eintraege
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/DmsMaster" } }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+    post:
+      operationId: createDmsStoragePath
+      summary: "Ablagepfad anlegen (Berechtigung dms.master.manage); doppelter Name/Code 409"
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DmsMasterInput" }
+      responses:
+        "201":
+          description: Angelegt
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DmsMaster" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/dms/storage-paths/{id}:
+    patch:
+      operationId: updateDmsStoragePath
+      summary: "Ablagepfad aendern (Berechtigung dms.master.manage); unveraenderliche Felder (code, data_type) 422"
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/DmsMasterId" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DmsMasterInput" }
+      responses:
+        "200":
+          description: Aktualisiert
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DmsMaster" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+    delete:
+      operationId: deleteDmsStoragePath
+      summary: "Ablagepfad loeschen (Berechtigung dms.master.manage); solange etwas darauf verweist 409"
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/DmsMasterId" }
+      responses:
+        "204": { description: Geloescht }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/dms/custom-fields:
+    get:
+      operationId: listDmsCustomFields
+      summary: Liste benutzerdefinierte Felder (Berechtigung dms.document.read)
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+      responses:
+        "200":
+          description: Eintraege
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/DmsMaster" } }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+    post:
+      operationId: createDmsCustomField
+      summary: "Benutzerdefiniertes Feld anlegen (Berechtigung dms.master.manage); doppelter Name/Code 409"
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DmsMasterInput" }
+      responses:
+        "201":
+          description: Angelegt
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DmsMaster" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/dms/custom-fields/{id}:
+    patch:
+      operationId: updateDmsCustomField
+      summary: "Benutzerdefiniertes Feld aendern (Berechtigung dms.master.manage); unveraenderliche Felder (code, data_type) 422"
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/DmsMasterId" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DmsMasterInput" }
+      responses:
+        "200":
+          description: Aktualisiert
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DmsMaster" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+    delete:
+      operationId: deleteDmsCustomField
+      summary: "Benutzerdefiniertes Feld loeschen (Berechtigung dms.master.manage); solange etwas darauf verweist 409"
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/DmsMasterId" }
+      responses:
+        "204": { description: Geloescht }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
 components:
   securitySchemes:
     bearer: { type: http, scheme: bearer, description: "Sitzungstoken fuer Apps (Header X-Auth-Transport: bearer bei der Anmeldung)" }
@@ -901,6 +1508,16 @@ components:
       schema: { type: string, format: uuid }
     LinkId:
       name: link
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    DmsDocument:
+      name: document
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    DmsMasterId:
+      name: id
       in: path
       required: true
       schema: { type: string, format: uuid }
@@ -1050,6 +1667,7 @@ components:
             - conflict
             - contact_merged
             - csrf_invalid
+            - document_trashed
             - forbidden
             - handle_taken
             - idempotency_in_progress
@@ -1077,6 +1695,7 @@ components:
             - tenant_required
             - too_many_requests
             - unauthorized
+            - unsupported_media_type
             - validation_failed
         detail: { type: string }
         request_id: { type: string }
@@ -1177,3 +1796,50 @@ components:
         created_at: { type: string, format: date-time }
         removed_at: { type: [string, "null"], format: date-time }
         removed_by: { type: [string, "null"], format: uuid }
+    # --- WP-D2 ---
+    DmsFile:
+      type: object
+      required: [role, mime, size_bytes, sha256]
+      properties:
+        role: { type: string, enum: [original, archive, thumbnail, derivative] }
+        mime: { type: string }
+        size_bytes: { type: integer, format: int64 }
+        sha256: { type: string, pattern: "^[0-9a-f]{64}$" }
+        page_count: { type: [integer, "null"] }
+        original_name: { type: [string, "null"] }
+    DmsDocument:
+      type: object
+      required: [id, title, received_at, status, created_at, updated_at, rev]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        doc_date: { type: [string, "null"], format: date }
+        received_at: { type: string, format: date-time }
+        document_type_id: { type: [string, "null"], format: uuid }
+        storage_path_id: { type: [string, "null"], format: uuid }
+        correspondent_id: { type: [string, "null"], format: uuid, description: "Kontakt (Kern); ueber links kind correspondent" }
+        asn: { type: [integer, "null"], format: int64, description: "Archivnummer je Mandant, unveraenderlich" }
+        status: { type: string, enum: [processing, needs_review, archived] }
+        trashed_at: { type: [string, "null"], format: date-time }
+        trash_reason: { type: [string, "null"] }
+        created_by: { type: [string, "null"], format: uuid }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        rev: { type: integer, description: "Fuer If-Match" }
+        tag_ids: { type: array, items: { type: string, format: uuid }, description: Nur in der Einzelansicht }
+        fields: { type: object, additionalProperties: true, description: "Wert je Feldcode (nur Einzelansicht)" }
+        files: { type: array, items: { $ref: "#/components/schemas/DmsFile" } }
+        duplicates: { type: array, items: { type: string, format: uuid }, description: "Nur beim Upload: Dokumente mit gleichem Original" }
+    DmsMaster:
+      type: object
+      required: [id, created_at]
+      description: Stammdatenzeile; Felder je Ressource (name, code, description, default_retention_years, exclusive, group_id, color, template, data_type, options).
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        created_at: { type: string, format: date-time }
+      additionalProperties: true
+    DmsMasterInput:
+      type: object
+      description: Felder je Ressource; name ist Pflicht beim Anlegen, bei custom-fields zusaetzlich code und data_type (string, int, decimal, date, bool, select, contact) und fuer select options.
+      additionalProperties: true

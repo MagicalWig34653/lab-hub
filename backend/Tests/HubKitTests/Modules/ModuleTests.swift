@@ -394,6 +394,8 @@ final class ModuleRegistryTests: XCTestCase {
         XCTAssertThrowsError(try ModuleRegistry([Fake(key: "a", requires: ["zzz"])]))                     // unbekannte Abhängigkeit
         XCTAssertThrowsError(try ModuleRegistry([Fake(key: "a", requires: ["b"]), Fake(key: "b", requires: ["a"])]))  // Zyklus
         XCTAssertThrowsError(try ModuleRegistry([Fake(key: "a", permissions: [PermissionDefinition("b.x.read")])]))   // fremder Präfix
-        XCTAssertThrowsError(try ModuleRegistry([Fake(key: "dms", permissions: [PermissionDefinition("dms.document.read")])]))  // Kernkatalog
+        // Kernkatalog (WP-D2: die dms.*-Rechte wanderten ins Modul, der Test prüft die Kollision daher mit einem Kernrecht)
+        XCTAssertThrowsError(try ModuleRegistry([Fake(key: "contact", permissions: [PermissionDefinition("contact.contact.read")])]))
+        XCTAssertNoThrow(try ModuleRegistry([DMSModule()]))
     }
 }

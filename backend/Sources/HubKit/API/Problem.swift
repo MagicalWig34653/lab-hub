@@ -57,6 +57,8 @@ public enum ProblemCatalog {
         "module_requires": "Das Modul benötigt andere Module, die noch nicht aktiviert sind.",
         "module_required_by": "Das Modul wird von anderen aktivierten Modulen benötigt.",
         "module_unavailable": "Das Modul ist auf diesem Server nicht freigegeben.",
+        "document_trashed": "Das Dokument liegt im Papierkorb.",
+        "unsupported_media_type": "Dieser Dateityp wird nicht unterstützt.",
         "contact_merged": "Der Kontakt wurde bereits mit einem anderen zusammengeführt.",
         "last_owner": "Der letzte Owner eines Mandanten kann nicht herabgestuft oder entfernt werden.",
         "last_passkey": "Der letzte Passkey kann nicht entfernt werden.",
@@ -79,6 +81,7 @@ public enum ProblemCatalog {
         case 409: "conflict"
         case 412: "precondition_failed"
         case 413: "payload_too_large"
+        case 415: "unsupported_media_type"
         case 422: "validation_failed"
         case 429: "too_many_requests"
         case 503: "service_unavailable"
