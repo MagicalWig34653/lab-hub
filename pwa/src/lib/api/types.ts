@@ -1034,6 +1034,166 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tenants/{tenant}/dms/documents/{document}/retention": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Aufbewahrungszustand eines Dokuments (Berechtigung dms.document.read)
+         * @description Wirksames Fristende, Herkunft der Frist (Dokumenttyp, Standard, manuell), Loeschsperre und die Gruende, die ein endgueltiges Loeschen derzeit verhindern (blockers).
+         *     Die Fristen sind eine konfigurierbare, GoBD-orientierte Voreinstellung (Ende des Kalenderjahres des Belegdatums plus Jahre je Dokumenttyp, sonst DMS_DEFAULT_RETENTION_YEARS, Standard 10); keine Rechtsberatung und keine Konformitaetszusage.
+         */
+        get: operations["getDmsDocumentRetention"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Loeschsperre setzen/aufheben und Frist verlaengern (Berechtigung dms.document.retention)
+         * @description Mindestens ein Feld. Die manuelle Frist kann nur verlaengern (Verkuerzen 422). Audit dms.document.retention_changed.
+         */
+        patch: operations["updateDmsDocumentRetention"];
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/dms/documents/{document}/purge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Endgueltig loeschen (Berechtigung dms.document.purge, nur Owner)
+         * @description Nur aus dem Papierkorb, nach Ablauf der Aufbewahrungsfrist, ohne Loeschsperre und ohne aktive Verknuepfung (z. B. von einem Beleg). Sonst 409 mit dem ersten Grund als Code
+         *     (document_not_trashed, legal_hold, retention_not_expired, document_linked). Entfernt Metadaten, Text, Eingangsvorgaenge und Dateizeilen in einer Transaktion und schreibt das Loeschprotokoll
+         *     (Hash des Originals, Zeitpunkt, Person; kein Titel); die Bytes im Objektspeicher werden nur geloescht, wenn keine Dateizeile des Mandanten mehr darauf zeigt. Audit dms.document.purged.
+         */
+        post: operations["purgeDmsDocument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/dms/deletion-log": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Loeschprotokoll, neueste 100 Eintraege (Berechtigung dms.document.trash) */
+        get: operations["listDmsDeletionLog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/dms/integrity-runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Letzte 50 Pruefungen (Berechtigung dms.integrity.run) */
+        get: operations["listDmsIntegrityRuns"];
+        put?: never;
+        /**
+         * Integritaetspruefung starten (Berechtigung dms.integrity.run)
+         * @description Reiht den Worker-Job dms.verify ein (202). Der Job liest jedes Objekt des Mandanten aus dem Objektspeicher und vergleicht SHA-256 und Groesse mit der Datenbank, danach prueft er die Hash-Kette
+         *     des Audit-Logs. Abweichung = Zustand failed, Bericht mit Dokument, Rolle und Art (hash_mismatch, size_mismatch, missing, record_mismatch) und Audit dms.integrity.failed.
+         *     Ein Zeitplaner ist nicht Teil des Hubs; periodische Laeufe loest ein externer Aufruf aus.
+         */
+        post: operations["startDmsIntegrityRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/dms/integrity-runs/{run}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Pruefbericht (Berechtigung dms.integrity.run) */
+        get: operations["getDmsIntegrityRun"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/dms/exports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Letzte 50 Exporte (Berechtigung dms.export.run) */
+        get: operations["listDmsExports"];
+        put?: never;
+        /**
+         * Export starten (Berechtigung dms.export.run)
+         * @description Reiht den Worker-Job dms.export ein (202). Ergebnis: ZIP mit documents/<ASN>/<rolle>-<titel>.<ext>, index.csv und manifest.json (SHA-256 und Groesse je Datei, Kopf der Hash-Kette).
+         *     Papierkorb ist nicht enthalten. Jede Datei wird beim Packen gegen den gespeicherten Hash geprueft; Abweichung = Export failed (integrity_failed). Keine Konformitaetsaussage.
+         */
+        post: operations["startDmsExport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/dms/exports/{export}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Exportstatus (Berechtigung dms.export.run) */
+        get: operations["getDmsExport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/dms/exports/{export}/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** ZIP herunterladen (Berechtigung dms.export.run); 404 solange der Export nicht fertig ist */
+        get: operations["downloadDmsExport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1150,7 +1310,7 @@ export interface components {
              * @description Stabiler maschinenlesbarer Code
              * @enum {string}
              */
-            code: "bad_request" | "conflict" | "contact_merged" | "csrf_invalid" | "document_trashed" | "forbidden" | "handle_taken" | "idempotency_in_progress" | "idempotency_key_required" | "idempotency_key_reused" | "ingest_not_failed" | "internal_error" | "invalid_cursor" | "invalid_limit" | "invitation_invalid" | "last_owner" | "last_passkey" | "login_failed" | "method_not_allowed" | "module_disabled" | "module_required_by" | "module_requires" | "module_unavailable" | "not_found" | "passkey_invalid" | "payload_too_large" | "precondition_failed" | "recovery_session_restricted" | "service_unavailable" | "setup_token_invalid" | "storage_quota_exceeded" | "tenant_required" | "too_many_requests" | "unauthorized" | "unsupported_media_type" | "upload_interrupted" | "validation_failed";
+            code: "bad_request" | "conflict" | "contact_merged" | "csrf_invalid" | "document_linked" | "document_not_trashed" | "document_trashed" | "forbidden" | "handle_taken" | "idempotency_in_progress" | "idempotency_key_required" | "idempotency_key_reused" | "ingest_not_failed" | "internal_error" | "invalid_cursor" | "invalid_limit" | "invitation_invalid" | "last_owner" | "last_passkey" | "legal_hold" | "login_failed" | "method_not_allowed" | "module_disabled" | "module_required_by" | "module_requires" | "module_unavailable" | "not_found" | "passkey_invalid" | "payload_too_large" | "precondition_failed" | "recovery_session_restricted" | "retention_not_expired" | "service_unavailable" | "setup_token_invalid" | "storage_quota_exceeded" | "tenant_required" | "too_many_requests" | "unauthorized" | "unsupported_media_type" | "upload_interrupted" | "validation_failed";
             detail?: string;
             request_id: string;
             errors?: components["schemas"]["FieldError"][];
@@ -1398,6 +1558,128 @@ export interface components {
             has_archive: boolean;
             /** Format: date-time */
             updated_at?: string | null;
+        };
+        DmsRetention: {
+            /** Format: uuid */
+            document_id: string;
+            legal_hold: boolean;
+            /**
+             * Format: date
+             * @description Wirksames Fristende; null = keine Frist
+             */
+            retention_until?: string | null;
+            /** @enum {string} */
+            retention_source: "document_type" | "default" | "manual" | "none";
+            /**
+             * Format: date
+             * @description Manuell gesetzte Verlaengerung
+             */
+            retention_override?: string | null;
+            trashed: boolean;
+            blockers: ("document_not_trashed" | "legal_hold" | "retention_not_expired" | "document_linked")[];
+            can_purge: boolean;
+            /** @description Hinweis: GoBD-orientiert, keine Rechtsberatung */
+            note: string;
+        };
+        DmsPurge: {
+            /** Format: uuid */
+            document_id: string;
+            /** Format: date-time */
+            purged_at: string;
+            files_removed: number;
+            /** @description Objekte, die im Speicher geloescht wurden (0, wenn eine andere Dateizeile noch darauf zeigt) */
+            blobs_removed: number;
+        };
+        DmsDeletionLogEntry: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            document_id: string;
+            /** Format: int64 */
+            asn?: number | null;
+            /** Format: uuid */
+            document_type_id?: string | null;
+            /** Format: date */
+            doc_date?: string | null;
+            /** Format: date */
+            retention_until?: string | null;
+            original_sha256: string;
+            /** Format: int64 */
+            original_size: number;
+            file_count: number;
+            /** Format: uuid */
+            purged_by?: string | null;
+            /** Format: date-time */
+            purged_at: string;
+        };
+        DmsIntegrityRun: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            state: "queued" | "running" | "passed" | "failed" | "error";
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            started_at?: string | null;
+            /** Format: date-time */
+            finished_at?: string | null;
+            files_checked: number;
+            files_bad: number;
+            /** Format: int64 */
+            chain_entries?: number | null;
+            chain_ok?: boolean | null;
+            error_code?: string | null;
+            report?: {
+                findings?: {
+                    /** Format: uuid */
+                    document_id: string;
+                    role: string;
+                    /** @enum {string} */
+                    problem: "hash_mismatch" | "size_mismatch" | "missing" | "record_mismatch";
+                }[];
+                truncated?: boolean;
+                chain?: {
+                    /** Format: int64 */
+                    entries?: number;
+                    ok?: boolean;
+                    /** @enum {string|null} */
+                    problem?: "hash_mismatch" | "prev_mismatch" | "missing_audit" | "sequence_gap" | "unchained_audit" | "head_mismatch" | null;
+                    /** Format: int64 */
+                    broken_at_seq?: number | null;
+                    /** @description Hash des letzten Kettenglieds (Anker) */
+                    head?: string;
+                };
+            } | null;
+        };
+        DmsExportParams: {
+            document_ids?: string[];
+            /** Format: date */
+            date_from?: string;
+            /** Format: date */
+            date_to?: string;
+            /** Format: uuid */
+            document_type_id?: string;
+        };
+        DmsExport: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            state: "queued" | "running" | "done" | "failed";
+            params: components["schemas"]["DmsExportParams"];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            finished_at?: string | null;
+            document_count?: number | null;
+            file_count?: number | null;
+            /** Format: int64 */
+            size_bytes?: number | null;
+            /** @description SHA-256 des ZIP */
+            sha256?: string | null;
+            /** @description SHA-256 der manifest.json im ZIP */
+            manifest_sha256?: string | null;
+            /** @description integrity_failed, export_too_large, export_failed */
+            error_code?: string | null;
         };
     };
     responses: {
@@ -3601,6 +3883,319 @@ export interface operations {
             403: components["responses"]["Problem"];
             404: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
+        };
+    };
+    getDmsDocumentRetention: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                document: components["parameters"]["DmsDocument"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Aufbewahrungszustand */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmsRetention"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    updateDmsDocumentRetention: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                document: components["parameters"]["DmsDocument"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    legal_hold?: boolean;
+                    /** Format: date */
+                    retention_until?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Neuer Zustand */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmsRetention"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    purgeDmsDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                document: components["parameters"]["DmsDocument"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Geloescht */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmsPurge"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+        };
+    };
+    listDmsDeletionLog: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Eintraege */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["DmsDeletionLogEntry"][];
+                    };
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    listDmsIntegrityRuns: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Laeufe, neueste zuerst */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["DmsIntegrityRun"][];
+                    };
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    startDmsIntegrityRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Lauf angelegt */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmsIntegrityRun"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    getDmsIntegrityRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                run: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Lauf */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmsIntegrityRun"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    listDmsExports: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Exporte, neueste zuerst */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["DmsExport"][];
+                    };
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    startDmsExport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["DmsExportParams"];
+            };
+        };
+        responses: {
+            /** @description Export angelegt */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmsExport"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getDmsExport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                export: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Export */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmsExport"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    downloadDmsExport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                export: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description ZIP-Archiv (Stream). SHA-256 des Archivs steht im Exportdatensatz, die der Dateien im Manifest. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/zip": string;
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
         };
     };
 }
