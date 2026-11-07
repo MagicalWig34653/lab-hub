@@ -2,10 +2,10 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { addVirtualAuthenticator } from '../e2e/virtual-authenticator';
 import { MOCK_SETUP_TOKEN } from '../mock/api';
-import { MOCK_MAX_UPLOAD_BYTES, MOCK_QUARANTINE_MARKER } from '../mock/dms';
+import { MOCK_INTERRUPT_MARKER, MOCK_MAX_UPLOAD_BYTES, MOCK_QUARANTINE_MARKER, MOCK_QUARANTINE_ONCE_MARKER, MOCK_QUOTA_MARKER } from '../mock/dms';
 
 // WP-F4 against the mock backend. All files are synthetic. The mock completes "processing" after ~0.7 s and exposes
-// the ingest state as a mock-only extension (see mock/dms.ts); the real backend has no such route yet.
+// the processing status via GET .../processing like the real backend (see mock/dms.ts).
 
 test.beforeEach(async ({ request }) => {
 	expect((await request.post('/api/__mock/reset')).status()).toBe(204);
@@ -32,6 +32,11 @@ const PNG_1X1 = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUl
 
 async function upload(page: Page, ...files: { name: string; mimeType: string; buffer: Buffer }[]) {
 	await page.getByTestId('dms-file-input').setInputFiles(files);
+}
+
+/** The filter panel is a <details> that opens by itself while filters are active; open it only when closed. */
+async function openFilters(page: Page) {
+	if (!(await page.getByTestId('dms-filter-from').isVisible())) await page.getByTestId('dms-filters').locator('summary').click();
 }
 
 async function expectNoSeriousA11y(page: Page) {
@@ -270,4 +275,104 @@ test('a reader without download right sees metadata but no original and no previ
 	await viewer.getByTestId('dms-back').click();
 	await expect(viewer.getByTestId('dms-upload')).toHaveCount(0);
 	await viewerContext.close();
+});
+
+test('WP-F4b browsing without a search term: date filter, facets and several tags work, snippet is absent', async ({ page, context }) => {
+	test.setTimeout(60_000);
+	await bootstrap(page, context);
+	await upload(page, { ...pdf('Erste Datei'), name: 'eins.pdf' });
+	await expect(page.getByTestId('dms-upload-done')).toBeVisible({ timeout: 10_000 });
+	await upload(page, { ...pdf('Zweite Datei'), name: 'zwei.pdf' });
+	await expect(page.getByTestId('dms-upload-done')).toHaveCount(2, { timeout: 10_000 });
+	await page.getByTestId('dms-row').filter({ hasText: 'eins' }).getByRole('link').first().click();
+	await page.getByTestId('dms-edit-date').fill('2025-03-01');
+	await page.getByTestId('dms-edit-tag-Steuer').check();
+	await page.getByTestId('dms-edit-tag-Privat').check();
+	await page.getByTestId('dms-save').click();
+	await expect(page.getByTestId('dms-saved')).toBeVisible();
+	await page.getByTestId('dms-back').click();
+
+	await expect(page.getByTestId('dms-row')).toHaveCount(2);
+	await expect(page.getByTestId('dms-snippet')).toHaveCount(0);
+	await expect(page.getByTestId('dms-facets')).toBeVisible();
+	await expect(page.getByTestId('dms-filter-from')).toBeEnabled();
+
+	await page.getByTestId('dms-facet-year').filter({ hasText: '2025' }).click();
+	await expect(page.getByTestId('dms-row')).toHaveCount(1);
+	await page.getByTestId('dms-facet-year').filter({ hasText: '2025' }).click();
+	await expect(page.getByTestId('dms-row')).toHaveCount(2);
+
+	await openFilters(page);
+	await page.getByTestId('dms-filter-from').fill('2025-01-01');
+	await expect(page.getByTestId('dms-row')).toHaveCount(1);
+	await page.getByTestId('dms-filter-from').fill('2026-01-01');
+	await expect(page.getByTestId('dms-empty')).toBeVisible();
+	await page.getByTestId('dms-filter-from').fill('');
+	await openFilters(page);
+	await page.getByTestId('dms-filter-tag-Steuer').check();
+	await openFilters(page);
+	await page.getByTestId('dms-filter-tag-Privat').check();
+	await expect(page).toHaveURL(/tags=.+%2C.+|tags=.+,.+/);
+	await expect(page.getByTestId('dms-row')).toHaveCount(1);
+	await openFilters(page);
+	await page.getByTestId('dms-filter-tag-Wichtig').check();
+	await expect(page.getByTestId('dms-empty')).toBeVisible();
+	await expectNoSeriousA11y(page);
+});
+
+test('WP-F4b processing status: detail shows the phase, then the finished document', async ({ page, context }) => {
+	await bootstrap(page, context);
+	await upload(page, pdf('Statusprüfung'));
+	await expect(page.getByTestId('dms-upload-item')).toHaveAttribute('data-state', 'processing');
+	await page.getByTestId('dms-row').first().getByRole('link').first().click();
+	await expect(page.getByTestId('dms-processing-status')).toBeVisible();
+	await expect(page.getByTestId('dms-processing-status')).toHaveCount(0, { timeout: 10_000 });
+	await expect(page.getByTestId('dms-quarantine-banner')).toHaveCount(0);
+});
+
+test('WP-F4b quarantine: retry via the processing route (fails again / succeeds), also from the detail page', async ({ page, context }) => {
+	await bootstrap(page, context);
+	await upload(page, pdf(`${MOCK_QUARANTINE_ONCE_MARKER} einmalig`));
+	const item = page.getByTestId('dms-upload-item');
+	await expect(item).toHaveAttribute('data-state', 'quarantine', { timeout: 10_000 });
+	await expect(page.getByTestId('dms-upload-quarantine')).toContainText('pdf_encrypted');
+	await page.getByTestId('dms-upload-retry-processing').click();
+	await expect(item).toHaveAttribute('data-state', 'done', { timeout: 10_000 });
+	await expect(page.getByTestId('dms-row-quarantine')).toHaveCount(0);
+
+	// A permanent cause lands in quarantine again; the detail page offers the same action.
+	await upload(page, pdf(`${MOCK_QUARANTINE_MARKER} dauerhaft`));
+	await expect(page.getByTestId('dms-upload-quarantine')).toBeVisible({ timeout: 10_000 });
+	await page.getByTestId('dms-row').filter({ has: page.getByTestId('dms-row-quarantine') }).getByRole('link').first().click();
+	await expect(page.getByTestId('dms-quarantine-banner')).toContainText('pdf_encrypted');
+	await page.getByTestId('dms-processing-retry').click();
+	await expect(page.getByTestId('dms-processing-status')).toBeVisible();
+	await expect(page.getByTestId('dms-quarantine-banner')).toBeVisible({ timeout: 10_000 });
+	await expectNoSeriousA11y(page);
+});
+
+test('WP-F4b quota exceeded (413 storage_quota_exceeded) differs from file too large; no retry button', async ({ page, context }) => {
+	await bootstrap(page, context);
+	await upload(page, pdf(`${MOCK_QUOTA_MARKER} voll`));
+	const err = page.getByTestId('dms-upload-error');
+	await expect(err).toHaveAttribute('data-failure', 'quota');
+	await expect(err).toContainText('Speicherplatz');
+	await expect(err).not.toContainText('zu groß');
+	await expect(page.getByRole('button', { name: 'Erneut versuchen' })).toHaveCount(0);
+	await page.getByTestId('language-switch').first().selectOption('en');
+	await expect(err).toContainText('run out of storage');
+});
+
+test('WP-F4b upload_interrupted (409) is repeated automatically with the same key and creates one document', async ({ page, context }) => {
+	await bootstrap(page, context);
+	const keys: string[] = [];
+	page.on('request', (r) => {
+		if (r.method() === 'POST' && r.url().includes('/dms/uploads')) keys.push(r.headers()['idempotency-key'] ?? '');
+	});
+	await upload(page, pdf(`${MOCK_INTERRUPT_MARKER} abgebrochen`));
+	await expect(page.getByTestId('dms-upload-item')).toHaveAttribute('data-state', 'done', { timeout: 15_000 });
+	expect(keys).toHaveLength(2);
+	expect(keys[0]).not.toBe('');
+	expect(keys[1]).toBe(keys[0]);
+	await expect(page.getByTestId('dms-row')).toHaveCount(1);
 });

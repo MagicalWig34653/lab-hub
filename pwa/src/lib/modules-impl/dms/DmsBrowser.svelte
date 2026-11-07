@@ -2,7 +2,7 @@
 	import { untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { dmsApi, type DmsDocument, type DmsFacets, type DmsSearchHit } from '#lib/api/client';
+	import { dmsApi, type DmsDocument, type DmsFacets, type DmsProcessing, type DmsSearchHit } from '#lib/api/client';
 	import ErrorBanner from '#lib/components/app/ErrorBanner.svelte';
 	import { Button } from '#lib/components/ui/button';
 	import { Input } from '#lib/components/ui/input';
@@ -11,7 +11,7 @@
 	import { workspace } from '#lib/workspace.svelte';
 	import { loadMasters, nameOf, type Masters } from './masters';
 	import { parseSnippet } from './snippet';
-	import { isQuarantined } from './upload.svelte';
+	import { isProcessingOver, isQuarantined } from './upload.svelte';
 	import UploadPanel from './UploadPanel.svelte';
 
 	let { tenant }: { tenant: string } = $props();
@@ -28,11 +28,11 @@
 		asn?: number | null;
 		status: DmsDocument['status'];
 		snippet?: string | null;
-		quarantined: boolean;
+		created_at: string;
 	}
 
-	const fromDoc = (d: DmsDocument): Row => ({ ...d, quarantined: isQuarantined(d) });
-	const fromHit = (h: DmsSearchHit): Row => ({ ...h, quarantined: false });
+	const fromDoc = (d: DmsDocument): Row => ({ ...d });
+	const fromHit = (h: DmsSearchHit): Row => ({ ...h });
 
 	// --- filter state lives in the URL (reload, back button, shareable) ---
 	const sp = $derived(page.url.searchParams);
@@ -44,6 +44,8 @@
 	const dateTo = $derived(sp.get('to') ?? '');
 	const trashed = $derived(sp.get('trash') === '1');
 	const searching = $derived(q !== '' && !trashed);
+	/** Everything except the trash view runs on `GET …/search` (an empty term browses, snippet null). */
+	const browsing = $derived(!trashed);
 	const filterKey = $derived([q, typeId, corrId, tagIds.join(','), dateFrom, dateTo, trashed].join('|'));
 
 	function setParams(update: Record<string, string | null>) {
@@ -82,7 +84,7 @@
 		try {
 			let items: Row[];
 			let next: string | null | undefined;
-			if (searching) {
+			if (browsing) {
 				const result = await dmsApi.search(tenantId, {
 					q,
 					cursor,
@@ -98,7 +100,7 @@
 				next = result.next_cursor;
 				if (mine === seq) facets = result.facets ?? null;
 			} else {
-				// The list route has no date filter and no facets, and takes one tag only (contract `listDmsDocuments`).
+				// The trash is only reachable through the list route (search excludes trashed documents).
 				const result = await dmsApi.documents(tenantId, {
 					trashed,
 					q: q || undefined,
@@ -115,12 +117,33 @@
 			if (mine !== seq) return;
 			rows = reset ? items : [...rows, ...items];
 			nextCursor = next ?? null;
+			void loadProcessing(items);
 			if (reset) active = 0;
 		} catch (e) {
 			if (mine === seq) error = errorMessage(e);
 		} finally {
 			if (mine === seq) loading = false;
 		}
+	}
+
+	// --- processing / quarantine marker: the list rows carry no ingest state, so recent unarchived rows are asked ---
+	let processing = $state<Record<string, DmsProcessing>>({});
+	const RECENT_MS = 3 * 24 * 3600 * 1000;
+
+	async function loadProcessing(items: Row[]) {
+		const wanted = items.filter((r) => r.status !== 'archived' && Date.now() - Date.parse(r.created_at) < RECENT_MS);
+		let index = 0;
+		const worker = async () => {
+			while (index < wanted.length) {
+				const row = wanted[index++];
+				try {
+					processing[row.id] = await dmsApi.processing(tenantId, row.id);
+				} catch {
+					// the marker is a convenience; the list works without it
+				}
+			}
+		};
+		await Promise.all([worker(), worker(), worker()]);
 	}
 
 	$effect(() => {
@@ -256,14 +279,14 @@
 			</label>
 			<label class="text-sm">
 				<span class="mb-1 block">{tx('dms.filter.dateFrom')}</span>
-				<Input type="date" value={dateFrom} disabled={!searching} onchange={(e) => setParams({ from: e.currentTarget.value })} data-testid="dms-filter-from" />
+				<Input type="date" value={dateFrom} disabled={!browsing} onchange={(e) => setParams({ from: e.currentTarget.value })} data-testid="dms-filter-from" />
 			</label>
 			<label class="text-sm">
 				<span class="mb-1 block">{tx('dms.filter.dateTo')}</span>
-				<Input type="date" value={dateTo} disabled={!searching} onchange={(e) => setParams({ to: e.currentTarget.value })} data-testid="dms-filter-to" />
+				<Input type="date" value={dateTo} disabled={!browsing} onchange={(e) => setParams({ to: e.currentTarget.value })} data-testid="dms-filter-to" />
 			</label>
 		</div>
-		{#if !searching}<p class="text-muted-foreground mt-1 text-xs">{tx('dms.filter.dateNeedsSearch')}</p>{/if}
+		{#if !browsing}<p class="text-muted-foreground mt-1 text-xs">{tx('dms.filter.trashLimited')}</p>{/if}
 		{#if masters.tags.length > 0}
 			<fieldset class="mt-3">
 				<legend class="mb-1 text-sm">{tx('dms.field.tags')}</legend>
@@ -275,7 +298,6 @@
 						</label>
 					{/each}
 				</div>
-				{#if !searching && tagIds.length > 1}<p class="text-muted-foreground mt-1 text-xs">{tx('dms.filter.oneTagInList')}</p>{/if}
 			</fieldset>
 		{/if}
 		<div class="mt-3 flex flex-wrap items-center justify-between gap-2">
@@ -350,8 +372,10 @@
 						{#if row.document_type_id}<span>{nameOf(masters.types, row.document_type_id)}</span>{/if}
 						{#if row.correspondent_id}<span>{nameOf(masters.contacts, row.correspondent_id)}</span>{/if}
 						{#if row.asn}<span>{tx('dms.field.asn')} {row.asn}</span>{/if}
-						{#if row.quarantined}
+						{#if isQuarantined(processing[row.id])}
 							<span class="text-destructive font-medium" data-testid="dms-row-quarantine">{tx('dms.status.quarantine')}</span>
+						{:else if processing[row.id] && !isProcessingOver(processing[row.id])}
+							<span data-testid="dms-row-status">{tx('dms.status.processing')}</span>
 						{:else}
 							<span data-testid="dms-row-status">{tx(statusText[row.status])}</span>
 						{/if}

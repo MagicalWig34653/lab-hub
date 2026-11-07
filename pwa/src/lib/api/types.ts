@@ -659,6 +659,9 @@ export interface paths {
          *     gleicher Key + gleicher Inhalt/Parameter liefert die gespeicherte Antwort, anderer Inhalt 422 idempotency_key_reused.
          *     Ein bereits vorhandenes Original im Mandanten wird nicht abgelehnt, sondern als duplicates gemeldet.
          *     Zu gross 413 payload_too_large, unbekannter Typ 415 unsupported_media_type.
+         *     Speicherquota je Mandant (Summe aller Dateien des Mandanten, Dedup zaehlt einmal; Betreiber-Einstellung DMS_TENANT_QUOTA_BYTES, Standard 1 TiB): ueberschreitet der Upload sie, 413 storage_quota_exceeded.
+         *     Schlaegt ein Upload nach dem Speichern fehl (Validierung, Key-Konflikt, Quota), wird der Blob verworfen, sofern ihn kein Dokument referenziert. Trifft ein Upload gleichzeitig auf einen
+         *     gerade verworfenen Blob gleicher Bytes, antwortet er 409 upload_interrupted; der Client wiederholt mit demselben Idempotency-Key.
          */
         post: operations["dmsUpload"];
         delete?: never;
@@ -725,6 +728,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tenants/{tenant}/dms/documents/{document}/processing/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dauerhaft fehlgeschlagene Verarbeitung (Quarantaene, failed_permanent) erneut anstossen (Berechtigung dms.document.update)
+         * @description Setzt den Eingangsvorgang des Dokuments auf den letzten guten Zustand zurueck, reiht einen neuen OCR-Job ein (Prioritaet manuell) und schreibt einen Audit-Eintrag (dms.ingest.retried).
+         *     Kein Body. Gibt den neuen Verarbeitungsstatus zurueck (wie GET .../processing). Ohne Quarantaene-Vorgang: 409 ingest_not_failed; Dokument im Papierkorb: 409 document_trashed;
+         *     zwei gleichzeitige Aufrufe: genau einer wirkt, der andere erhaelt 409 ingest_not_failed. Die Ursache (z. B. verschluesseltes PDF) wird nicht behoben; scheitert der Lauf erneut, steht das Dokument wieder in Quarantaene.
+         */
+        post: operations["retryDmsDocumentProcessing"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/tenants/{tenant}/dms/documents/{document}/trash": {
         parameters: {
             query?: never;
@@ -753,6 +778,29 @@ export interface paths {
         put?: never;
         /** Aus dem Papierkorb wiederherstellen (Berechtigung dms.document.trash) */
         post: operations["restoreDmsDocument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/dms/documents/{document}/processing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Verarbeitungsstatus (Eingangsvorgang, OCR) eines Dokuments (Berechtigung dms.document.read)
+         * @description Fortschritt der Ingest-Kette fuer die Anzeige. state ist der Ingest-Zustand (none, wenn es keinen Vorgang gibt), phase die Anzeigestufe:
+         *     none, pending (noch nicht eingereiht), queued (OCR-Job wartet), processing (Job laeuft bzw. Nachbearbeitung), done, retrying (vorlaeufiger Fehler, Wiederholung folgt),
+         *     failed (Quarantaene, error_code nennt den Grund, z. B. pdf_encrypted, too_many_pages, ocr_timeout). text beschreibt die aktuelle Textrevision, has_archive zeigt die Archivversion
+         *     (GET .../file?role=archive). Abfragen genuegen (Polling), es gibt noch keine Ereignisse.
+         */
+        get: operations["getDmsDocumentProcessing"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -970,6 +1018,8 @@ export interface paths {
         /**
          * Volltextsuche ueber Dokumente (Berechtigung dms.document.read); Papierkorb ausgeschlossen
          * @description PostgreSQL-Suche (ADR 0005): Titel, Metadaten (Korrespondent, Typ, Tags, Dateiname des Originals) und aktueller Text (deutsch/englisch, mit Wortstamm, ohne Umlautzwang).
+         *     Leeres oder fehlendes q durchsucht ohne Suchbegriff (Durchsuchen): alle Dokumente des Mandanten ausser Papierkorb, neueste Eingaenge zuerst (score = Eingangszeit in Sekunden seit Epoche, snippet null),
+         *     mit denselben Filtern (Datum, Typ, Ablagepfad, Korrespondent, mehrere Tags), Facetten, Zaehlung und Cursor-Pagination wie die Suche. Der Cursor gilt nur fuer dieselbe Anfrage.
          *     q folgt websearch_to_tsquery: Leerzeichen = und, "Phrase", or, -Ausschluss. Ohne Operatoren greift zusaetzlich ein Tippfehler-Fallback (pg_trgm) auf Titel und Metadaten; fuzzy=false schaltet ihn ab.
          *     Sortierung nach Relevanz (absteigend), Volltexttreffer (score >= 1) vor Tippfehler-Treffern (score < 1). Cursor-Pagination wie ueberall (der Cursor ist an dieselbe Anfrage gebunden).
          *     Treffer im snippet stehen zwischen U+E000 und U+E001 (private Zeichen, kein HTML; der Client escaped den Text selbst).
@@ -1100,7 +1150,7 @@ export interface components {
              * @description Stabiler maschinenlesbarer Code
              * @enum {string}
              */
-            code: "bad_request" | "conflict" | "contact_merged" | "csrf_invalid" | "document_trashed" | "forbidden" | "handle_taken" | "idempotency_in_progress" | "idempotency_key_required" | "idempotency_key_reused" | "internal_error" | "invalid_cursor" | "invalid_limit" | "invitation_invalid" | "last_owner" | "last_passkey" | "login_failed" | "method_not_allowed" | "module_disabled" | "module_required_by" | "module_requires" | "module_unavailable" | "not_found" | "passkey_invalid" | "payload_too_large" | "precondition_failed" | "recovery_session_restricted" | "service_unavailable" | "setup_token_invalid" | "tenant_required" | "too_many_requests" | "unauthorized" | "unsupported_media_type" | "validation_failed";
+            code: "bad_request" | "conflict" | "contact_merged" | "csrf_invalid" | "document_trashed" | "forbidden" | "handle_taken" | "idempotency_in_progress" | "idempotency_key_required" | "idempotency_key_reused" | "ingest_not_failed" | "internal_error" | "invalid_cursor" | "invalid_limit" | "invitation_invalid" | "last_owner" | "last_passkey" | "login_failed" | "method_not_allowed" | "module_disabled" | "module_required_by" | "module_requires" | "module_unavailable" | "not_found" | "passkey_invalid" | "payload_too_large" | "precondition_failed" | "recovery_session_restricted" | "service_unavailable" | "setup_token_invalid" | "storage_quota_exceeded" | "tenant_required" | "too_many_requests" | "unauthorized" | "unsupported_media_type" | "upload_interrupted" | "validation_failed";
             detail?: string;
             request_id: string;
             errors?: components["schemas"]["FieldError"][];
@@ -1257,6 +1307,11 @@ export interface components {
             files?: components["schemas"]["DmsFile"][];
             /** @description Nur beim Upload: Dokumente mit gleichem Original */
             duplicates?: string[];
+            /**
+             * Format: uuid
+             * @description Nur beim Upload: Eingangsvorgang; Fortschritt ueber GET .../documents/{document}/processing
+             */
+            ingest_item_id?: string;
         };
         /** @description Stammdatenzeile; Felder je Ressource (name, code, description, default_retention_years, exclusive, group_id, color, template, data_type, options). */
         DmsMaster: {
@@ -1315,6 +1370,34 @@ export interface components {
             next_cursor?: string | null;
             total?: number | null;
             facets?: components["schemas"]["DmsFacets"];
+        };
+        DmsProcessing: {
+            /** Format: uuid */
+            document_id: string;
+            /** Format: uuid */
+            ingest_item_id?: string | null;
+            /** @enum {string} */
+            state: "none" | "received" | "stored" | "hashed" | "ocr_queued" | "ocr_done" | "classified" | "done" | "failed_retryable" | "failed_permanent";
+            /** @enum {string} */
+            phase: "none" | "pending" | "queued" | "processing" | "done" | "retrying" | "failed";
+            /** @description Kurzer Token (kein Freitext), nur bei Fehlerzustaenden */
+            error_code?: string | null;
+            steps: {
+                state: string;
+                /** Format: date-time */
+                at: string;
+            }[];
+            text?: {
+                /** @description pdftotext (Textschicht) oder ocrmypdf */
+                engine: string;
+                /** @enum {string} */
+                lang: "de" | "en";
+                version: number;
+                characters: number;
+            } | null;
+            has_archive: boolean;
+            /** Format: date-time */
+            updated_at?: string | null;
         };
     };
     responses: {
@@ -2728,6 +2811,34 @@ export interface operations {
             409: components["responses"]["Problem"];
         };
     };
+    retryDmsDocumentProcessing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                document: components["parameters"]["DmsDocument"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Status nach dem Einreihen */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmsProcessing"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+        };
+    };
     trashDmsDocument: {
         parameters: {
             query?: never;
@@ -2789,6 +2900,33 @@ export interface operations {
             403: components["responses"]["Problem"];
             404: components["responses"]["Problem"];
             409: components["responses"]["Problem"];
+        };
+    };
+    getDmsDocumentProcessing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                document: components["parameters"]["DmsDocument"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmsProcessing"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
         };
     };
     getDmsDocumentFile: {
@@ -3419,13 +3557,14 @@ export interface operations {
     };
     searchDmsDocuments: {
         parameters: {
-            query: {
+            query?: {
                 limit?: components["parameters"]["Limit"];
                 /** @description Opaker Cursor aus next_cursor der vorigen Seite. */
                 cursor?: components["parameters"]["Cursor"];
                 /** @description Gesamtzahl nur auf Anforderung (teuer). */
                 count?: components["parameters"]["Count"];
-                q: string;
+                /** @description Suchbegriff; leer oder weggelassen = Durchsuchen ohne Suchbegriff */
+                q?: string;
                 /** @description false schaltet den Tippfehler-Fallback ab */
                 fuzzy?: boolean;
                 facets?: boolean;

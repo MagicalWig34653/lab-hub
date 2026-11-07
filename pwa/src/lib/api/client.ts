@@ -17,6 +17,7 @@ export type DmsMaster = Schemas['DmsMaster'];
 export type DmsSearchHit = Schemas['DmsSearchHit'];
 export type DmsSearchPage = Schemas['DmsSearchPage'];
 export type DmsFacets = Schemas['DmsFacets'];
+export type DmsProcessing = Schemas['DmsProcessing'];
 export type Contact = Schemas['Contact'];
 type Ops = import('./types').operations;
 type JsonOf<T> = T extends { content: { 'application/json': infer B } } ? B : never;
@@ -145,7 +146,8 @@ export interface DocumentListQuery {
 }
 
 export interface SearchQuery {
-	q: string;
+	/** Empty or omitted: browse without a search term (snippet is null). */
+	q?: string;
 	cursor?: string | null;
 	limit?: number;
 	facets?: boolean;
@@ -213,6 +215,8 @@ export const dmsApi = {
 	search: (tenant: string, query: SearchQuery) =>
 		request<DmsSearchPage>('GET', withQuery(`/tenants/${tenant}/dms/search`, { ...query })),
 	document: (tenant: string, id: string) => request<DmsDocument>('GET', `/tenants/${tenant}/dms/documents/${id}`),
+	processing: (tenant: string, id: string) => request<DmsProcessing>('GET', `/tenants/${tenant}/dms/documents/${id}/processing`),
+	retryProcessing: (tenant: string, id: string) => request<DmsProcessing>('POST', `/tenants/${tenant}/dms/documents/${id}/processing/retry`),
 	update: (tenant: string, id: string, patch: Record<string, unknown>, rev?: number) =>
 		request<DmsDocument>('PATCH', `/tenants/${tenant}/dms/documents/${id}`, patch, rev === undefined ? undefined : { 'If-Match': String(rev) }),
 	archive: (tenant: string, id: string) => request<DmsDocument>('POST', `/tenants/${tenant}/dms/documents/${id}/archive`),

@@ -28,6 +28,7 @@ Ausgangsstand (vorhanden, getestet laut `deploy/README.md`/Tests): `migrate`, `s
 | | F2 | Modul-Navigation, Mandantenwechsel, Einstellungen | F1, K3 | M | P S2 | offen |
 | | F3 | Service Worker, Offline-Shell, Update | F1 | M | P F2, F4 | offen |
 | | F4 | DMS-UI: Upload, Liste, Detail, Suche | F2, D2, S1 | L | P F3 | umgesetzt (Branch wp-F4, Handoff docs/handoff/WP-F4.md) |
+| | F4b | PWA an Backend-Stand (Verarbeitungsstatus, Durchsuchen, Quota/Unterbrechung) und echter E2E mit OCR-Worker | F4, O2, H6 | S | | umgesetzt, echter E2E nur mit lokalem Backend-Patch grün (Branch wp-F4b, Handoff docs/handoff/WP-F4b.md) |
 | 3b DMS vertiefen | D3 | Regeln, Vorschläge, Kontakt-Matching, Duplikate | O2, S1 | L | P F4 | offen |
 | | D4 | Quellen: Mail-Ingest, Konsumordner, Share-API | O1 | L | P D3 | offen |
 | | D5 | Revisionssicherheit: Löschkonzept, Prüf-Job, Export | D2 | M | P D3, D4 | offen |
@@ -114,6 +115,8 @@ Grundsatz: Hub ohne Swift-App nutzbar (`AGENTS.md`); die Rechnungsphase ist dahe
 **WP-F4 DMS-UI (L).** Upload (Dropzone, Fortschritt), Liste + Suche + Filter, Detail + Vorschau, Metadaten bearbeiten, Papierkorb. Akzeptanz: AK-F4-1 E2E Upload → Verarbeitung abgeschlossen → Treffer in Suche; F4-2 a11y (axe) ohne serious/critical; F4-3 Tastaturbedienung der Liste; F4-4 Fehlerzustände (Quarantäne, Duplikat) sichtbar. Abh.: F2, D2, S1.
 
 *Status WP-F4: AK-F4-1…4 gegen das Mock-Backend umgesetzt und getestet (Branch wp-F4), E2E gegen das echte Backend nicht gelaufen; offen: Verarbeitungs-/Quarantänestatus (Backend-Route fehlt, O2), Datumsfilter/Facetten ohne Suchbegriff, siehe `docs/handoff/WP-F4.md`.*
+
+*Status WP-F4b: PWA auf Verarbeitungsstatus (`…/processing`, `…/processing/retry`), Durchsuchen über `…/search`, `storage_quota_exceeded`/`upload_interrupted` umgestellt; Mock-E2E und Vitest grün; echter E2E (`npm run test:e2e:dms`, echtes Backend + OCR-Worker im Container) belegt Upload bis Papierkorb, aber nur mit einem lokalen, nicht committeten Backend-Patch: `GET /tenants/{tenant}` liefert keine Modulberechtigungen (`dms.*`), die PWA zeigt allen Rollen „Berechtigung fehlt“. Siehe `docs/handoff/WP-F4b.md`.*
 
 **WP-D3 Regeln und Vorschläge (L).** `MODUL-DMS.md` 5.4, Tabellen `dms_rules`, `dms_suggestions`, `dms_duplicates`; Kontakt-Matching. Akzeptanz: AK-D5, deterministische Vorschläge, Trockenlauf, Regex-Zeitlimit-Test, Duplikat-Stufen 1–2. Abh.: O2, S1.
 

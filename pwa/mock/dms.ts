@@ -3,17 +3,20 @@ import { createHash, randomUUID } from 'node:crypto';
 /**
  * Mock of the DMS routes (contracts/openapi.yaml: dms/*, contacts list). Test double with synthetic data only.
  *
- * NOT in the contract (prepared for WP-O2/D3, flagged here on purpose, the UI treats them as optional):
- * - `ingest_state` / `ingest_error_code` on a document: processing state of the ingest item (`failed_permanent` = quarantine).
- *   The real upload response has no `ingest_item_id`, and there is no route that reports the ingest state yet.
- * Mock behaviour: an upload starts as status `processing` and becomes `needs_review` after `MOCK_PROCESSING_MS`
- * (the real backend leaves documents at `needs_review` until O2 exists). Text of a file is only searchable once
- * processing is done. A file containing the ASCII marker `MOCK-QUARANTINE` ends in quarantine.
+ * Behaviour: an upload returns `ingest_item_id` and starts as status `processing`; after `MOCK_PROCESSING_MS` the status is
+ * `needs_review`. `GET …/processing` reports the ingest phase (queued, processing, done, failed) and
+ * `POST …/processing/retry` re-queues a quarantined document. Text of a file is searchable once processing is done.
+ * Markers inside the file content steer the outcome: `MOCK-QUARANTINE` (fails permanently, also after a retry),
+ * `MOCK-QUARANTINE-ONCE` (fails once, a retry succeeds), `MOCK-QUOTA` (upload answers 413 storage_quota_exceeded),
+ * `MOCK-INTERRUPT` (the first upload per idempotency key answers 409 upload_interrupted).
  */
 
 export const MOCK_MAX_UPLOAD_BYTES = 1024 * 1024;
 export const MOCK_PROCESSING_MS = 700;
 export const MOCK_QUARANTINE_MARKER = 'MOCK-QUARANTINE';
+export const MOCK_QUARANTINE_ONCE_MARKER = 'MOCK-QUARANTINE-ONCE';
+export const MOCK_QUOTA_MARKER = 'MOCK-QUOTA';
+export const MOCK_INTERRUPT_MARKER = 'MOCK-INTERRUPT';
 const START = '';
 const END = '';
 
@@ -51,6 +54,7 @@ interface MockDoc {
 	text: string;
 	processingUntil: number;
 	quarantined: boolean;
+	ingestItemId: string | null;
 }
 
 interface TenantData {
@@ -60,6 +64,7 @@ interface TenantData {
 	contacts: { id: string; name: string }[];
 	fields: { id: string; name: string; code: string; data_type: string; options?: string[] }[];
 	uploads: Map<string, { hash: string; body: unknown }>;
+	interrupted: Set<string>;
 	nextAsn: number;
 }
 
@@ -100,6 +105,7 @@ export function createDmsMock() {
 					{ id: randomUUID(), name: 'Priorität', code: 'priority', data_type: 'select', options: ['niedrig', 'hoch'] }
 				],
 				uploads: new Map(),
+				interrupted: new Set(),
 				nextAsn: 1
 			};
 			data.set(tenantId, d);
@@ -109,7 +115,7 @@ export function createDmsMock() {
 
 	/** Processing completes by time; reading advances the state (the real backend does it with a worker). */
 	function settle(doc: MockDoc) {
-		if (doc.status === 'processing' && !doc.quarantined && Date.now() >= doc.processingUntil) doc.status = 'needs_review';
+		if (doc.status === 'processing' && Date.now() >= doc.processingUntil) doc.status = 'needs_review';
 	}
 
 	function publicDoc(d: TenantData, doc: MockDoc, detail: boolean) {
@@ -128,10 +134,7 @@ export function createDmsMock() {
 			trash_reason: doc.trash_reason,
 			created_at: doc.created_at,
 			updated_at: doc.updated_at,
-			rev: doc.rev,
-			// Mock-only, see file header.
-			ingest_state: doc.quarantined ? 'failed_permanent' : doc.status === 'processing' ? 'ocr_queued' : 'done',
-			...(doc.quarantined ? { ingest_error_code: 'ocr_failed' } : {})
+			rev: doc.rev
 		};
 		if (detail) {
 			out.tag_ids = doc.tag_ids;
@@ -142,6 +145,25 @@ export function createDmsMock() {
 		}
 		void d;
 		return out;
+	}
+
+	function processingOf(doc: MockDoc) {
+		const waiting = Date.now() < doc.processingUntil;
+		const failed = !waiting && doc.quarantined;
+		const none = doc.ingestItemId === null;
+		const phase = none ? 'none' : waiting ? (Date.now() < doc.processingUntil - MOCK_PROCESSING_MS / 2 ? 'queued' : 'processing') : failed ? 'failed' : 'done';
+		const at = doc.created_at;
+		return {
+			document_id: doc.id,
+			ingest_item_id: doc.ingestItemId,
+			state: none ? 'none' : failed ? 'failed_permanent' : waiting ? 'ocr_queued' : 'done',
+			phase,
+			error_code: failed ? 'pdf_encrypted' : null,
+			steps: none ? [] : [{ state: 'received', at }],
+			text: phase === 'done' ? { engine: 'pdftotext', lang: 'de', version: 1, characters: doc.text.length } : null,
+			has_archive: false,
+			updated_at: none ? null : at
+		};
 	}
 
 	function page<T>(items: T[], query: URLSearchParams) {
@@ -164,7 +186,7 @@ export function createDmsMock() {
 
 	function search(d: TenantData, ctx: DmsContext) {
 		const q = (ctx.query.get('q') ?? '').trim();
-		if (!q || q.length > 200) ctx.fail(422, 'validation_failed', 'Eingabe ungueltig');
+		if (q.length > 200) ctx.fail(422, 'validation_failed', 'Eingabe ungueltig');
 		const tokens = q.toLowerCase().split(/\s+/).filter(Boolean);
 		const tagIds = (ctx.query.get('tag_id') ?? '').split(',').filter(Boolean);
 		const typeId = ctx.query.get('document_type_id');
@@ -176,7 +198,7 @@ export function createDmsMock() {
 			settle(doc);
 			if (doc.trashed_at) continue;
 			// Text becomes searchable only after processing; title and metadata are searchable at once.
-			const body = doc.status === 'processing' ? '' : doc.text;
+			const body = doc.status === 'processing' || doc.quarantined ? '' : doc.text;
 			const haystack = `${doc.title} ${body}`.toLowerCase();
 			if (!tokens.every((t) => haystack.includes(t))) continue;
 			if (typeId && doc.document_type_id !== typeId) continue;
@@ -184,7 +206,7 @@ export function createDmsMock() {
 			if (!tagIds.every((t) => doc.tag_ids.includes(t))) continue;
 			if (from && (!doc.doc_date || doc.doc_date < from)) continue;
 			if (to && (!doc.doc_date || doc.doc_date > to)) continue;
-			hits.push({ doc, snip: snippet(body || doc.title, tokens) });
+			hits.push({ doc, snip: tokens.length === 0 ? null : snippet(body || doc.title, tokens) });
 		}
 		hits.sort((a, b) => b.doc.created_at.localeCompare(a.doc.created_at));
 		const result = page(
@@ -198,7 +220,7 @@ export function createDmsMock() {
 				asn: doc.asn,
 				status: doc.status,
 				created_at: doc.created_at,
-				score: 1.5,
+				score: tokens.length === 0 ? Date.parse(doc.created_at) / 1000 : 1.5,
 				snippet: snip
 			})),
 			ctx.query
@@ -228,6 +250,12 @@ export function createDmsMock() {
 		if (ctx.raw.length > MOCK_MAX_UPLOAD_BYTES) ctx.fail(413, 'payload_too_large', 'Zu gross');
 		const mime = detectMime(ctx.raw);
 		if (!mime) ctx.fail(415, 'unsupported_media_type', 'Dateityp nicht unterstuetzt');
+		const content = ctx.raw.toString('latin1');
+		if (content.includes(MOCK_QUOTA_MARKER)) ctx.fail(413, 'storage_quota_exceeded', 'Speicherquota erreicht');
+		if (content.includes(MOCK_INTERRUPT_MARKER) && !d.interrupted.has(key)) {
+			d.interrupted.add(key);
+			ctx.fail(409, 'upload_interrupted', 'Upload unterbrochen');
+		}
 		const sha256 = createHash('sha256').update(ctx.raw).digest('hex');
 		const hash = `${sha256}:${ctx.query.get('filename') ?? ''}`;
 		const stored = d.uploads.get(key);
@@ -258,16 +286,17 @@ export function createDmsMock() {
 			file: { mime, bytes: ctx.raw, sha256, name },
 			text,
 			processingUntil: Date.now() + MOCK_PROCESSING_MS,
-			quarantined: text.includes(MOCK_QUARANTINE_MARKER)
+			quarantined: text.includes(MOCK_QUARANTINE_MARKER),
+			ingestItemId: randomUUID()
 		};
 		d.docs.push(doc);
-		const body = { ...publicDoc(d, doc, true), duplicates };
+		const body = { ...publicDoc(d, doc, true), duplicates, ingest_item_id: doc.ingestItemId };
 		d.uploads.set(key, { hash, body });
 		ctx.send(201, body);
 	}
 
 	function handle(ctx: DmsContext): boolean {
-		const [dms, resource, id, action] = ctx.parts;
+		const [dms, resource, id, action, sub] = ctx.parts;
 		if (dms !== 'dms') return false;
 		const d = tenantData(ctx.tenantId);
 		const m = ctx.method;
@@ -299,6 +328,16 @@ export function createDmsMock() {
 		}
 		if (resource === 'documents' && id) {
 			if (m === 'GET' && !action) return need(ctx, 'dms.document.read'), ctx.send(200, publicDoc(d, find(d, ctx, id), true)), true;
+			if (m === 'GET' && action === 'processing' && !sub) return need(ctx, 'dms.document.read'), ctx.send(200, processingOf(find(d, ctx, id))), true;
+			if (m === 'POST' && action === 'processing' && sub === 'retry') {
+				need(ctx, 'dms.document.update');
+				const doc = find(d, ctx, id);
+				if (doc.trashed_at) ctx.fail(409, 'document_trashed', 'Im Papierkorb');
+				if (!(doc.ingestItemId && Date.now() >= doc.processingUntil && doc.quarantined)) ctx.fail(409, 'ingest_not_failed', 'Verarbeitung nicht fehlgeschlagen');
+				doc.processingUntil = Date.now() + MOCK_PROCESSING_MS;
+				if (doc.text.includes(MOCK_QUARANTINE_ONCE_MARKER)) doc.quarantined = false;
+				return ctx.send(200, processingOf(doc)), true;
+			}
 			if (m === 'GET' && action === 'file') {
 				need(ctx, 'dms.document.read');
 				const doc = find(d, ctx, id);
@@ -414,7 +453,8 @@ export function createDmsMock() {
 				file: { mime: 'application/pdf', bytes: Buffer.from('%PDF-1.4 seed'), sha256: randomUUID(), name: 'seed.pdf' },
 				text: 'seed',
 				processingUntil: 0,
-				quarantined: false
+				quarantined: false,
+				ingestItemId: null
 			});
 		}
 	}

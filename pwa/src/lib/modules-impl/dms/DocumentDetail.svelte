@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
-	import { dmsApi, type DmsDocument } from '#lib/api/client';
+	import { dmsApi, type DmsDocument, type DmsProcessing } from '#lib/api/client';
 	import ErrorBanner from '#lib/components/app/ErrorBanner.svelte';
 	import * as Alert from '#lib/components/ui/alert';
 	import { Button } from '#lib/components/ui/button';
@@ -10,7 +10,7 @@
 	import { errorMessage, i18n, tx } from '#lib/i18n/index.svelte';
 	import { workspace } from '#lib/workspace.svelte';
 	import { loadMasters, type Masters } from './masters';
-	import { isQuarantined, type WithIngest } from './upload.svelte';
+	import { isProcessingOver, isQuarantined } from './upload.svelte';
 
 	let { tenant, id }: { tenant: string; id: string } = $props();
 	// svelte-ignore state_referenced_locally
@@ -45,6 +45,12 @@
 	let previewUrl = $state<string | null>(null);
 	let previewKind = $state<'image' | 'pdf' | 'none'>('none');
 	let previewError = $state<string | null>(null);
+
+	// --- processing status (GET …/processing); polled until over, then the document is reloaded for the archive version ---
+	let processing = $state<DmsProcessing | null>(null);
+	let retrying = $state(false);
+	let pollTimer: ReturnType<typeof setTimeout> | undefined;
+	let destroyed = false;
 
 	const canUpdate = $derived(workspace.can('dms.document.update'));
 	const canTrash = $derived(workspace.can('dms.document.trash'));
@@ -89,6 +95,7 @@
 			doc = d;
 			fillForm(d);
 			void loadPreview(d);
+			void pollProcessing(false);
 		} catch (e) {
 			loadError = errorMessage(e);
 		} finally {
@@ -120,7 +127,49 @@
 		}
 	}
 
+	async function pollProcessing(reloadWhenDone: boolean) {
+		clearTimeout(pollTimer);
+		if (destroyed) return;
+		try {
+			processing = await dmsApi.processing(tenantId, documentId);
+		} catch {
+			processing = null;
+			return;
+		}
+		if (!isProcessingOver(processing)) {
+			pollTimer = setTimeout(() => void pollProcessing(true), 2000);
+			return;
+		}
+		if (reloadWhenDone && processing.phase === 'done') {
+			try {
+				const d = await dmsApi.document(tenantId, documentId);
+				doc = { ...(doc as DmsDocument), files: d.files, status: d.status, rev: d.rev };
+				if (previewUrl) URL.revokeObjectURL(previewUrl);
+				previewUrl = null;
+				previewKind = 'none';
+				void loadPreview(d);
+			} catch {
+				// the page keeps working with the data it has
+			}
+		}
+	}
+
+	async function retryProcessing() {
+		retrying = true;
+		actionError = null;
+		try {
+			processing = await dmsApi.retryProcessing(tenantId, documentId);
+			void pollProcessing(true);
+		} catch (e) {
+			actionError = errorMessage(e);
+		} finally {
+			retrying = false;
+		}
+	}
+
 	onDestroy(() => {
+		destroyed = true;
+		clearTimeout(pollTimer);
 		if (previewUrl) URL.revokeObjectURL(previewUrl);
 	});
 
@@ -198,6 +247,15 @@
 		needs_review: 'dms.status.needsReview',
 		archived: 'dms.status.archived'
 	} as const;
+	const phaseText = {
+		none: 'dms.processing.phase.pending',
+		pending: 'dms.processing.phase.pending',
+		queued: 'dms.processing.phase.queued',
+		processing: 'dms.processing.phase.processing',
+		retrying: 'dms.processing.phase.retrying',
+		done: 'dms.processing.phase.processing',
+		failed: 'dms.processing.phase.processing'
+	} as const;
 	const selectClass = 'border-input bg-background h-8 w-full rounded-lg border px-2 text-sm disabled:opacity-50';
 </script>
 
@@ -222,13 +280,22 @@
 			</Alert.Root>
 		</div>
 	{/if}
-	{#if isQuarantined(doc)}
+	{#if isQuarantined(processing)}
 		<div class="mb-4" role="alert" data-testid="dms-quarantine-banner">
 			<Alert.Root variant="destructive">
 				<Alert.Title>{tx('dms.status.quarantine')}</Alert.Title>
-				<Alert.Description>{tx('dms.detail.quarantineText', { code: (doc as WithIngest).ingest_error_code ?? '' })}</Alert.Description>
+				<Alert.Description>
+					{tx('dms.detail.quarantineText', { code: processing?.error_code ?? '' })}
+					{#if canUpdate && !trashed}
+						<Button type="button" size="sm" variant="outline" class="mt-2" disabled={retrying} onclick={retryProcessing} data-testid="dms-processing-retry">
+							{tx('dms.processing.retry')}
+						</Button>
+					{/if}
+				</Alert.Description>
 			</Alert.Root>
 		</div>
+	{:else if processing && !isProcessingOver(processing)}
+		<p role="status" class="text-muted-foreground mb-4 text-sm" data-testid="dms-processing-status">{tx(phaseText[processing.phase])}</p>
 	{/if}
 
 	<div class="grid gap-6 lg:grid-cols-2">

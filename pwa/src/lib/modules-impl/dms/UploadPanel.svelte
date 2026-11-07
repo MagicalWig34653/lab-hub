@@ -5,7 +5,8 @@
 	import { Button } from '#lib/components/ui/button';
 	import { formatBytes } from '#lib/format';
 	import { errorMessage, i18n, tx } from '#lib/i18n/index.svelte';
-	import { UploadQueue, type WithIngest } from './upload.svelte';
+	import { workspace } from '#lib/workspace.svelte';
+	import { UploadQueue } from './upload.svelte';
 
 	let { tenant, onSettled }: { tenant: string; onSettled?: (doc: DmsDocument) => void } = $props();
 
@@ -15,7 +16,8 @@
 	const queue = new UploadQueue({
 		upload: (file, o) =>
 			dmsApi.upload(tenantId, file, { filename: file.name, idempotencyKey: o.idempotencyKey, onProgress: o.onProgress, signal: o.signal }),
-		fetchDocument: (id) => dmsApi.document(tenantId, id),
+		fetchProcessing: (id) => dmsApi.processing(tenantId, id),
+		retryProcessing: (id) => dmsApi.retryProcessing(tenantId, id),
 		onSettled: (doc) => onSettled?.(doc)
 	});
 	onDestroy(() => queue.destroy());
@@ -44,7 +46,8 @@
 	};
 	const failureText = {
 		unsupported: 'dms.upload.error.unsupported',
-		too_large: 'dms.upload.error.tooLarge'
+		too_large: 'dms.upload.error.tooLarge',
+		quota: 'dms.upload.error.quota'
 	} as const;
 </script>
 
@@ -90,7 +93,7 @@
 						<p role="status" class="text-muted-foreground mt-1">{tx('dms.upload.state.uploading', { percent: Math.round(item.progress * 100) })}</p>
 					{:else if item.state === 'error'}
 						<p role="alert" class="text-destructive mt-1" data-testid="dms-upload-error" data-failure={item.failure}>
-							{#if item.failure === 'unsupported' || item.failure === 'too_large'}
+							{#if item.failure === 'unsupported' || item.failure === 'too_large' || item.failure === 'quota'}
 								{tx(failureText[item.failure])}
 							{:else}
 								{errorMessage(item.error)}
@@ -98,7 +101,7 @@
 						</p>
 					{:else if item.state === 'quarantine'}
 						<p role="alert" class="text-destructive mt-1" data-testid="dms-upload-quarantine">
-							{tx(stateText.quarantine, { code: (item.document as WithIngest | undefined)?.ingest_error_code ?? '' })}
+							{tx(stateText.quarantine, { code: item.processing?.error_code ?? '' })}
 						</p>
 					{:else if item.state === 'duplicate'}
 						<p role="status" class="mt-1" data-testid="dms-upload-duplicate">
@@ -118,6 +121,11 @@
 					<div class="mt-2 flex gap-2">
 						{#if item.state === 'error' && item.failure === 'other'}
 							<Button type="button" size="sm" variant="outline" onclick={() => queue.retry(item.id)}>{tx('dms.upload.retry')}</Button>
+						{/if}
+						{#if item.state === 'quarantine' && workspace.can('dms.document.update')}
+							<Button type="button" size="sm" variant="outline" onclick={() => queue.retryQuarantine(item.id)} data-testid="dms-upload-retry-processing">
+								{tx('dms.processing.retry')}
+							</Button>
 						{/if}
 						{#if item.state !== 'uploading'}
 							<Button type="button" size="sm" variant="ghost" onclick={() => queue.remove(item.id)}>{tx('dms.upload.dismiss')}</Button>
