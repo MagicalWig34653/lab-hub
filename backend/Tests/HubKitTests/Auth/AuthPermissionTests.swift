@@ -24,7 +24,14 @@ final class AuthPermissionTests: AuthTestCase {
         ("POST", "/api/v1/tenants/{tenant}/invitations", .tenant),
         // WP-K3: Modul-Katalog (jede normale Sitzung), Betreiberschalter, Mandantenschalter (Matrix in ModuleTests/TenantTests)
         ("GET", "/api/v1/modules", .normalSession), ("PUT", "/api/v1/modules/{module}", .operator),
-        ("GET", "/api/v1/tenants/{tenant}/modules", .tenant), ("PUT", "/api/v1/tenants/{tenant}/modules/{module}", .tenant)
+        ("GET", "/api/v1/tenants/{tenant}/modules", .tenant), ("PUT", "/api/v1/tenants/{tenant}/modules/{module}", .tenant),
+        // WP-K5: Kontakte und Links (Matrix in ContactTests)
+        ("GET", "/api/v1/tenants/{tenant}/contacts", .tenant), ("POST", "/api/v1/tenants/{tenant}/contacts", .tenant),
+        ("GET", "/api/v1/tenants/{tenant}/contacts/{contact}", .tenant), ("PATCH", "/api/v1/tenants/{tenant}/contacts/{contact}", .tenant),
+        ("DELETE", "/api/v1/tenants/{tenant}/contacts/{contact}", .tenant), ("GET", "/api/v1/tenants/{tenant}/contacts/{contact}/duplicates", .tenant),
+        ("POST", "/api/v1/tenants/{tenant}/contacts/{contact}/merge", .tenant), ("GET", "/api/v1/tenants/{tenant}/links", .tenant),
+        ("POST", "/api/v1/tenants/{tenant}/links", .tenant), ("DELETE", "/api/v1/tenants/{tenant}/links/{link}", .tenant),
+        ("POST", "/api/v1/tenants/{tenant}/links/{link}/restore", .tenant)
     ]
 
     /// AK-K1-*: Die Matrix deckt genau die Routen des Servers unter /api/v1 ab.
@@ -38,6 +45,7 @@ final class AuthPermissionTests: AuthTestCase {
         String(template.dropFirst()).replacingOccurrences(of: "{id}", with: UUID().uuidString)
             .replacingOccurrences(of: "{tenant}", with: UUID().uuidString).replacingOccurrences(of: "{user}", with: UUID().uuidString)
             .replacingOccurrences(of: "{module}", with: "ping")
+            .replacingOccurrences(of: "{contact}", with: UUID().uuidString).replacingOccurrences(of: "{link}", with: UUID().uuidString)
     }
 
     private func method(_ m: String) -> HTTPMethod { HTTPMethod(rawValue: m) }

@@ -612,6 +612,253 @@ paths:
         "403": { $ref: "#/components/responses/Problem" }
         "404": { $ref: "#/components/responses/Problem" }
         "409": { $ref: "#/components/responses/Problem" }
+  # --- WP-K5: Kontakte und Links ---
+  /api/v1/tenants/{tenant}/contacts:
+    get:
+      operationId: listContacts
+      summary: Kontakte des Mandanten (Berechtigung contact.contact.read); ohne geloeschte und zusammengefuehrte; Liste ohne Unterlisten
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Count" }
+        - { name: q, in: query, description: "Suche in Name, Aliasen, USt-ID, E-Mail", schema: { type: string } }
+        - { name: role, in: query, schema: { type: string, enum: [customer, supplier, correspondent] } }
+        - { name: kind, in: query, schema: { type: string, enum: [person, organization] } }
+      responses:
+        "200":
+          description: Seite von Kontakten
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, next_cursor]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/Contact" } }
+                  next_cursor: { type: [string, "null"] }
+                  total: { type: [integer, "null"] }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+    post:
+      operationId: createContact
+      summary: Kontakt anlegen (Berechtigung contact.contact.create); die Antwort nennt moegliche Dubletten (gleiche USt-ID oder IBAN), legt aber immer an
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ContactInput" }
+      responses:
+        "201":
+          description: Angelegt
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Contact" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/contacts/{contact}:
+    get:
+      operationId: getContact
+      summary: Kontakt mit Unterlisten (Berechtigung contact.contact.read); zusammengefuehrte Kontakte zeigen merged_into, fremde oder geloeschte IDs liefern 404
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/Contact" }
+      responses:
+        "200":
+          description: Kontakt
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Contact" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+    patch:
+      operationId: updateContact
+      summary: Kontakt aendern (Berechtigung contact.contact.update); gesetzte Listen ersetzen die bisherigen; zusammengefuehrt liefert 409 contact_merged
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/Contact" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ContactInput" }
+      responses:
+        "200":
+          description: Geaendert
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Contact" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+    delete:
+      operationId: deleteContact
+      summary: Kontakt loeschen (Berechtigung contact.contact.delete); setzt deleted_at, Zeile und links bleiben
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/Contact" }
+      responses:
+        "204": { description: Geloescht }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/contacts/{contact}/duplicates:
+    get:
+      operationId: listContactDuplicates
+      summary: Dubletten-Hinweise zu einem Kontakt (Berechtigung contact.contact.read); gleiche USt-ID oder gemeinsame IBAN
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/Contact" }
+      responses:
+        "200":
+          description: Hinweise
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/DuplicateHint" } }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/contacts/{contact}/merge:
+    post:
+      operationId: mergeContact
+      summary: Kontakt source_id in diesen Kontakt zusammenfuehren (Berechtigung contact.contact.merge); schreibt links um, Audit contact.merged; paralleles Zusammenfuehren liefert fuer den Verlierer 409 contact_merged
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/Contact" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [source_id]
+              properties:
+                source_id: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Zusammengefuehrt
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [contact, merged_id, links_rewritten, links_removed]
+                properties:
+                  contact: { $ref: "#/components/schemas/Contact" }
+                  merged_id: { type: string, format: uuid }
+                  links_rewritten: { type: integer }
+                  links_removed: { type: integer }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/links:
+    get:
+      operationId: listLinks
+      summary: Verknuepfungen eines Objekts (type und id, beide Richtungen; Berechtigung contact.link.read); standardmaessig nur aktive
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { name: type, in: query, required: true, schema: { type: string } }
+        - { name: id, in: query, required: true, schema: { type: string, format: uuid } }
+        - { name: include_removed, in: query, schema: { type: boolean, default: false } }
+      responses:
+        "200":
+          description: Verknuepfungen
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/Link" } }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+    post:
+      operationId: createLink
+      summary: Verknuepfung anlegen (Berechtigung contact.link.write); Kontakt-Enden muessen im Mandanten existieren (sonst 404); gleiche aktive Verknuepfung liefert 409
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [from_type, from_id, to_type, to_id, kind]
+              properties:
+                from_type: { type: string }
+                from_id: { type: string, format: uuid }
+                to_type: { type: string }
+                to_id: { type: string, format: uuid }
+                kind: { type: string }
+                source: { type: string, enum: [manual, rule, import, system], default: manual }
+      responses:
+        "201":
+          description: Angelegt
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Link" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/links/{link}:
+    delete:
+      operationId: removeLink
+      summary: Verknuepfung entfernen (Berechtigung contact.link.write); setzt removed_at, der Eintrag bleibt und ist per restore umkehrbar
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/LinkId" }
+      responses:
+        "204": { description: Entfernt }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/links/{link}/restore:
+    post:
+      operationId: restoreLink
+      summary: Entfernte Verknuepfung wiederherstellen (Berechtigung contact.link.write); existiert eine gleiche aktive, 409
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/LinkId" }
+      responses:
+        "200":
+          description: Wiederhergestellt
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Link" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
 components:
   securitySchemes:
     bearer: { type: http, scheme: bearer, description: "Sitzungstoken fuer Apps (Header X-Auth-Transport: bearer bei der Anmeldung)" }
@@ -647,6 +894,16 @@ components:
       required: true
       description: Pflicht bei finalisierenden POSTs. Gleicher Key + gleicher Request = gespeicherte Antwort; anderer Request = 422 idempotency_key_reused.
       schema: { type: string, minLength: 1, maxLength: 255 }
+    Contact:
+      name: contact
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    LinkId:
+      name: link
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
   responses:
     Problem:
       description: Fehler (RFC 9457)
@@ -791,6 +1048,7 @@ components:
           enum:
             - bad_request
             - conflict
+            - contact_merged
             - csrf_invalid
             - forbidden
             - handle_taken
@@ -834,3 +1092,88 @@ components:
         items: { type: array, items: {} }
         next_cursor: { type: [string, "null"] }
         total: { type: [integer, "null"] }
+    # --- WP-K5 ---
+    Address:
+      type: object
+      properties:
+        label: { type: [string, "null"] }
+        street: { type: [string, "null"] }
+        postal_code: { type: [string, "null"] }
+        city: { type: [string, "null"] }
+        country: { type: [string, "null"], description: ISO 3166-1 alpha-2 }
+    ContactEmail:
+      type: object
+      required: [email]
+      properties:
+        email: { type: string }
+        label: { type: [string, "null"] }
+    BankAccount:
+      type: object
+      required: [iban]
+      properties:
+        iban: { type: string, description: Normalisiert, Pruefziffer geprueft }
+        bic: { type: [string, "null"] }
+        holder: { type: [string, "null"] }
+    ContactInput:
+      type: object
+      description: Anlegen verlangt kind und display_name; beim Aendern zaehlen nur gesetzte Felder. Leerer Text loescht optionale Felder. Listen ersetzen die bisherigen vollstaendig.
+      properties:
+        kind: { type: string, enum: [person, organization] }
+        display_name: { type: string, maxLength: 200 }
+        first_name: { type: string }
+        last_name: { type: string }
+        company_name: { type: string }
+        vat_id: { type: string }
+        is_customer: { type: boolean }
+        is_supplier: { type: boolean }
+        is_correspondent: { type: boolean }
+        note: { type: string }
+        addresses: { type: array, items: { $ref: "#/components/schemas/Address" } }
+        emails: { type: array, items: { $ref: "#/components/schemas/ContactEmail" } }
+        bank_accounts: { type: array, items: { $ref: "#/components/schemas/BankAccount" } }
+        aliases: { type: array, items: { type: string }, description: Alternative Schreibweisen fuer das Matching (z. B. DMS-Korrespondent) }
+    DuplicateHint:
+      type: object
+      required: [id, display_name, reasons]
+      properties:
+        id: { type: string, format: uuid }
+        display_name: { type: string }
+        reasons: { type: array, items: { type: string, enum: [vat_id, iban] } }
+    Contact:
+      type: object
+      required: [id, kind, display_name, is_customer, is_supplier, is_correspondent, created_at, updated_at]
+      properties:
+        id: { type: string, format: uuid }
+        kind: { type: string, enum: [person, organization] }
+        display_name: { type: string }
+        first_name: { type: [string, "null"] }
+        last_name: { type: [string, "null"] }
+        company_name: { type: [string, "null"] }
+        vat_id: { type: [string, "null"] }
+        is_customer: { type: boolean }
+        is_supplier: { type: boolean }
+        is_correspondent: { type: boolean }
+        note: { type: [string, "null"] }
+        merged_into: { type: [string, "null"], format: uuid }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        addresses: { type: array, items: { $ref: "#/components/schemas/Address" }, description: Nur in der Einzelansicht }
+        emails: { type: array, items: { $ref: "#/components/schemas/ContactEmail" } }
+        bank_accounts: { type: array, items: { $ref: "#/components/schemas/BankAccount" } }
+        aliases: { type: array, items: { type: string } }
+        duplicates: { type: array, items: { $ref: "#/components/schemas/DuplicateHint" }, description: Nur bei Anlegen, Aendern und Zusammenfuehren }
+    Link:
+      type: object
+      required: [id, from_type, from_id, to_type, to_id, kind, source, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        from_type: { type: string }
+        from_id: { type: string, format: uuid }
+        to_type: { type: string }
+        to_id: { type: string, format: uuid }
+        kind: { type: string }
+        source: { type: string, enum: [manual, rule, import, merge, system] }
+        created_by: { type: [string, "null"], format: uuid }
+        created_at: { type: string, format: date-time }
+        removed_at: { type: [string, "null"], format: date-time }
+        removed_by: { type: [string, "null"], format: uuid }

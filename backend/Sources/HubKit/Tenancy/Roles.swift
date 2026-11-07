@@ -18,7 +18,8 @@ public enum Permissions {
         "tenant.module.read", "tenant.module.manage",
         "dms.document.read", "dms.document.create", "dms.document.update", "dms.document.delete",
         "invoice.document.read", "invoice.document.create", "invoice.document.update", "invoice.document.finalize",
-        "contact.contact.read", "contact.contact.create", "contact.contact.update", "contact.contact.delete"
+        "contact.contact.read", "contact.contact.create", "contact.contact.update", "contact.contact.delete", "contact.contact.merge",
+        "contact.link.read", "contact.link.write"
     ]
 
     private static let table: [Role: Set<String>] = [
@@ -27,13 +28,14 @@ public enum Permissions {
             "tenant.tenant.read", "tenant.member.read", "tenant.module.read",
             "dms.document.read", "dms.document.create", "dms.document.update", "dms.document.delete",
             "invoice.document.read", "invoice.document.create", "invoice.document.update", "invoice.document.finalize",
-            "contact.contact.read", "contact.contact.create", "contact.contact.update", "contact.contact.delete"],
+            "contact.contact.read", "contact.contact.create", "contact.contact.update", "contact.contact.delete", "contact.contact.merge",
+            "contact.link.read", "contact.link.write"],
         .member: [
             "tenant.tenant.read", "tenant.member.read", "tenant.module.read",
             "dms.document.read", "dms.document.create", "dms.document.update",
             "invoice.document.read", "invoice.document.create", "invoice.document.update",
-            "contact.contact.read", "contact.contact.create", "contact.contact.update"],
-        .taxAdvisor: ["tenant.tenant.read", "tenant.module.read", "dms.document.read", "invoice.document.read", "contact.contact.read"],
+            "contact.contact.read", "contact.contact.create", "contact.contact.update", "contact.link.read", "contact.link.write"],
+        .taxAdvisor: ["tenant.tenant.read", "tenant.module.read", "dms.document.read", "invoice.document.read", "contact.contact.read", "contact.link.read"],
         .customerViewer: ["tenant.tenant.read", "tenant.module.read"]
     ]
 

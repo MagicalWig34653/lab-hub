@@ -457,9 +457,10 @@ final class AuthTests: AuthTestCase {
 
     func testMigrationsSetSchemaVersionAndRevert() async throws {
         let v = try await scalar("SELECT max(version)::bigint AS v FROM schema_version", as: Int64.self)
-        XCTAssertEqual(v, 14)
+        XCTAssertEqual(v, 15)
         let authMigrations: [any Migration] = [CreateUsers(), CreatePasskeyCredentials(), CreateSessions(), CreateInvitations(), CreateRecoveryCodes(), CreateAuditLog(), CreateAuthSupport()]
         let database = app1.db(.psql)
+        try await CreateContacts().revert(on: database)  // WP-K5 (015) zuerst
         try await CreateModules().revert(on: database)  // WP-K3 hängt an tenants/users
         try await CreateTenants().revert(on: database)  // WP-K2 hängt an users/invitations
         for m in authMigrations.reversed() { try await m.revert(on: database).get() }
@@ -473,7 +474,8 @@ final class AuthTests: AuthTestCase {
         for m in authMigrations { try await m.prepare(on: database).get() }
         try await CreateTenants().prepare(on: database)
         try await CreateModules().prepare(on: database)
+        try await CreateContacts().prepare(on: database)
         let again = try await scalar("SELECT max(version)::bigint AS v FROM schema_version", as: Int64.self)
-        XCTAssertEqual(again, 14)
+        XCTAssertEqual(again, 15)
     }
 }

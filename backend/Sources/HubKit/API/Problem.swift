@@ -57,6 +57,7 @@ public enum ProblemCatalog {
         "module_requires": "Das Modul benötigt andere Module, die noch nicht aktiviert sind.",
         "module_required_by": "Das Modul wird von anderen aktivierten Modulen benötigt.",
         "module_unavailable": "Das Modul ist auf diesem Server nicht freigegeben.",
+        "contact_merged": "Der Kontakt wurde bereits mit einem anderen zusammengeführt.",
         "last_owner": "Der letzte Owner eines Mandanten kann nicht herabgestuft oder entfernt werden.",
         "last_passkey": "Der letzte Passkey kann nicht entfernt werden.",
         "csrf_invalid": "Das CSRF-Token fehlt oder ist ungültig.",

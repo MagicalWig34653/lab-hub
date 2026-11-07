@@ -13,6 +13,7 @@ public func routes(_ app: Application) throws {
     registerAuthRoutes(app)
     registerTenancyRoutes(app)
     try registerModuleRoutes(app)
+    registerContactRoutes(app)
 }
 
 public struct Readiness: Sendable {
