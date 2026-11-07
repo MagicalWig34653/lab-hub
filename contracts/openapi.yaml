@@ -1565,6 +1565,188 @@ paths:
         - { $ref: "#/components/parameters/DmsDocument" }
       responses:
         "200": { description: Aufbewahrungszustand, content: { application/json: { schema: { $ref: "#/components/schemas/DmsRetention" } } } }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+    patch:
+      operationId: updateDmsDocumentRetention
+      summary: Loeschsperre setzen/aufheben und Frist verlaengern (Berechtigung dms.document.retention)
+      description: Mindestens ein Feld. Die manuelle Frist kann nur verlaengern (Verkuerzen 422). Audit dms.document.retention_changed.
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/DmsDocument" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                legal_hold: { type: boolean }
+                retention_until: { type: string, format: date }
+      responses:
+        "200": { description: Neuer Zustand, content: { application/json: { schema: { $ref: "#/components/schemas/DmsRetention" } } } }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/dms/documents/{document}/purge:
+    post:
+      operationId: purgeDmsDocument
+      summary: Endgueltig loeschen (Berechtigung dms.document.purge, nur Owner)
+      description: |
+        Nur aus dem Papierkorb, nach Ablauf der Aufbewahrungsfrist, ohne Loeschsperre und ohne aktive Verknuepfung (z. B. von einem Beleg). Sonst 409 mit dem ersten Grund als Code
+        (document_not_trashed, legal_hold, retention_not_expired, document_linked). Entfernt Metadaten, Text, Eingangsvorgaenge und Dateizeilen in einer Transaktion und schreibt das Loeschprotokoll
+        (Hash des Originals, Zeitpunkt, Person; kein Titel); die Bytes im Objektspeicher werden nur geloescht, wenn keine Dateizeile des Mandanten mehr darauf zeigt. Audit dms.document.purged.
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/DmsDocument" }
+      responses:
+        "200": { description: Geloescht, content: { application/json: { schema: { $ref: "#/components/schemas/DmsPurge" } } } }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/dms/deletion-log:
+    get:
+      operationId: listDmsDeletionLog
+      summary: Loeschprotokoll, neueste 100 Eintraege (Berechtigung dms.document.trash)
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+      responses:
+        "200":
+          description: Eintraege
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/DmsDeletionLogEntry" } }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/dms/integrity-runs:
+    post:
+      operationId: startDmsIntegrityRun
+      summary: Integritaetspruefung starten (Berechtigung dms.integrity.run)
+      description: |
+        Reiht den Worker-Job dms.verify ein (202). Der Job liest jedes Objekt des Mandanten aus dem Objektspeicher und vergleicht SHA-256 und Groesse mit der Datenbank, danach prueft er die Hash-Kette
+        des Audit-Logs. Abweichung = Zustand failed, Bericht mit Dokument, Rolle und Art (hash_mismatch, size_mismatch, missing, record_mismatch) und Audit dms.integrity.failed.
+        Ein Zeitplaner ist nicht Teil des Hubs; periodische Laeufe loest ein externer Aufruf aus.
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+      responses:
+        "202": { description: Lauf angelegt, content: { application/json: { schema: { $ref: "#/components/schemas/DmsIntegrityRun" } } } }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+    get:
+      operationId: listDmsIntegrityRuns
+      summary: Letzte 50 Pruefungen (Berechtigung dms.integrity.run)
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+      responses:
+        "200":
+          description: Laeufe, neueste zuerst
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/DmsIntegrityRun" } }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/dms/integrity-runs/{run}:
+    get:
+      operationId: getDmsIntegrityRun
+      summary: Pruefbericht (Berechtigung dms.integrity.run)
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { name: run, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200": { description: Lauf, content: { application/json: { schema: { $ref: "#/components/schemas/DmsIntegrityRun" } } } }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/dms/exports:
+    post:
+      operationId: startDmsExport
+      summary: Export starten (Berechtigung dms.export.run)
+      description: |
+        Reiht den Worker-Job dms.export ein (202). Ergebnis: ZIP mit documents/<ASN>/<rolle>-<titel>.<ext>, index.csv und manifest.json (SHA-256 und Groesse je Datei, Kopf der Hash-Kette).
+        Papierkorb ist nicht enthalten. Jede Datei wird beim Packen gegen den gespeicherten Hash geprueft; Abweichung = Export failed (integrity_failed). Keine Konformitaetsaussage.
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DmsExportParams" }
+      responses:
+        "202": { description: Export angelegt, content: { application/json: { schema: { $ref: "#/components/schemas/DmsExport" } } } }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+    get:
+      operationId: listDmsExports
+      summary: Letzte 50 Exporte (Berechtigung dms.export.run)
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+      responses:
+        "200":
+          description: Exporte, neueste zuerst
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/DmsExport" } }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/dms/exports/{export}:
+    get:
+      operationId: getDmsExport
+      summary: Exportstatus (Berechtigung dms.export.run)
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { name: export, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200": { description: Export, content: { application/json: { schema: { $ref: "#/components/schemas/DmsExport" } } } }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/dms/exports/{export}/file:
+    get:
+      operationId: downloadDmsExport
+      summary: ZIP herunterladen (Berechtigung dms.export.run); 404 solange der Export nicht fertig ist
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { name: export, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: ZIP-Archiv (Stream). SHA-256 des Archivs steht im Exportdatensatz, die der Dateien im Manifest.
+          content:
+            application/zip:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
   # --- WP-D3: Regeln, Vorschlaege, Duplikate ---
   /api/v1/tenants/{tenant}/dms/rules:
     get:
@@ -1656,13 +1838,6 @@ paths:
         "403": { $ref: "#/components/responses/Problem" }
         "404": { $ref: "#/components/responses/Problem" }
     patch:
-      operationId: updateDmsDocumentRetention
-      summary: Loeschsperre setzen/aufheben und Frist verlaengern (Berechtigung dms.document.retention)
-      description: Mindestens ein Feld. Die manuelle Frist kann nur verlaengern (Verkuerzen 422). Audit dms.document.retention_changed.
-      security: [{ bearer: [] }, { cookie: [] }]
-      parameters:
-        - { $ref: "#/components/parameters/Tenant" }
-        - { $ref: "#/components/parameters/DmsDocument" }
       operationId: updateDmsRule
       summary: Regel aendern (Berechtigung dms.rule.manage); nur gesetzte Felder; die Version steigt bei Aenderung von Bedingungen, Aktionen, Modus oder Konfidenz
       security: [{ bearer: [] }, { cookie: [] }]
@@ -1849,29 +2024,6 @@ paths:
           application/json:
             schema:
               type: object
-              properties:
-                legal_hold: { type: boolean }
-                retention_until: { type: string, format: date }
-      responses:
-        "200": { description: Neuer Zustand, content: { application/json: { schema: { $ref: "#/components/schemas/DmsRetention" } } } }
-        "401": { $ref: "#/components/responses/Problem" }
-        "403": { $ref: "#/components/responses/Problem" }
-        "404": { $ref: "#/components/responses/Problem" }
-        "422": { $ref: "#/components/responses/Problem" }
-  /api/v1/tenants/{tenant}/dms/documents/{document}/purge:
-    post:
-      operationId: purgeDmsDocument
-      summary: Endgueltig loeschen (Berechtigung dms.document.purge, nur Owner)
-      description: |
-        Nur aus dem Papierkorb, nach Ablauf der Aufbewahrungsfrist, ohne Loeschsperre und ohne aktive Verknuepfung (z. B. von einem Beleg). Sonst 409 mit dem ersten Grund als Code
-        (document_not_trashed, legal_hold, retention_not_expired, document_linked). Entfernt Metadaten, Text, Eingangsvorgaenge und Dateizeilen in einer Transaktion und schreibt das Loeschprotokoll
-        (Hash des Originals, Zeitpunkt, Person; kein Titel); die Bytes im Objektspeicher werden nur geloescht, wenn keine Dateizeile des Mandanten mehr darauf zeigt. Audit dms.document.purged.
-      security: [{ bearer: [] }, { cookie: [] }]
-      parameters:
-        - { $ref: "#/components/parameters/Tenant" }
-        - { $ref: "#/components/parameters/DmsDocument" }
-      responses:
-        "200": { description: Geloescht, content: { application/json: { schema: { $ref: "#/components/schemas/DmsPurge" } } } }
               required: [state]
               properties:
                 state: { type: string, enum: [confirmed, dismissed] }
@@ -1885,144 +2037,6 @@ paths:
         "403": { $ref: "#/components/responses/Problem" }
         "404": { $ref: "#/components/responses/Problem" }
         "409": { $ref: "#/components/responses/Problem" }
-  /api/v1/tenants/{tenant}/dms/deletion-log:
-    get:
-      operationId: listDmsDeletionLog
-      summary: Loeschprotokoll, neueste 100 Eintraege (Berechtigung dms.document.trash)
-      security: [{ bearer: [] }, { cookie: [] }]
-      parameters:
-        - { $ref: "#/components/parameters/Tenant" }
-      responses:
-        "200":
-          description: Eintraege
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [items]
-                properties:
-                  items: { type: array, items: { $ref: "#/components/schemas/DmsDeletionLogEntry" } }
-        "401": { $ref: "#/components/responses/Problem" }
-        "403": { $ref: "#/components/responses/Problem" }
-        "404": { $ref: "#/components/responses/Problem" }
-  /api/v1/tenants/{tenant}/dms/integrity-runs:
-    post:
-      operationId: startDmsIntegrityRun
-      summary: Integritaetspruefung starten (Berechtigung dms.integrity.run)
-      description: |
-        Reiht den Worker-Job dms.verify ein (202). Der Job liest jedes Objekt des Mandanten aus dem Objektspeicher und vergleicht SHA-256 und Groesse mit der Datenbank, danach prueft er die Hash-Kette
-        des Audit-Logs. Abweichung = Zustand failed, Bericht mit Dokument, Rolle und Art (hash_mismatch, size_mismatch, missing, record_mismatch) und Audit dms.integrity.failed.
-        Ein Zeitplaner ist nicht Teil des Hubs; periodische Laeufe loest ein externer Aufruf aus.
-      security: [{ bearer: [] }, { cookie: [] }]
-      parameters:
-        - { $ref: "#/components/parameters/Tenant" }
-      responses:
-        "202": { description: Lauf angelegt, content: { application/json: { schema: { $ref: "#/components/schemas/DmsIntegrityRun" } } } }
-        "401": { $ref: "#/components/responses/Problem" }
-        "403": { $ref: "#/components/responses/Problem" }
-        "404": { $ref: "#/components/responses/Problem" }
-    get:
-      operationId: listDmsIntegrityRuns
-      summary: Letzte 50 Pruefungen (Berechtigung dms.integrity.run)
-      security: [{ bearer: [] }, { cookie: [] }]
-      parameters:
-        - { $ref: "#/components/parameters/Tenant" }
-      responses:
-        "200":
-          description: Laeufe, neueste zuerst
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [items]
-                properties:
-                  items: { type: array, items: { $ref: "#/components/schemas/DmsIntegrityRun" } }
-        "401": { $ref: "#/components/responses/Problem" }
-        "403": { $ref: "#/components/responses/Problem" }
-        "404": { $ref: "#/components/responses/Problem" }
-  /api/v1/tenants/{tenant}/dms/integrity-runs/{run}:
-    get:
-      operationId: getDmsIntegrityRun
-      summary: Pruefbericht (Berechtigung dms.integrity.run)
-      security: [{ bearer: [] }, { cookie: [] }]
-      parameters:
-        - { $ref: "#/components/parameters/Tenant" }
-        - { name: run, in: path, required: true, schema: { type: string, format: uuid } }
-      responses:
-        "200": { description: Lauf, content: { application/json: { schema: { $ref: "#/components/schemas/DmsIntegrityRun" } } } }
-        "401": { $ref: "#/components/responses/Problem" }
-        "403": { $ref: "#/components/responses/Problem" }
-        "404": { $ref: "#/components/responses/Problem" }
-  /api/v1/tenants/{tenant}/dms/exports:
-    post:
-      operationId: startDmsExport
-      summary: Export starten (Berechtigung dms.export.run)
-      description: |
-        Reiht den Worker-Job dms.export ein (202). Ergebnis: ZIP mit documents/<ASN>/<rolle>-<titel>.<ext>, index.csv und manifest.json (SHA-256 und Groesse je Datei, Kopf der Hash-Kette).
-        Papierkorb ist nicht enthalten. Jede Datei wird beim Packen gegen den gespeicherten Hash geprueft; Abweichung = Export failed (integrity_failed). Keine Konformitaetsaussage.
-      security: [{ bearer: [] }, { cookie: [] }]
-      parameters:
-        - { $ref: "#/components/parameters/Tenant" }
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/DmsExportParams" }
-      responses:
-        "202": { description: Export angelegt, content: { application/json: { schema: { $ref: "#/components/schemas/DmsExport" } } } }
-        "401": { $ref: "#/components/responses/Problem" }
-        "403": { $ref: "#/components/responses/Problem" }
-        "404": { $ref: "#/components/responses/Problem" }
-        "422": { $ref: "#/components/responses/Problem" }
-    get:
-      operationId: listDmsExports
-      summary: Letzte 50 Exporte (Berechtigung dms.export.run)
-      security: [{ bearer: [] }, { cookie: [] }]
-      parameters:
-        - { $ref: "#/components/parameters/Tenant" }
-      responses:
-        "200":
-          description: Exporte, neueste zuerst
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [items]
-                properties:
-                  items: { type: array, items: { $ref: "#/components/schemas/DmsExport" } }
-        "401": { $ref: "#/components/responses/Problem" }
-        "403": { $ref: "#/components/responses/Problem" }
-        "404": { $ref: "#/components/responses/Problem" }
-  /api/v1/tenants/{tenant}/dms/exports/{export}:
-    get:
-      operationId: getDmsExport
-      summary: Exportstatus (Berechtigung dms.export.run)
-      security: [{ bearer: [] }, { cookie: [] }]
-      parameters:
-        - { $ref: "#/components/parameters/Tenant" }
-        - { name: export, in: path, required: true, schema: { type: string, format: uuid } }
-      responses:
-        "200": { description: Export, content: { application/json: { schema: { $ref: "#/components/schemas/DmsExport" } } } }
-        "401": { $ref: "#/components/responses/Problem" }
-        "403": { $ref: "#/components/responses/Problem" }
-        "404": { $ref: "#/components/responses/Problem" }
-  /api/v1/tenants/{tenant}/dms/exports/{export}/file:
-    get:
-      operationId: downloadDmsExport
-      summary: ZIP herunterladen (Berechtigung dms.export.run); 404 solange der Export nicht fertig ist
-      security: [{ bearer: [] }, { cookie: [] }]
-      parameters:
-        - { $ref: "#/components/parameters/Tenant" }
-        - { name: export, in: path, required: true, schema: { type: string, format: uuid } }
-      responses:
-        "200":
-          description: ZIP-Archiv (Stream). SHA-256 des Archivs steht im Exportdatensatz, die der Dateien im Manifest.
-          content:
-            application/zip:
-              schema: { type: string, format: binary }
-        "401": { $ref: "#/components/responses/Problem" }
-        "403": { $ref: "#/components/responses/Problem" }
-        "404": { $ref: "#/components/responses/Problem" }
         "422": { $ref: "#/components/responses/Problem" }
 components:
   securitySchemes:

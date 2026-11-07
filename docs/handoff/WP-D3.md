@@ -37,4 +37,4 @@ Angepasste bestehende Tests (nicht abgeschwächt, nur erweitert): `DMSTests.test
 - Nächster Schritt: F5 (Prüf-Warteschlange mit Vorschlägen, Regeln mit Trockenlauf), D4 (Absender), D5 (Revisionssicherheit, `dms_021`), Extraktionskandidaten.
 
 ## Ergebnisse (tatsächlich ausgeführt, 07.11.2026)
-`TEST_DB_NAME=labhub_d3 scripts/ci.sh` (shellcheck, Build, `swift test` auf macOS): **228 Tests, 14 übersprungen (vorhandene Werkzeugtests ohne ocrmypdf), 0 Fehler**, davon 21 neue in `DMSRulesTests.swift`. Nicht ausgeführt: `scripts/ocr-container-test.sh` (Linux-Container).
+`TEST_DB_NAME=labhub_d3 scripts/ci.sh` (shellcheck, Build, `swift test` auf macOS): **254 Tests nach Rebase auf main (D5), 14 übersprungen (vorhandene Werkzeugtests ohne ocrmypdf), 0 Fehler**, davon 21 neue in `DMSRulesTests.swift`. Nicht ausgeführt: `scripts/ocr-container-test.sh` (Linux-Container).

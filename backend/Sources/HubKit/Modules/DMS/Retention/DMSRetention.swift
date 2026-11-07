@@ -163,7 +163,7 @@ struct DMSPurgeOut: Content, Sendable {
 enum DMSPurge {
     /// Alle Tabellen mit Fremdschlüssel auf `dms_documents`, in Löschreihenfolge (Kinder zuerst). Ein Test vergleicht die Liste mit dem Datenbankkatalog:
     /// eine neue Tabelle (z. B. Vorschläge aus D3) muss hier ergänzt werden, sonst schlägt der Test fehl statt das Löschen still zu brechen.
-    static let childTables = ["dms_ingest_transitions", "dms_ingest_items", "dms_document_texts", "dms_document_fields", "dms_document_tags", "dms_document_files"]
+    static let childTables = ["dms_ingest_transitions", "dms_text_shingles", "dms_document_fingerprints", "dms_suggestions", "dms_duplicates", "dms_ingest_items", "dms_document_texts", "dms_document_fields", "dms_document_tags", "dms_document_files"]
 
     /// `config`: Objektspeicher. Zuerst alles in EINER Transaktion (Prüfung, Löschprotokoll, Zeilen, Audit), danach die Bytes: nur wenn im Mandanten keine
     /// `files`-Zeile mehr auf sie zeigt (Sperre je Blob wie beim Upload, H6). Fällt der Schritt danach aus, bleibt höchstens ein unreferenzierter Blob (Speicherverbrauch, kein Datenverlust).
@@ -190,6 +190,8 @@ enum DMSPurge {
             try await s.raw("""
                 DELETE FROM dms_ingest_transitions WHERE tenant_id = \(bind: tenant) AND ingest_item_id IN (SELECT id FROM dms_ingest_items WHERE tenant_id = \(bind: tenant) AND document_id = \(bind: id))
                 """).run()
+            // WP-D3: Duplikat-Paare, in denen das Dokument das Gegenstück ist (die Spalte document_id löscht die Schleife)
+            try await s.raw("DELETE FROM dms_duplicates WHERE tenant_id = \(bind: tenant) AND duplicate_of = \(bind: id)").run()
             for table in childTables.dropFirst() {
                 try await s.raw("DELETE FROM \(unsafeRaw: table) WHERE tenant_id = \(bind: tenant) AND document_id = \(bind: id)").run()
             }
