@@ -340,6 +340,47 @@ final class ModuleTests: AuthTestCase {
         XCTAssertEqual(Role.allCases.filter { Permissions.of($0).contains("tenant.module.manage") }, [.owner])
     }
 
+    /// WP-K2b: `GET /tenants/{tenant}` enthält die Modulrechte nur, wenn das Modul wirksam ist UND die Rolle das Recht hat.
+    func testK2b_TenantPermissionsIncludeModulePermissionsOfEffectiveModulesPerRole() async throws {
+        let owner = try await bootstrap(app1, VirtualAuthenticator())
+        let tenant = try await tenantOf(owner)
+        var sessions: [Role: TestSession] = [.owner: owner]
+        for role in Role.allCases where role != .owner { sessions[role] = try await addUser(role, handle: "k2b_" + role.rawValue, tenant: tenant, by: owner) }
+        func perms(_ role: Role) async throws -> Set<String> {
+            let r = try await call(app2, .GET, "api/v1/tenants/\(tenant)", token: sessions[role]!.token)
+            XCTAssertEqual(r.status, .ok, role.rawValue)
+            return Set(r.json["permissions"] as? [String] ?? [])
+        }
+        let registry = app1.hubModules
+        // Modul aus: keine Modulrechte, für keine Rolle
+        for role in Role.allCases {
+            let p = try await perms(role)
+            XCTAssertEqual(p, Permissions.of(role), role.rawValue)
+            XCTAssertTrue(p.allSatisfy { !$0.hasPrefix("ping.") && !$0.hasPrefix("pong.") }, role.rawValue)
+        }
+        // ping an: Kern + ping-Rechte der Rolle gemäß Rollenmatrix, pong (nicht aktiv) fehlt
+        let st1 = try await setModule(app1, tenant, "ping", true, by: owner).status; XCTAssertEqual(st1, .ok)
+        for role in Role.allCases {
+            let expected = Permissions.of(role).union(registry.permissions(of: role, module: "ping"))
+            let p = try await perms(role)
+            XCTAssertEqual(p, expected, role.rawValue)
+            XCTAssertFalse(p.contains { $0.hasPrefix("pong.") }, role.rawValue)
+        }
+        let mem = try await perms(.member), tax = try await perms(.taxAdvisor), cv = try await perms(.customerViewer), own = try await perms(.owner), acc = try await perms(.accountant)
+        XCTAssertEqual(mem.filter { $0.hasPrefix("ping.") }.sorted(), ["ping.item.read", "ping.item.write"])
+        XCTAssertEqual(tax.filter { $0.hasPrefix("ping.") }.sorted(), ["ping.item.read"])
+        XCTAssertTrue(cv.filter { $0.hasPrefix("ping.") }.isEmpty)
+        XCTAssertEqual(own.filter { $0.hasPrefix("ping.") }.sorted(), ["ping.item.read", "ping.item.write"])
+        XCTAssertEqual(acc.filter { $0.hasPrefix("ping.") }.sorted(), ["ping.item.read", "ping.item.write"])
+        // pong an (requires ping): Rechte kommen dazu; ping aus lässt pong unwirksam (wird per 409 verhindert), danach pong aus + ping aus
+        let st2 = try await setModule(app1, tenant, "pong", true, by: owner).status; XCTAssertEqual(st2, .ok)
+        let mem2 = try await perms(.member), acc2 = try await perms(.accountant)
+        XCTAssertTrue(mem2.contains("pong.thing.read")); XCTAssertFalse(acc2.contains("pong.thing.read"))
+        let st3 = try await setModule(app1, tenant, "pong", false, by: owner).status; XCTAssertEqual(st3, .ok)
+        let st4 = try await setModule(app1, tenant, "ping", false, by: owner).status; XCTAssertEqual(st4, .ok)
+        for role in Role.allCases { let p = try await perms(role); XCTAssertEqual(p, Permissions.of(role), role.rawValue) }
+    }
+
     // MARK: AK-K3-6 Migrationen
 
     func testAKK3_6_MigrationsOfDisabledModulesRunAndReadyFailsWhenMissing() async throws {

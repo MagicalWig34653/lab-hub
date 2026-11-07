@@ -13,6 +13,7 @@ Ausgangsstand (vorhanden, getestet laut `deploy/README.md`/Tests): `migrate`, `s
 | 0 Kern | K0 | Baseline: Build/Test verifizieren, CI-Skript | – | S | P zu allen | fertig (Baseline); F-03 offen |
 | | K1 | Auth: Nutzer, Passkeys, Sitzungen, Einladung, Audit | K0 | L | P K4, D1 | offen |
 | | K2 | Mandanten, Mitgliedschaft, Rollen, Berechtigungen | K1 | M | | erledigt (Branch wp-K2, Handoff docs/handoff/WP-K2.md) |
+| | K2b | Bugfix: `GET /tenants/{tenant}` liefert Modulrechte wirksamer Module (Befund F4b) | K2, K3 | S | | umgesetzt (Branch wp-K2b, Handoff docs/handoff/WP-K2b.md) |
 | | K3 | Modul-System (`HubModule`, Aktivierung, Guard) | K2 | M | P K4, K6 | erledigt (Branch wp-K3, Handoff docs/handoff/WP-K3.md) |
 | | K4 | OpenAPI-Vertrag, Fehlerformat, Pagination, Vertragstest | K0 | M | P K1, D1 | erledigt (Branch wp-K4, Handoff docs/handoff/WP-K4.md) |
 | | K5 | Kontakte und `links` | K2, K4 | M | P K6, K7 | umgesetzt (Branch wp-K5, `docs/handoff/WP-K5.md`) |

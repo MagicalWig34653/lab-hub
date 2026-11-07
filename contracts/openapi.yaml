@@ -270,7 +270,7 @@ paths:
                   id: { type: string, format: uuid }
                   name: { type: string }
                   role: { $ref: "#/components/schemas/Role" }
-                  permissions: { type: array, items: { type: string, description: "<modul>.<ressource>.<aktion>" } }
+                  permissions: { type: array, items: { type: string, description: "<modul>.<ressource>.<aktion>; Kernrechte plus Rechte der für den Mandanten wirksamen Module, soweit die Rolle sie hat (WP-K2b)" } }
         "401": { $ref: "#/components/responses/Problem" }
         "403": { $ref: "#/components/responses/Problem" }
         "404": { $ref: "#/components/responses/Problem" }

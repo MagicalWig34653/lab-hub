@@ -37,7 +37,12 @@ func registerTenancyRoutes(_ app: Application) {
     tenant.on(.GET, permission: "tenant.tenant.read") { req async throws -> Response in
         let c = try req.requireTenant()
         guard let name = try await TenancyService.tenantName(c.tenantID, on: req.db) else { throw HubError(.notFound, "not_found") }
-        return try jsonResponse(["id": c.tenantID.uuidString, "name": name, "role": c.role.rawValue, "permissions": c.permissions.sorted()])
+        // WP-K2b: Rechte der für den Mandanten wirksamen Module (aktiv UND Rolle berechtigt) zu den Kernrechten
+        let registry = req.application.hubModules
+        let statuses = try await ModuleService.statuses(registry, tenant: c.tenantID, on: try sql(req.db))
+        var permissions = c.permissions
+        for st in statuses where st.effective { permissions.formUnion(registry.permissions(of: c.role, module: st.key)) }
+        return try jsonResponse(["id": c.tenantID.uuidString, "name": name, "role": c.role.rawValue, "permissions": permissions.sorted()])
     }
     tenant.on(.GET, "members", permission: "tenant.member.read") { req async throws -> Response in
         let list = try await TenancyService.members(of: try req.requireTenant().tenantID, on: req.db)
