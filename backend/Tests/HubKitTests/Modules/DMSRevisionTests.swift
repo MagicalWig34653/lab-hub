@@ -321,6 +321,30 @@ final class DMSAuditChainTests: DMSRevisionTestBase {
         XCTAssertTrue(report.ok, "\(report)")
     }
 
+    /// WP-H7: Die Prüfung der Kette darf neben parallelen Audit-Commits nie fälschlich `head_mismatch` melden (Kopf und Glieder aus einem Zeitpunkt).
+    func testVerifyIsConsistentWhileChainGrows() async throws {
+        let w = try await world()
+        let ids = try await (0..<4).asyncMap { try await self.newDoc(w.alice, w.tenantA, seed: "grow-\($0)")["id"] as! String }
+        let tenant = UUID(uuidString: w.tenantA)!
+        let reports = try await withThrowingTaskGroup(of: DMSChainReport?.self) { group -> [DMSChainReport] in
+            for i in 0..<60 {
+                group.addTask {
+                    if i % 3 == 0 {
+                        return try await DMSAuditChain.verify(tenant: tenant, on: i % 2 == 0 ? self.db : (self.app2.db(.psql) as! any SQLDatabase), batch: 5)
+                    }
+                    _ = try await self.raw(i % 2 == 0 ? self.app1 : self.app2, .PATCH, self.base(w.tenantA) + "/documents/\(ids[i % ids.count])", body: Data(#"{"title":"G\#(i)"}"#.utf8),
+                                           token: w.alice.token, headers: ["Content-Type": "application/json"])
+                    return nil
+                }
+            }
+            var out: [DMSChainReport] = []
+            for try await r in group { if let r { out.append(r) } }
+            return out
+        }
+        XCTAssertEqual(reports.count, 20)
+        for r in reports { XCTAssertTrue(r.ok, "\(r)") }
+    }
+
     private func tamperSetup(_ w: World) async throws {
         for i in 0..<4 { _ = try await newDoc(w.alice, w.tenantA, seed: "tamper-\(i)") }
         // Der Laufzeitbenutzer darf audit_log nur anhängen (H6); für den Manipulationsversuch hebt der Test das als Eigentümer auf.

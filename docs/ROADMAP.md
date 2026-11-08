@@ -53,6 +53,7 @@ Ausgangsstand (vorhanden, getestet laut `deploy/README.md`/Tests): `migrate`, `s
 | | H4 | Update-/Swarm-Test real (Repliken, Rolling, Rollback) | K3, O2 | M | | offen |
 | | H5 | Last-/Skalierungstest (Suche, OCR-Backlog) | S1, O2 | M | | offen |
 | | H6 | Befunde Security-Review 07.11.2026 (Quota/Waisen-Blobs, merged_into-Prüfung, Idempotency-Hash bei Streams, Rate-Limit hinter Proxy, Audit-Trigger-Rechte) | O1, S1 | S | | fertig (Branch wp-H6, Übergabe `docs/handoff/WP-H6.md`) |
+| | H7 | Flaky `testTwoWorkersCompleteEachRunExactlyOnce` (Hash-Ketten-Prüfung nicht atomar) und echte YAML-Prüfung des Vertrags in `scripts/ci.sh` | D5, H6 | S | | fertig (Branch wp-H7, Übergabe `docs/handoff/WP-H7.md`) |
 
 Grundsatz: Hub ohne Swift-App nutzbar (`AGENTS.md`); die Rechnungsphase ist daher kein optionaler Anhang, sondern gleichwertig. Kritische Pfade: **DMS** K0 → K1 → K2 → K3 → D2 → O1 → O2 → S1 → F4; **Rechnung** R0 (Linux-Rechenkern) → R1 → R2 → R6a/R6 (Renderer) → F6 → F7; beide laufen nach K3 parallel (getrennter Dateibesitz). Früh parallel starten: K4, D1, K6, R0, H1, F1 (sobald K1/K4).
 

@@ -23,12 +23,20 @@ enum DMSAuditChain {
     /// Prüft die Kette des Mandanten von vorn bis zum Kopf (in Stapeln). Der erste Fehler beendet die Prüfung.
     static func verify(tenant: UUID, on s: any SQLDatabase, batch: Int = 1000) async throws -> DMSChainReport {
         var after: Int64 = 0, expectedPrev = genesis, entries: Int64 = 0
+        // Kopf zuerst lesen und nur bis dorthin prüfen: Kette und Kopf werden im selben Commit fortgeschrieben, spätere Lesevorgänge sehen also mindestens
+        // alle Glieder bis zum Kopf. Ohne diese Grenze meldete eine Prüfung neben parallelen Audit-Commits (auch den eigenen Prüfläufen) fälschlich `head_mismatch`.
+        func readHead() async throws -> (seq: Int64, hash: String)? {
+            guard let h = try await s.raw("SELECT seq, hash FROM dms_audit_heads WHERE tenant_id = \(bind: tenant)").first() else { return nil }
+            return (try h.decode(column: "seq", as: Int64.self), try h.decode(column: "hash", as: String.self))
+        }
+        let head = try await readHead()
+        let limit = head?.seq ?? Int64.max
         func bad(_ problem: String, _ seq: Int64?) -> DMSChainReport { DMSChainReport(entries: entries, ok: false, problem: problem, brokenAtSeq: seq, head: expectedPrev) }
         while true {
             let rows = try await s.raw("""
                 SELECT c.seq, c.prev_hash, c.hash, (a.id IS NULL) AS missing, CASE WHEN a.id IS NULL THEN NULL ELSE dms_audit_hash(c.prev_hash, a.id, a.at, a.action, a.actor_user_id, a.tenant_id, a.subject_type, a.subject_id, a.meta, a.request_id) END AS expect
                 FROM dms_audit_chain c LEFT JOIN audit_log a ON a.id = c.audit_id AND a.tenant_id = c.tenant_id
-                WHERE c.tenant_id = \(bind: tenant) AND c.seq > \(bind: after) ORDER BY c.seq LIMIT \(bind: batch)
+                WHERE c.tenant_id = \(bind: tenant) AND c.seq > \(bind: after) AND c.seq <= \(bind: limit) ORDER BY c.seq LIMIT \(bind: batch)
                 """).all()
             if rows.isEmpty { break }
             for r in rows {
@@ -40,9 +48,12 @@ enum DMSAuditChain {
                 after = seq; expectedPrev = hash; entries += 1
             }
         }
-        if let head = try await s.raw("SELECT seq, hash FROM dms_audit_heads WHERE tenant_id = \(bind: tenant)").first() {
-            if try head.decode(column: "seq", as: Int64.self) != after || (try head.decode(column: "hash", as: String.self)) != expectedPrev { return bad("head_mismatch", after + 1) }
-        } else if after > 0 { return bad("head_mismatch", after + 1) }
+        if let head {
+            if head.seq != after || head.hash != expectedPrev { return bad("head_mismatch", after + 1) }
+        } else if after > 0 {
+            // Kopf fehlte beim ersten Lesen, die Kette hat aber Glieder: nur dann ein Fehler, wenn er auch jetzt noch fehlt (erster Commit lief parallel).
+            if try await readHead() == nil { return bad("head_mismatch", after + 1) }
+        }
         // DMS-Einträge im Audit, die nie in die Kette gelangten (ab dem ersten Kettenglied)
         let unchained = try await s.raw("""
             SELECT count(*)::bigint AS n FROM audit_log a WHERE a.tenant_id = \(bind: tenant) AND a.action LIKE 'dms.%'
