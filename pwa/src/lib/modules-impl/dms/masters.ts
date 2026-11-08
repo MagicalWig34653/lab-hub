@@ -1,9 +1,10 @@
-import { contactApi, dmsApi, type DmsMaster } from '#lib/api/client';
+import { contactApi, dmsAdminApi, dmsApi, type DmsMaster } from '#lib/api/client';
 
 export interface Masters {
 	types: { id: string; name: string }[];
 	tags: { id: string; name: string }[];
 	fields: DmsMaster[];
+	paths: { id: string; name: string }[];
 	/** Contacts serve as correspondents. Empty when the role may not read contacts. */
 	contacts: { id: string; name: string }[];
 }
@@ -17,14 +18,15 @@ export async function loadMasters(tenant: string): Promise<Masters> {
 			return [];
 		}
 	};
-	const [types, tags, fields, contacts] = await Promise.all([
+	const [types, tags, fields, contacts, paths] = await Promise.all([
 		safe(dmsApi.types(tenant)),
 		safe(dmsApi.tags(tenant)),
 		safe(dmsApi.customFields(tenant)),
-		safe(contactApi.list(tenant, { limit: 200 }))
+		safe(contactApi.list(tenant, { limit: 200 })),
+		safe(dmsAdminApi.masters(tenant, 'storage-paths'))
 	]);
 	const named = (list: DmsMaster[]) => list.map((x) => ({ id: x.id, name: x.name ?? '' }));
-	return { types: named(types), tags: named(tags), fields, contacts: contacts.map((c) => ({ id: c.id, name: c.display_name })) };
+	return { types: named(types), tags: named(tags), fields, paths: named(paths), contacts: contacts.map((c) => ({ id: c.id, name: c.display_name })) };
 }
 
 export function nameOf(list: readonly { id: string; name: string }[], id: string | null | undefined): string {

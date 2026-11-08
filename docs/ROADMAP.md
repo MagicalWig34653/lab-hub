@@ -131,6 +131,7 @@ Grundsatz: Hub ohne Swift-App nutzbar (`AGENTS.md`); die Rechnungsphase ist dahe
 **WP-D6 Paperless-Import (M).** `MODUL-DMS.md` Abschnitt 10, AK-D9, nur synthetische Fixture. Abh.: D2, D3. Offen: F-23.
 
 **WP-F5 DMS-UI vertiefen (M).** Prüf-Warteschlange mit Vorschlägen, Regeln mit Trockenlauf, Tag-Pflege/Merge, Quellen, Papierkorb/Löschkonzept, Export. Abh.: F4, D3, D5.
+*Status WP-F5: umgesetzt (Branch wp-F5, Handoff `docs/handoff/WP-F5.md`): Prüf-Warteschlange (Tastatur, Stale-Hinweis), Regeln mit Trockenlauf, Duplikate, Stammdaten, Papierkorb/Löschkonzept mit Purge-Bestätigung, Integritätsprüfung, Export; Mock-E2E und echter E2E (Regel -> Scan -> Vorschlag -> annehmen) grün. Quellen-Verwaltung (D4) nicht gebaut; Tag-Merge, Neu-Klassifikation und Zeitplan haben keine Backend-Route. Befund: Migration `dms_021` scheitert bei einer einzelnen, nicht-privilegierten Datenbankrolle nach `018_audit_hardening`.*
 
 ## Phase 4 – Rechnungsmodul
 

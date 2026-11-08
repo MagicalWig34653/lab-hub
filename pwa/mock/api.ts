@@ -55,10 +55,26 @@ interface MockInvitation {
 const MOCK_MODULES = [{ key: 'dms', requires: [] as string[], enhances: [] as string[], installed: true }];
 const MOCK_NAVIGATION = [{ module: 'dms', key: 'dms', label_key: 'nav.dms', path: '/dms' }];
 const ROLES = ['owner', 'accountant', 'member', 'tax_advisor', 'customer_viewer'];
-const DMS_READ = ['dms.document.read', 'dms.document.create', 'dms.document.update', 'dms.document.download_original', 'contact.contact.read'];
+const DMS_READ = [
+	'dms.document.read',
+	'dms.document.create',
+	'dms.document.update',
+	'dms.document.download_original',
+	'dms.suggestion.read',
+	'dms.suggestion.decide',
+	'dms.rule.read',
+	'contact.contact.read'
+];
 const OWNER_PERMISSIONS = [
 	...DMS_READ,
 	'dms.document.trash',
+	'dms.document.purge',
+	'dms.document.retention',
+	'dms.rule.manage',
+	'dms.master.manage',
+	'dms.tag.manage',
+	'dms.integrity.run',
+	'dms.export.run',
 	'tenant.tenant.read',
 	'tenant.member.read',
 	'tenant.member.invite',
@@ -541,8 +557,8 @@ export function createMockApi(): MockApi {
 			if (path === '/api/__mock/dms/seed' && req.method === 'POST') {
 				// Test helper: `count` synthetic documents in the first tenant (pagination tests).
 				const raw = await readRaw(req);
-				const { count } = JSON.parse(raw.toString('utf8') || '{}') as { count?: number };
-				dms.seed(tenants[0].id, count ?? 0);
+				const { count, ...options } = JSON.parse(raw.toString('utf8') || '{}') as { count?: number; trashed?: boolean; doc_date?: string; title?: string; tamper?: boolean };
+				dms.seed(tenants[0].id, count ?? 0, options);
 				send(res, 204);
 				return true;
 			}

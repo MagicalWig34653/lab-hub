@@ -6,6 +6,22 @@ import { dmsManifest } from './manifest';
 const placeholders = (text: string) => [...text.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
 const { de, en } = dmsManifest.messages;
 
+/** Source files of the DMS module that carry texts or text keys (not the catalogues, not permission names, not tests). */
+function dmsSourceFiles(): string[] {
+	const dirs = [join(process.cwd(), 'src', 'lib', 'modules-impl', 'dms'), join(process.cwd(), 'src', 'routes', '(app)', 'dms')];
+	const skip = new Set(['manifest.ts', 'messages-admin.ts', 'permissions.ts']);
+	const files: string[] = [];
+	const walk = (dir: string) => {
+		for (const entry of readdirSync(dir, { withFileTypes: true })) {
+			const path = join(dir, entry.name);
+			if (entry.isDirectory()) walk(path);
+			else if (/\.(svelte|ts)$/.test(entry.name) && !/\.test\.ts$/.test(entry.name) && !skip.has(entry.name)) files.push(path);
+		}
+	};
+	dirs.forEach(walk);
+	return files;
+}
+
 describe('WP-F4 i18n de/en completeness for the DMS module', () => {
 	it('de and en define the same keys, non-empty, with the same placeholders', () => {
 		expect(Object.keys(en).sort()).toEqual(Object.keys(de).sort());
@@ -17,17 +33,8 @@ describe('WP-F4 i18n de/en completeness for the DMS module', () => {
 	});
 
 	it('every dms.* key referenced in the DMS sources exists in both languages', () => {
-		const dirs = [join(process.cwd(), 'src', 'lib', 'modules-impl', 'dms'), join(process.cwd(), 'src', 'routes', '(app)', 'dms')];
-		const files: string[] = [];
-		const walk = (dir: string) => {
-			for (const entry of readdirSync(dir, { withFileTypes: true })) {
-				const path = join(dir, entry.name);
-				if (entry.isDirectory()) walk(path);
-				else if (/\.(svelte|ts)$/.test(entry.name) && !/\.test\.ts$/.test(entry.name) && entry.name !== 'manifest.ts') files.push(path);
-			}
-		};
-		dirs.forEach(walk);
-		expect(files.length).toBeGreaterThan(5);
+		const files = dmsSourceFiles();
+		expect(files.length).toBeGreaterThan(15);
 		const used = new Set<string>();
 		for (const file of files) {
 			for (const m of readFileSync(file, 'utf8').matchAll(/'(dms\.[A-Za-z0-9_.]+)'/g)) {
@@ -35,18 +42,13 @@ describe('WP-F4 i18n de/en completeness for the DMS module', () => {
 				if (!m[1].startsWith('dms.document.')) used.add(m[1]);
 			}
 		}
-		expect(used.size).toBeGreaterThan(40);
+		expect(used.size).toBeGreaterThan(200);
 		const missing = [...used].filter((key) => !(key in de) || !(key in en));
 		expect(missing).toEqual([]);
 	});
 
 	it('no manifest key is unused (no dead texts)', () => {
-		const sources = [
-			join(process.cwd(), 'src', 'lib', 'modules-impl', 'dms', 'DmsBrowser.svelte'),
-			join(process.cwd(), 'src', 'lib', 'modules-impl', 'dms', 'DocumentDetail.svelte'),
-			join(process.cwd(), 'src', 'lib', 'modules-impl', 'dms', 'UploadPanel.svelte'),
-			join(process.cwd(), 'src', 'routes', '(app)', 'dms', '+page.svelte')
-		]
+		const sources = dmsSourceFiles()
 			.map((f) => readFileSync(f, 'utf8'))
 			.join('\n');
 		const unused = Object.keys(de).filter((key) => key !== 'nav.dms' && !sources.includes(`'${key}'`));

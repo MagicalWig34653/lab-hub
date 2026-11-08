@@ -19,6 +19,17 @@ export type DmsSearchPage = Schemas['DmsSearchPage'];
 export type DmsFacets = Schemas['DmsFacets'];
 export type DmsProcessing = Schemas['DmsProcessing'];
 export type Contact = Schemas['Contact'];
+export type DmsRule = Schemas['DmsRule'];
+export type DmsRuleInput = Schemas['DmsRuleInput'];
+export type DmsRulePreview = Schemas['DmsRulePreview'];
+export type DmsSuggestion = Schemas['DmsSuggestion'];
+export type DmsDuplicate = Schemas['DmsDuplicate'];
+export type DmsRetention = Schemas['DmsRetention'];
+export type DmsPurge = Schemas['DmsPurge'];
+export type DmsDeletionLogEntry = Schemas['DmsDeletionLogEntry'];
+export type DmsIntegrityRun = Schemas['DmsIntegrityRun'];
+export type DmsExport = Schemas['DmsExport'];
+export type DmsExportParams = Schemas['DmsExportParams'];
 type Ops = import('./types').operations;
 type JsonOf<T> = T extends { content: { 'application/json': infer B } } ? B : never;
 export type TenantDetail = JsonOf<Ops['getTenant']['responses'][200]>;
@@ -243,6 +254,60 @@ export const dmsApi = {
 	tags: (tenant: string) => request<{ items: DmsMaster[] }>('GET', `/tenants/${tenant}/dms/tags`),
 	customFields: (tenant: string) => request<{ items: DmsMaster[] }>('GET', `/tenants/${tenant}/dms/custom-fields`),
 	upload: uploadFile
+};
+
+export interface Page<T> {
+	items: T[];
+	next_cursor: string | null;
+	total?: number | null;
+}
+
+/** Master data resources with their path segment (contract: dms/types, tags, tag-groups, storage-paths, custom-fields). */
+export type MasterResource = 'types' | 'tag-groups' | 'tags' | 'storage-paths' | 'custom-fields';
+
+/** WP-D3/D5 routes: rules, suggestions, duplicates, retention and purge, integrity runs, exports, master data maintenance. */
+export const dmsAdminApi = {
+	suggestions: (tenant: string, query: { state?: 'open' | 'accepted' | 'rejected' | 'all'; kind?: string; document_id?: string; rule_id?: string; cursor?: string | null; limit?: number; count?: boolean } = {}) =>
+		request<Page<DmsSuggestion>>('GET', withQuery(`/tenants/${tenant}/dms/suggestions`, { ...query })),
+	documentSuggestions: (tenant: string, document: string, state: 'open' | 'accepted' | 'rejected' | 'all' = 'open') =>
+		request<Page<DmsSuggestion>>('GET', withQuery(`/tenants/${tenant}/dms/documents/${document}/suggestions`, { state })),
+	acceptSuggestion: (tenant: string, id: string) => request<DmsSuggestion>('POST', `/tenants/${tenant}/dms/suggestions/${id}/accept`),
+	rejectSuggestion: (tenant: string, id: string) => request<DmsSuggestion>('POST', `/tenants/${tenant}/dms/suggestions/${id}/reject`),
+
+	rules: (tenant: string) => request<Page<DmsRule>>('GET', withQuery(`/tenants/${tenant}/dms/rules`, { limit: 200 })),
+	createRule: (tenant: string, body: DmsRuleInput) => request<DmsRule>('POST', `/tenants/${tenant}/dms/rules`, body),
+	updateRule: (tenant: string, id: string, body: DmsRuleInput) => request<DmsRule>('PATCH', `/tenants/${tenant}/dms/rules/${id}`, body),
+	deleteRule: (tenant: string, id: string) => request<void>('DELETE', `/tenants/${tenant}/dms/rules/${id}`),
+	previewDraft: (tenant: string, body: DmsRuleInput) => request<DmsRulePreview>('POST', `/tenants/${tenant}/dms/rules/preview`, body),
+	previewRule: (tenant: string, id: string, limit?: number) =>
+		request<DmsRulePreview>('POST', `/tenants/${tenant}/dms/rules/${id}/preview`, limit === undefined ? undefined : { limit }),
+
+	duplicates: (tenant: string, query: { state?: 'open' | 'confirmed' | 'dismissed' | 'all'; method?: string; document_id?: string; cursor?: string | null; limit?: number } = {}) =>
+		request<Page<DmsDuplicate>>('GET', withQuery(`/tenants/${tenant}/dms/duplicates`, { ...query })),
+	resolveDuplicate: (tenant: string, id: string, state: 'confirmed' | 'dismissed') =>
+		request<DmsDuplicate>('POST', `/tenants/${tenant}/dms/duplicates/${id}/resolve`, { state }),
+
+	retention: (tenant: string, document: string) => request<DmsRetention>('GET', `/tenants/${tenant}/dms/documents/${document}/retention`),
+	setRetention: (tenant: string, document: string, body: { legal_hold?: boolean; retention_until?: string }) =>
+		request<DmsRetention>('PATCH', `/tenants/${tenant}/dms/documents/${document}/retention`, body),
+	purge: (tenant: string, document: string) => request<DmsPurge>('POST', `/tenants/${tenant}/dms/documents/${document}/purge`),
+	deletionLog: (tenant: string) => request<{ items: DmsDeletionLogEntry[] }>('GET', `/tenants/${tenant}/dms/deletion-log`),
+
+	integrityRuns: (tenant: string) => request<{ items: DmsIntegrityRun[] }>('GET', `/tenants/${tenant}/dms/integrity-runs`),
+	integrityRun: (tenant: string, id: string) => request<DmsIntegrityRun>('GET', `/tenants/${tenant}/dms/integrity-runs/${id}`),
+	startIntegrityRun: (tenant: string) => request<DmsIntegrityRun>('POST', `/tenants/${tenant}/dms/integrity-runs`),
+
+	exports: (tenant: string) => request<{ items: DmsExport[] }>('GET', `/tenants/${tenant}/dms/exports`),
+	exportJob: (tenant: string, id: string) => request<DmsExport>('GET', `/tenants/${tenant}/dms/exports/${id}`),
+	startExport: (tenant: string, params: DmsExportParams) => request<DmsExport>('POST', `/tenants/${tenant}/dms/exports`, params),
+	exportFileUrl: (tenant: string, id: string) => `${BASE}/tenants/${tenant}/dms/exports/${id}/file`,
+
+	masters: (tenant: string, resource: MasterResource) => request<{ items: DmsMaster[] }>('GET', `/tenants/${tenant}/dms/${resource}`),
+	createMaster: (tenant: string, resource: MasterResource, body: Record<string, unknown>) =>
+		request<DmsMaster>('POST', `/tenants/${tenant}/dms/${resource}`, body),
+	updateMaster: (tenant: string, resource: MasterResource, id: string, body: Record<string, unknown>) =>
+		request<DmsMaster>('PATCH', `/tenants/${tenant}/dms/${resource}/${id}`, body),
+	deleteMaster: (tenant: string, resource: MasterResource, id: string) => request<void>('DELETE', `/tenants/${tenant}/dms/${resource}/${id}`)
 };
 
 /** Contacts are the correspondents of documents (K5); only listing is needed here. */

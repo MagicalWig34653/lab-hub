@@ -9,7 +9,9 @@
 	import { formatBytes, formatDate, formatDateTime } from '#lib/format';
 	import { errorMessage, i18n, tx } from '#lib/i18n/index.svelte';
 	import { workspace } from '#lib/workspace.svelte';
+	import DocumentSuggestions from './DocumentSuggestions.svelte';
 	import { loadMasters, type Masters } from './masters';
+	import { P } from './permissions';
 	import { isProcessingOver, isQuarantined } from './upload.svelte';
 
 	let { tenant, id }: { tenant: string; id: string } = $props();
@@ -19,7 +21,7 @@
 	const documentId = id;
 
 	let doc = $state<DmsDocument | null>(null);
-	let masters = $state<Masters>({ types: [], tags: [], fields: [], contacts: [] });
+	let masters = $state<Masters>({ types: [], tags: [], fields: [], paths: [], contacts: [] });
 	let loadError = $state<string | null>(null);
 	let loading = $state(true);
 
@@ -54,6 +56,7 @@
 
 	const canUpdate = $derived(workspace.can('dms.document.update'));
 	const canTrash = $derived(workspace.can('dms.document.trash'));
+	const canSuggestions = $derived(workspace.can(P.suggestionRead));
 	const canOriginal = $derived(workspace.can('dms.document.download_original'));
 	const trashed = $derived(Boolean(doc?.trashed_at));
 	const original = $derived(doc?.files?.find((f) => f.role === 'original'));
@@ -444,6 +447,9 @@
 					</Button>
 				{/if}
 			</div>
+			{#if canSuggestions && !trashed}
+				<DocumentSuggestions tenant={tenantId} {documentId} {masters} onchanged={() => act(() => dmsApi.document(tenantId, documentId))} />
+			{/if}
 		</section>
 	</div>
 {/if}

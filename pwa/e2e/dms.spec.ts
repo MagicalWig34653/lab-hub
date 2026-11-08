@@ -3,9 +3,11 @@ import { expect, test, type Page } from '@playwright/test';
 import { renderScanPdf } from './scan-pdf';
 import { addVirtualAuthenticator } from './virtual-authenticator';
 
-// WP-F4b: AK-F4-1 against the REAL backend with a REAL OCR worker (`App worker --kinds dms.ocr`):
+// WP-F4b: AK-F4-1 against the REAL backend with a REAL OCR worker (`App worker --kinds dms.ocr,dms.verify,dms.export`):
 // bootstrap -> invitation -> passkey -> upload of a synthetic scan PDF -> processing finished -> hit in search ->
 // preview/download -> trash. Run with `npm run test:e2e:dms` (needs a fresh database, see docs/FRONTEND.md section 11).
+// WP-F5 extends the path: master data (document type) -> rule with dry run -> upload -> suggestion appears in the review
+// queue with its reason -> accepted by keyboard -> the document has the type; then integrity check, export, trash page.
 const setupToken = process.env.E2E_SETUP_TOKEN;
 
 test.skip(!setupToken || !process.env.E2E_DMS, 'E2E_SETUP_TOKEN/E2E_DMS not set: needs a fresh backend with SETUP_TOKEN and a running OCR worker');
@@ -50,6 +52,26 @@ test('AK-F4-1 real: bootstrap, invitation, passkey, scan upload, OCR done, searc
 	await page.getByTestId('nav-dms').click();
 	await expect(page.getByTestId('dms-search')).toBeVisible();
 
+	// 2b. WP-F5: a document type and a rule (mode suggest) with a dry run against the still empty archive.
+	await page.getByTestId('dms-nav-masters').click();
+	await page.getByTestId('masters-new').click();
+	await page.getByTestId('masters-f-name').fill('Rechnung');
+	await page.getByTestId('masters-save').click();
+	await expect(page.getByTestId('masters-row').filter({ hasText: 'Rechnung' })).toHaveCount(1);
+	await page.getByTestId('dms-nav-rules').click();
+	await page.getByTestId('rule-new').click();
+	await page.getByTestId('rule-name').fill('Wasserzaehler-Regel');
+	await page.getByTestId('rule-cond-value').fill('wasserzaehler');
+	await page.getByTestId('rule-act-type').selectOption({ label: 'Rechnung' });
+	await page.getByTestId('rule-preview-run').click();
+	await expect(page.getByTestId('rule-preview-summary')).toContainText('0 Treffer');
+	await expectNoSeriousA11y(page);
+	await page.getByTestId('rule-save').click();
+	await expect(page.getByTestId('rule-saved')).toBeVisible();
+	await expect(page.getByTestId('rule-row')).toHaveCount(1);
+	await page.getByTestId('dms-nav-documents').click();
+	await expect(page.getByTestId('dms-search')).toBeVisible();
+
 	// Browsing an empty archive works without a search term.
 	await expect(page.getByTestId('dms-empty')).toBeVisible();
 
@@ -61,6 +83,18 @@ test('AK-F4-1 real: bootstrap, invitation, passkey, scan upload, OCR done, searc
 	await expect(item).toHaveAttribute('data-state', /processing|done/);
 	// 4. The worker runs OCR (ocrmypdf + Tesseract); the queue polls GET .../processing until done.
 	await expect(item).toHaveAttribute('data-state', 'done', { timeout: 180_000 });
+
+	// 4b. WP-F5: the classification step created a suggestion from the rule; it is accepted with the keyboard.
+	await page.getByTestId('dms-nav-review').click();
+	await expect(page.getByTestId('review-row')).toHaveCount(1, { timeout: 30_000 });
+	await expect(page.getByTestId('suggestion-reason')).toContainText('Wasserzaehler-Regel');
+	await expect(page.getByTestId('suggestion-value')).toHaveText('Rechnung');
+	await expectNoSeriousA11y(page);
+	await page.getByTestId('suggestion-document').focus();
+	await page.keyboard.press('a');
+	await expect(page.getByTestId('review-empty')).toBeVisible();
+	await page.getByTestId('dms-nav-documents').click();
+	await expect(page.getByTestId('dms-search')).toBeVisible();
 
 	// 5. Hit in the search with a highlighted snippet.
 	await page.getByTestId('dms-search').fill(unique);
@@ -81,6 +115,7 @@ test('AK-F4-1 real: bootstrap, invitation, passkey, scan upload, OCR done, searc
 	await expect(page.getByTestId('dms-detail-title')).toBeVisible();
 	await expect(page.getByTestId('dms-processing-status')).toHaveCount(0);
 	await expect(page.getByTestId('dms-quarantine-banner')).toHaveCount(0);
+	await expect(page.getByTestId('dms-edit-type').locator('option:checked')).toHaveText('Rechnung');
 	await expect(page.getByTestId('dms-preview-pdf')).toHaveAttribute('src', /^blob:/);
 	const href = await page.getByTestId('dms-download').getAttribute('href');
 	const original = await context.request.get(href!);
@@ -91,6 +126,23 @@ test('AK-F4-1 real: bootstrap, invitation, passkey, scan upload, OCR done, searc
 	expect(archive.status()).toBe(200);
 	expect((await archive.body()).subarray(0, 5).toString('latin1')).toBe('%PDF-');
 	await expectNoSeriousA11y(page);
+
+	// 7b. WP-F5: integrity check (worker kind dms.verify) and export (dms.export) with download.
+	await page.getByTestId('dms-nav-integrity').click();
+	await page.getByTestId('integrity-start').click();
+	await expect(page.getByTestId('integrity-run').first()).toHaveAttribute('data-state', 'passed', { timeout: 120_000 });
+	await expect(page.getByTestId('integrity-head')).toHaveText(/^[0-9a-f]{64}$/);
+	await expectNoSeriousA11y(page);
+	await page.getByTestId('dms-nav-exports').click();
+	await page.getByTestId('export-start').click();
+	await expect(page.getByTestId('export-row').first()).toHaveAttribute('data-state', 'done', { timeout: 120_000 });
+	await expect(page.getByTestId('export-documents')).toHaveText('1');
+	const zip = await context.request.get((await page.getByTestId('export-download').getAttribute('href'))!);
+	expect(zip.status()).toBe(200);
+	expect((await zip.body()).subarray(0, 2).toString('latin1')).toBe('PK');
+	await page.getByTestId('dms-nav-documents').click();
+	await page.getByTestId('dms-row').first().getByRole('link').first().click();
+	await expect(page.getByTestId('dms-detail-title')).toBeVisible();
 
 	// 8. Trash with a reason: the document leaves the search, shows up in the trash.
 	await page.getByTestId('dms-trash-reason').fill('E2E Aufräumen');
@@ -108,6 +160,14 @@ test('AK-F4-1 real: bootstrap, invitation, passkey, scan upload, OCR done, searc
 	if (!(await page.getByTestId('dms-trash-toggle').isVisible())) await page.getByTestId('dms-filters').locator('summary').click();
 	await page.getByTestId('dms-trash-toggle').check();
 	await expect(page.getByTestId('dms-row')).toHaveCount(1);
+
+	// 9. WP-F5: the trash page shows the retention period and why purging is not possible (period running, owner only).
+	await page.getByTestId('dms-nav-trash').click();
+	await expect(page.getByTestId('trash-row')).toHaveCount(1);
+	await expect(page.getByTestId('trash-purge-state')).toContainText('Aufbewahrungsfrist ist noch nicht abgelaufen');
+	await expect(page.getByTestId('trash-purge')).toHaveCount(0);
+	await expect(page.getByTestId('trash-owner-only')).toBeVisible();
+	await expectNoSeriousA11y(page);
 
 	await ownerContext.close();
 	await context.close();

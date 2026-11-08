@@ -58,7 +58,7 @@
 		void goto(text ? `?${text}` : page.url.pathname, { replace: true, reset: false });
 	}
 
-	let masters = $state<Masters>({ types: [], tags: [], fields: [], contacts: [] });
+	let masters = $state<Masters>({ types: [], tags: [], fields: [], paths: [], contacts: [] });
 	let rows = $state<Row[]>([]);
 	let nextCursor = $state<string | null>(null);
 	let facets = $state<DmsFacets | null>(null);

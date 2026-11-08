@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
+import { handleAdmin, newAdminState, onUploaded, type AdminState } from './dms-admin.ts';
 
 /**
  * Mock of the DMS routes (contracts/openapi.yaml: dms/*, contacts list). Test double with synthetic data only.
@@ -34,7 +35,7 @@ export interface DmsContext {
 	fail: (status: number, code: string, title: string) => never;
 }
 
-interface MockDoc {
+export interface MockDoc {
 	id: string;
 	title: string;
 	doc_date: string | null;
@@ -55,14 +56,20 @@ interface MockDoc {
 	processingUntil: number;
 	quarantined: boolean;
 	ingestItemId: string | null;
+	storage_path_id: string | null;
+	legal_hold: boolean;
+	retention_override: string | null;
 }
 
-interface TenantData {
+export interface TenantData {
 	docs: MockDoc[];
 	types: { id: string; name: string }[];
 	tags: { id: string; name: string }[];
 	contacts: { id: string; name: string }[];
 	fields: { id: string; name: string; code: string; data_type: string; options?: string[] }[];
+	groups: { id: string; name: string; exclusive?: boolean }[];
+	paths: { id: string; name: string; template: string }[];
+	admin: AdminState;
 	uploads: Map<string, { hash: string; body: unknown }>;
 	interrupted: Set<string>;
 	nextAsn: number;
@@ -104,6 +111,9 @@ export function createDmsMock() {
 					{ id: randomUUID(), name: 'Rechnungsnummer', code: 'invoice_no', data_type: 'string' },
 					{ id: randomUUID(), name: 'Priorität', code: 'priority', data_type: 'select', options: ['niedrig', 'hoch'] }
 				],
+				groups: [],
+				paths: [],
+				admin: newAdminState(),
 				uploads: new Map(),
 				interrupted: new Set(),
 				nextAsn: 1
@@ -126,7 +136,7 @@ export function createDmsMock() {
 			doc_date: doc.doc_date,
 			received_at: doc.received_at,
 			document_type_id: doc.document_type_id,
-			storage_path_id: null,
+			storage_path_id: doc.storage_path_id,
 			correspondent_id: doc.correspondent_id,
 			asn: doc.asn,
 			status: doc.status,
@@ -287,9 +297,13 @@ export function createDmsMock() {
 			text,
 			processingUntil: Date.now() + MOCK_PROCESSING_MS,
 			quarantined: text.includes(MOCK_QUARANTINE_MARKER),
-			ingestItemId: randomUUID()
+			ingestItemId: randomUUID(),
+			storage_path_id: null,
+			legal_hold: false,
+			retention_override: null
 		};
 		d.docs.push(doc);
+		onUploaded(d, doc, duplicates);
 		const body = { ...publicDoc(d, doc, true), duplicates, ingest_item_id: doc.ingestItemId };
 		d.uploads.set(key, { hash, body });
 		ctx.send(201, body);
@@ -300,12 +314,10 @@ export function createDmsMock() {
 		if (dms !== 'dms') return false;
 		const d = tenantData(ctx.tenantId);
 		const m = ctx.method;
+		if (handleAdmin(d, ctx, { publicDoc: (doc) => publicDoc(d, doc, true), page })) return true;
 
 		if (m === 'POST' && resource === 'uploads') return upload(d, ctx), true;
 		if (m === 'GET' && resource === 'search') return need(ctx, 'dms.document.read'), ctx.send(200, search(d, ctx)), true;
-		if (m === 'GET' && resource === 'types') return need(ctx, 'dms.document.read'), ctx.send(200, { items: d.types.map((x) => ({ ...x, created_at: new Date().toISOString() })) }), true;
-		if (m === 'GET' && resource === 'tags') return need(ctx, 'dms.document.read'), ctx.send(200, { items: d.tags.map((x) => ({ ...x, created_at: new Date().toISOString() })) }), true;
-		if (m === 'GET' && resource === 'custom-fields') return need(ctx, 'dms.document.read'), ctx.send(200, { items: d.fields.map((x) => ({ ...x, created_at: new Date().toISOString() })) }), true;
 
 		if (resource === 'documents' && !id && m === 'GET') {
 			need(ctx, 'dms.document.read');
@@ -430,31 +442,34 @@ export function createDmsMock() {
 	}
 
 	/** Test helper: `count` processed documents titled "Seed 001" … (newest first). */
-	function seed(tenantId: string, count: number) {
+	function seed(tenantId: string, count: number, options: { trashed?: boolean; doc_date?: string; title?: string; tamper?: boolean } = {}) {
 		const d = tenantData(tenantId);
 		for (let i = 0; i < count; i++) {
 			const at = new Date(Date.now() - i * 1000).toISOString();
 			d.docs.push({
 				id: randomUUID(),
-				title: `Seed ${String(i + 1).padStart(3, '0')}`,
-				doc_date: null,
+				title: options.title ?? `Seed ${String(i + 1).padStart(3, '0')}`,
+				doc_date: options.doc_date ?? null,
 				received_at: at,
 				document_type_id: null,
 				correspondent_id: null,
 				asn: null,
 				status: 'needs_review',
-				trashed_at: null,
-				trash_reason: null,
+				trashed_at: options.trashed ? at : null,
+				trash_reason: options.trashed ? 'Seed' : null,
 				created_at: at,
 				updated_at: at,
 				rev: 1,
 				tag_ids: [],
 				fields: {},
 				file: { mime: 'application/pdf', bytes: Buffer.from('%PDF-1.4 seed'), sha256: randomUUID(), name: 'seed.pdf' },
-				text: 'seed',
+				text: options.tamper ? 'MOCK-TAMPER seed' : 'seed',
 				processingUntil: 0,
 				quarantined: false,
-				ingestItemId: null
+				ingestItemId: null,
+				storage_path_id: null,
+				legal_hold: false,
+				retention_override: null
 			});
 		}
 	}
