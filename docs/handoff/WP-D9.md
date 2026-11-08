@@ -40,3 +40,4 @@ Migrationstests (`DMSTests.testMigrationRevertAndReapply`, `ObjectStoreTests`) u
 - Bestand: Dokumente ohne Herkunft bleiben `unknown`.
 
 ## Ergebnisse (tatsächlich ausgeführt)
+`LH_SCRATCH=/tmp/labhub-build-d9 TEST_DB_NAME=labhub_d9 scripts/ci.sh` (shellcheck, OpenAPI-YAML, PWA-Prüfung und -Tests, Swift-Build, `swift test`): Exit 0, **350 Tests, 14 übersprungen (bekannte ocrmypdf-Werkzeugtests, keine neuen Skips), 0 Fehler**. Davor Teilläufe, die Fehler in den eigenen Tests fanden (Rechte-Matrix um `GET stats` ergänzt, Ablehnung statt Annahme im Zähltest). Nicht ausgeführt: `scripts/ocr-container-test.sh`. Rebase auf `main`: main unverändert (869696a), keine Konflikte; H9/H10 noch nicht auf main.
