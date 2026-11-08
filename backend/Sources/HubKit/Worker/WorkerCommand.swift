@@ -23,6 +23,9 @@ public enum WorkerHandlers {
         let storeConfig: @Sendable () throws -> ObjectStoreConfig = { try ObjectStoreConfig.fromEnvironment(environment) }
         map[DMSMailPoll.kind] = DMSMailPoll.handler(storeConfig: storeConfig, box: SecretBox.fromEnvironment(environment), imap: IMAPOptions.fromEnvironment(environment), limits: limits)
         map[DMSFolderScan.kind] = DMSFolderScan.handler(storeConfig: storeConfig, root: environment["DMS_FOLDER_ROOT"], limits: limits)
+        // WP-D6: Paperless-Import. Export-Verzeichnisse nur als Volume `DMS_IMPORT_ROOT` im Worker; das Token der REST-Quelle nur über SECRET_KEY(_FILE) lesbar.
+        map[DMSImport.kind] = DMSImport.handler(storeConfig: storeConfig, box: SecretBox.fromEnvironment(environment), root: environment["DMS_IMPORT_ROOT"], tempRoot: ocr.tempRoot,
+                                                policy: PaperlessEndpoint.Policy.fromEnvironment(environment), limits: limits)
         return map
     }
 

@@ -6,7 +6,7 @@ import Crypto
 
 /// Alle Hub-Tabellen in abhängigkeitssicherer Reihenfolge (für saubere Testzustände). Nur synthetische Daten.
 enum HubTestDB {
-    static let tables = ["dms_folder_observations", "dms_source_items", "dms_sources", "api_tokens", "dms_text_shingles", "dms_document_fingerprints", "dms_duplicates", "dms_suggestions", "dms_rules", "dms_exports", "dms_integrity_runs", "dms_audit_chain", "dms_audit_heads", "dms_deletion_log", "dms_ingest_transitions", "dms_ingest_items", "dms_document_texts", "dms_document_fields", "dms_document_tags", "dms_document_files", "dms_documents", "dms_custom_fields", "dms_storage_paths", "dms_tags",
+    static let tables = ["dms_document_notes", "dms_import_findings", "dms_import_items", "dms_imports", "dms_folder_observations", "dms_source_items", "dms_sources", "api_tokens", "dms_text_shingles", "dms_document_fingerprints", "dms_duplicates", "dms_suggestions", "dms_rules", "dms_exports", "dms_integrity_runs", "dms_audit_chain", "dms_audit_heads", "dms_deletion_log", "dms_ingest_transitions", "dms_ingest_items", "dms_document_texts", "dms_document_fields", "dms_document_tags", "dms_document_files", "dms_documents", "dms_custom_fields", "dms_storage_paths", "dms_tags",
                          "dms_tag_groups", "dms_document_types", "links", "contact_aliases", "contact_bank_accounts", "contact_emails", "contact_addresses", "contacts", "ping_items", "tenant_modules", "installation_modules", "memberships", "audit_log", "rate_limit_events", "auth_challenges", "recovery_codes", "invitations", "tenants", "sessions",
                          "passkey_credentials", "users", "object_chunks", "files", "jobs", "idempotency_keys", "counters",
                          "schema_version", "_fluent_migrations"]

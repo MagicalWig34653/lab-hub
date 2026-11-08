@@ -539,8 +539,8 @@ final class DMSTests: DMSTestBase {
         }
         // Sollzuordnung (unabhängig vom Code, MODUL-DMS.md Abschnitt 3)
         let granted: [Role: Set<String>] = [
-            .owner: ["read", "create", "update", "trash", "download_original", "tag.manage", "master.manage", "purge", "retention", "integrity.run", "export.run", "rule.read", "rule.manage", "suggestion.read", "suggestion.decide", "source.read", "source.manage"],
-            .accountant: ["read", "create", "update", "trash", "download_original", "tag.manage", "master.manage", "retention", "integrity.run", "export.run", "rule.read", "rule.manage", "suggestion.read", "suggestion.decide", "source.read", "source.manage"],
+            .owner: ["read", "create", "update", "trash", "download_original", "tag.manage", "master.manage", "purge", "retention", "integrity.run", "export.run", "rule.read", "rule.manage", "suggestion.read", "suggestion.decide", "source.read", "source.manage", "import.read", "import.manage"],
+            .accountant: ["read", "create", "update", "trash", "download_original", "tag.manage", "master.manage", "retention", "integrity.run", "export.run", "rule.read", "rule.manage", "suggestion.read", "suggestion.decide", "source.read", "source.manage", "import.read", "import.manage"],
             .member: ["read", "create", "update", "download_original", "rule.read", "suggestion.read", "suggestion.decide"],
             .taxAdvisor: ["read", "download_original", "export.run", "suggestion.read"],
             .customerViewer: []]
@@ -567,7 +567,10 @@ final class DMSTests: DMSTestBase {
             "POST suggestions/{suggestion}/reject": .ok, "GET duplicates": .ok, "POST duplicates/{duplicate}/resolve": .ok,
             // WP-D4: Quellen; die Probe-Quelle ist ein Ordner (Verbindungstest nur für Mail: 409 test_not_supported)
             "GET sources": .ok, "POST sources": .created, "GET sources/{source}": .ok, "PATCH sources/{source}": .ok, "DELETE sources/{source}": .noContent,
-            "POST sources/{source}/run": .accepted, "POST sources/{source}/test": .conflict]
+            "POST sources/{source}/run": .accepted, "POST sources/{source}/test": .conflict,
+            // WP-D6: Import-Laeufe (Probe-Lauf `queued`, ohne Bericht -> Bericht 404) und Notizen
+            "POST imports": .accepted, "GET imports": .ok, "GET imports/{import}": .ok, "GET imports/{import}/report": .notFound, "POST imports/{import}/cancel": .ok,
+            "GET documents/{document}/notes": .ok]
         let masters = ["types", "tag-groups", "tags", "storage-paths", "custom-fields"]
         var expectedAll = expected
         for m in masters { expectedAll["GET \(m)"] = .ok; expectedAll["POST \(m)"] = .created; expectedAll["PATCH \(m)/{id}"] = .ok; expectedAll["DELETE \(m)/{id}"] = .noContent }
@@ -584,7 +587,8 @@ final class DMSTests: DMSTestBase {
                   (SELECT count(*) FROM dms_storage_paths), (SELECT count(*) FROM dms_custom_fields), (SELECT count(*) FROM files), (SELECT count(*) FROM audit_log WHERE action LIKE 'dms.%'),
                   (SELECT count(*) FROM dms_integrity_runs), (SELECT count(*) FROM dms_exports), (SELECT count(*) FROM dms_deletion_log),
                   (SELECT count(*) FROM dms_rules), (SELECT count(*) FROM dms_suggestions WHERE state <> 'open'), (SELECT count(*) FROM dms_duplicates WHERE state <> 'open'),
-                  (SELECT count(*) FROM dms_sources), (SELECT coalesce(sum(runs), 0) FROM dms_sources), (SELECT count(*) FROM api_tokens)) AS v
+                  (SELECT count(*) FROM dms_sources), (SELECT coalesce(sum(runs), 0) FROM dms_sources), (SELECT count(*) FROM api_tokens),
+                  (SELECT count(*) FROM dms_imports), (SELECT count(*) FROM dms_imports WHERE state <> 'queued' OR cancel_requested)) AS v
                 """, as: String.self)
         }
         let tenant = UUID(uuidString: w.tenantA)!
@@ -624,11 +628,17 @@ final class DMSTests: DMSTestBase {
                     INSERT INTO dms_sources (id, tenant_id, kind, name, config, created_by) VALUES (\(bind: sourceID), \(bind: tenant), 'folder', \(bind: "Probe-Quelle \(cells)"),
                       '{"path":"inbox","interval_seconds":60,"stable_seconds":10}'::jsonb, \(bind: UUID(uuidString: w.alice.userID)!))
                     """).run()
+                let importID = UUID()
+                try await db.raw("DELETE FROM dms_imports WHERE tenant_id = \(bind: tenant)").run()
+                try await db.raw("""
+                    INSERT INTO dms_imports (id, tenant_id, source_kind, source_key, config, mode, requested_by)
+                    VALUES (\(bind: importID), \(bind: tenant), 'export', \(bind: "export:probe\(cells)"), '{"path":"probe"}'::jsonb, 'dry_run', \(bind: UUID(uuidString: w.alice.userID)!))
+                    """).run()
                 let isTrash = route.path.hasSuffix("/restore")
                 let target = route.path.hasSuffix("/documents/{document}/file") ? fileDoc : (isTrash ? trashedID : docID).uuidString
                 var path = String(route.path.dropFirst()).replacingOccurrences(of: "{tenant}", with: w.tenantA).replacingOccurrences(of: "{document}", with: target)
                     .replacingOccurrences(of: "{id}", with: typeID.uuidString).replacingOccurrences(of: "{run}", with: runID.uuidString).replacingOccurrences(of: "{export}", with: exportID.uuidString)
-                    .replacingOccurrences(of: "{rule}", with: ruleID.uuidString).replacingOccurrences(of: "{source}", with: sourceID.uuidString)
+                    .replacingOccurrences(of: "{rule}", with: ruleID.uuidString).replacingOccurrences(of: "{source}", with: sourceID.uuidString).replacingOccurrences(of: "{import}", with: importID.uuidString)
                     .replacingOccurrences(of: "{suggestion}", with: suggestionID.uuidString).replacingOccurrences(of: "{duplicate}", with: duplicateID.uuidString)
                 var body: Data?
                 var headers: [String: String] = [:]
@@ -641,6 +651,7 @@ final class DMSTests: DMSTestBase {
                 case "POST rules": body = Data(#"{"name":"Neu \#(cells)","conditions":{"conditions":[{"type":"text_contains","value":"Rechnung"}]},"actions":{"title_template":"{filename}"}}"#.utf8); headers["Content-Type"] = "application/json"
                 case "POST rules/preview": body = Data(#"{"conditions":{"conditions":[{"type":"text_contains","value":"Rechnung"}]},"actions":{"title_template":"{filename}"}}"#.utf8); headers["Content-Type"] = "application/json"
                 case "POST sources": body = Data(#"{"kind":"folder","name":"Neu \#(cells)","config":{"path":"scan"}}"#.utf8); headers["Content-Type"] = "application/json"
+                case "POST imports": body = Data(#"{"mode":"dry_run","source":{"kind":"export","path":"neu\#(cells)"}}"#.utf8); headers["Content-Type"] = "application/json"
                 case "PATCH sources/{source}": body = Data(#"{"enabled":false}"#.utf8); headers["Content-Type"] = "application/json"
                 case "POST duplicates/{duplicate}/resolve": body = Data(#"{"state":"dismissed"}"#.utf8); headers["Content-Type"] = "application/json"
                 case "POST types": body = Data(#"{"name":"Neu \#(cells)"}"#.utf8); headers["Content-Type"] = "application/json"
@@ -862,6 +873,7 @@ final class DMSTests: DMSTestBase {
         try await aEq(try await count("pg_trigger", where: "tgname IN ('dms_document_files_protect', 'dms_files_protect', 'dms_documents_protect_asn')"), 3)
 
         let migration = CreateDMSCore()
+        try await CreateDMSImport().revert(on: app1.db(.psql))    // WP-D6: Laeufe, Idempotenz-Zuordnung, Befunde, Notizen
         try await CreateDMSSources().revert(on: app1.db(.psql))   // WP-D4: Quellen, Idempotenz- und Messdaten
         try await CreateDMSRevision().revert(on: app1.db(.psql))  // WP-D5: Spalten an dms_documents, Löschprotokoll, Kette, Läufe
         try await CreateDMSRules().revert(on: app1.db(.psql))    // WP-D3: verweist auf Dokumente und Ingest-Items
@@ -880,6 +892,7 @@ final class DMSTests: DMSTestBase {
         try await CreateDMSRules().prepare(on: app1.db(.psql))
         try await CreateDMSRevision().prepare(on: app1.db(.psql))
         try await CreateDMSSources().prepare(on: app1.db(.psql))
+        try await CreateDMSImport().prepare(on: app1.db(.psql))
     }
 }
 

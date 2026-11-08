@@ -19,6 +19,8 @@ public struct DMSModule: HubModule {
     let defaultRetentionYears: Int
     /// WP-D4: Schlüssel für die Zugangsdaten der Quellen (`SECRET_KEY(_FILE)`); ohne ihn lassen sich Mail-Quellen weder anlegen noch abfragen (422, Feld `password`, Code `secret_key_missing`; 5xx-Details würden nicht ausgegeben).
     let secretBox: SecretBox?
+    /// WP-D6: Richtlinie für die REST-Quelle des Paperless-Imports (https, Host-Allowlist `DMS_IMPORT_HOST_ALLOWLIST`, Entwicklungsschalter `DMS_IMPORT_INSECURE_DEV`).
+    let importPolicy: PaperlessEndpoint.Policy
 
     /// Standard: Objektspeicher aus der Umgebung (`OBJECT_STORE*`), Upload-Limit `DMS_MAX_UPLOAD_BYTES` (Standard 100 MiB).
     public init(objectStore: ObjectStoreConfig? = nil, maxUploadBytes: Int64? = nil, tenantQuotaBytes: Int64? = nil, enqueueOCR: Bool = false, defaultRetentionYears: Int? = nil, secretKey: String? = nil, environment: [String: String] = ProcessInfo.processInfo.environment) {
@@ -28,6 +30,7 @@ public struct DMSModule: HubModule {
             catch { self.objectStore = .failure(ConfigError(description: "OBJECT_STORE ungültig")) }
         }
         self.enqueueOCR = enqueueOCR
+        self.importPolicy = PaperlessEndpoint.Policy.fromEnvironment(environment)
         self.secretBox = secretKey.flatMap { SecretBox(secretKey: $0) } ?? SecretBox.fromEnvironment(environment)
         self.defaultRetentionYears = defaultRetentionYears ?? DMSRetention.defaultYears(environment)
         self.tenantQuotaBytes = tenantQuotaBytes ?? environment["DMS_TENANT_QUOTA_BYTES"].flatMap(Int64.init).flatMap { $0 > 0 ? $0 : nil } ?? 1024 * 1024 * 1024 * 1024
@@ -50,10 +53,13 @@ public struct DMSModule: HubModule {
          PermissionDefinition("dms.export.run", roles: [.accountant, .taxAdvisor]),
          // WP-D4: Quellen (Mail, Konsumordner) enthalten Zugangsdaten und lösen Fremdzugriffe aus: Buchhaltung
          PermissionDefinition("dms.source.read", roles: [.accountant]),
-         PermissionDefinition("dms.source.manage", roles: [.accountant])] + Self.rulePermissions   // WP-D3: dms.rule.*, dms.suggestion.*
+         PermissionDefinition("dms.source.manage", roles: [.accountant]),
+         // WP-D6: Paperless-Import (legt Kontakte, Stammdaten und Dokumente an): Buchhaltung und Owner
+         PermissionDefinition("dms.import.read", roles: [.accountant]),
+         PermissionDefinition("dms.import.manage", roles: [.accountant])] + Self.rulePermissions   // WP-D3: dms.rule.*, dms.suggestion.*
     }
 
-    public var migrations: [any Migration] { [CreateDMSCore(), CreateDMSIngest(), CreateDMSSearch(), CreateDMSOCR(), CreateDMSRules(), CreateDMSRevision(), CreateDMSSources()] }
+    public var migrations: [any Migration] { [CreateDMSCore(), CreateDMSIngest(), CreateDMSSearch(), CreateDMSOCR(), CreateDMSRules(), CreateDMSRevision(), CreateDMSSources(), CreateDMSImport()] }
     public var navigation: [NavigationItem] { [NavigationItem(key: "dms", labelKey: "nav.dms", path: "/dms", permission: "dms.document.read")] }
 
     func makeStore(_ req: Request) throws -> any ObjectStore {
@@ -153,6 +159,9 @@ public struct DMSModule: HubModule {
 
         // Quellen (WP-D4) und Share-/Scan-API
         registerSourceRoutes(routes, module: module)
+
+        // Paperless-Import (WP-D6) und Notizen
+        registerImportRoutes(routes, module: module)
 
         // Revisionssicherheit (WP-D5): Aufbewahrung, Löschsperre, endgültiges Löschen, Prüfläufe, Export
         let years = defaultRetentionYears

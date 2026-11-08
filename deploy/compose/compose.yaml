@@ -48,6 +48,7 @@ services:
       WEBAUTHN_RP_ID: ${WEBAUTHN_RP_ID:?WEBAUTHN_RP_ID setzen}
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
       DMS_TENANT_QUOTA_BYTES: ${DMS_TENANT_QUOTA_BYTES:-}
+      DMS_IMPORT_HOST_ALLOWLIST: ${DMS_IMPORT_HOST_ALLOWLIST:-}
       SECRET_KEY_FILE: /run/secrets/lh_secret_key
     secrets: [lh_db_password, lh_secret_key]
     read_only: true
@@ -67,16 +68,20 @@ services:
     image: ${LABHUB_WORKER_IMAGE:-${LABHUB_IMAGE:?LABHUB_IMAGE setzen}-worker}
     # WP-D4: zusätzlich Prüf-/Export-Jobs (D5) und die Quellen Mail-Poll und Konsumordner. Mail-Passwörter werden mit SECRET_KEY entschlüsselt (Secret, nie als Wert in der Umgebung);
     # der Konsumordner ist ein Volume NUR in diesem Dienst (ADR 0003: nichts im Backend-Container): <DMS_FOLDER_ROOT>/<mandanten-uuid>/<Pfad der Quelle>, schreibbar für Nutzer 10001.
-    command: ["worker", "--kinds", "dms.ocr,dms.verify,dms.export,dms.mail.poll,dms.folder.scan"]
+    command: ["worker", "--kinds", "dms.ocr,dms.verify,dms.export,dms.mail.poll,dms.folder.scan,dms.import.paperless"]
     restart: unless-stopped
     depends_on:
       migrate: { condition: service_completed_successfully }
     volumes:
       - ${DMS_FOLDER_SOURCE:-labhub-consume}:/mnt/consume
+      # WP-D6: Export-Verzeichnisse für den Paperless-Import, nur lesend: <DMS_IMPORT_ROOT>/<mandanten-uuid>/<Pfad>
+      - ${DMS_IMPORT_SOURCE:-labhub-import}:/mnt/import:ro
     environment:
       <<: *dbenv
       SECRET_KEY_FILE: /run/secrets/lh_secret_key
       DMS_FOLDER_ROOT: /mnt/consume
+      DMS_IMPORT_ROOT: /mnt/import
+      DMS_IMPORT_HOST_ALLOWLIST: ${DMS_IMPORT_HOST_ALLOWLIST:-}
       DMS_MAIL_TLS_VERIFY: ${DMS_MAIL_TLS_VERIFY:-true}
       DMS_MAIL_CA_PATH: ${DMS_MAIL_CA_PATH:-}
       DMS_MAIL_HOST_ALLOWLIST: ${DMS_MAIL_HOST_ALLOWLIST:-}
@@ -104,3 +109,4 @@ secrets:
 volumes:
   labhub-db:
   labhub-consume:
+  labhub-import:

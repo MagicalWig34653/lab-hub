@@ -1533,6 +1533,106 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tenants/{tenant}/dms/imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Letzte 50 Import-Laeufe (Berechtigung dms.import.read) */
+        get: operations["listDmsImports"];
+        put?: never;
+        /**
+         * Import-Lauf anlegen (Berechtigung dms.import.manage)
+         * @description Reiht den Worker-Job dms.import.paperless ein (202). Quelle export: Verzeichnis eines document_exporter-Exports im Worker unter DMS_IMPORT_ROOT/<mandant>/<pfad> (manifest.json + Dateien);
+         *     Quelle api: REST-API einer Paperless-ngx-Instanz (nur GET, Token im Header, nur https mit Zertifikatspruefung, Host-Allowlist DMS_IMPORT_HOST_ALLOWLIST, keine Weiterleitungen).
+         *     Das Token wird sofort verschluesselt (SecretBox) und nie zurueckgegeben. Modus dry_run schreibt nichts ins DMS (nur Bericht); import ist idempotent (Schluessel Quelle + Paperless-ID, Hash) und
+         *     wird durch einen neuen Lauf gegen dieselbe Quelle fortgesetzt. Rechte/Besitzer der Quelle werden nie uebernommen, Matching-Regeln nur als Vorschlaege im Bericht (F-23).
+         *     409 conflict (detail import_already_open), wenn fuer dieselbe Quelle ein Lauf wartet oder laeuft.
+         */
+        post: operations["startDmsImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/dms/imports/{import}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Status und Fortschritt eines Import-Laufs (Berechtigung dms.import.read) */
+        get: operations["getDmsImport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/dms/imports/{import}/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Importbericht als JSON-Datei (Berechtigung dms.import.read); 404 bis der Lauf beendet ist
+         * @description Bericht (format labhub-paperless-import-report/1): Zaehler, Befunde je Code (Konflikte, Warnungen, Hinweise, je Code die ersten 100 Eintraege mit Gesamtzahl),
+         *     ASN-Stand, Rechte-Zaehler (nicht uebernommen) und Regelvorschlaege. Auch bei abgebrochenen und fehlgeschlagenen Laeufen.
+         */
+        get: operations["getDmsImportReport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/dms/imports/{import}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import-Lauf abbrechen (Berechtigung dms.import.manage)
+         * @description Wartender Lauf wird sofort cancelled. Ein laufender Lauf endet vor dem naechsten Dokument (bereits Importiertes bleibt, ein neuer Lauf setzt fort). Beendeter Lauf: 409.
+         */
+        post: operations["cancelDmsImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/dms/documents/{document}/notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Notizen eines Dokuments (Berechtigung dms.document.read); entstehen durch den Paperless-Import */
+        get: operations["listDmsDocumentNotes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2222,6 +2322,123 @@ export interface components {
             /** @description Klartext, nur in der Antwort von createApiToken */
             token?: string;
         };
+        DmsImportInput: {
+            /** @enum {string} */
+            mode: "dry_run" | "import";
+            source: {
+                /** @enum {string} */
+                kind: "export" | "api";
+                /** @description nur kind export: relativer Pfad unter DMS_IMPORT_ROOT/<mandant>/ (ohne .., ohne fuehrenden Punkt) */
+                path?: string;
+                /** @description nur kind api: https-URL der Instanz, ohne Zugangsdaten, Query und Fragment */
+                base_url?: string;
+                /** @description nur kind api, Pflicht; wird verschluesselt und nie zurueckgegeben */
+                token?: string;
+            };
+            options?: {
+                /**
+                 * @description OCR-Job fuer Dokumente ohne uebernommenen Text
+                 * @default true
+                 */
+                ocr: boolean;
+            };
+        };
+        DmsImport: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            source_kind: "export" | "api";
+            /** @enum {string} */
+            mode: "dry_run" | "import";
+            /** @enum {string} */
+            state: "queued" | "running" | "done" | "failed" | "cancelled";
+            cancel_requested: boolean;
+            /** @description path bzw. base_url, nie das Token */
+            config: {
+                [key: string]: string;
+            };
+            has_secret: boolean;
+            /** @description processed, total und die Zaehler des Laufs */
+            progress: {
+                [key: string]: number;
+            };
+            /** @description bei failed: import_root_missing, source_not_found, manifest_missing, manifest_too_large, manifest_invalid, invalid_url, scheme_not_allowed, host_not_allowed, source_auth_failed, source_unreachable, source_tls_failed, source_http_error, source_response_invalid, secret_key_missing, secret_unreadable, storage_quota_exceeded, module_disabled, import_failed */
+            error_code?: string | null;
+            /** Format: uuid */
+            requested_by: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            started_at?: string | null;
+            /** Format: date-time */
+            finished_at?: string | null;
+        };
+        DmsImportReport: {
+            /** @example labhub-paperless-import-report/1 */
+            format: string;
+            /** @enum {string} */
+            mode: "dry_run" | "import";
+            /** @enum {string} */
+            source_kind: "export" | "api";
+            /** @enum {string} */
+            state: "done" | "failed" | "cancelled";
+            error_code?: string;
+            /** @description u. a. documents_seen, documents_would_import bzw. documents_imported, documents_skipped_existing, documents_skipped, files_original, files_archive, files_without_checksum, asn_collisions, <art>_created|would_create|matched|merged|existing */
+            counts: {
+                [key: string]: number;
+            };
+            /** @description je Code: total und die ersten 100 Eintraege (ref = Art:Paperless-ID, detail kurz). Codes u. a. asn_collision, file_without_checksum, file_missing, checksum_mismatch, unsupported_type, file_too_large, hash_exists, duplicate_hash_imported, contact_possible_duplicate, reference_matched_by_name, tag_similar, storage_path_untranslatable, custom_field_unsupported, custom_field_type_conflict, monetary_currency_dropped, reference_unknown, document_failed */
+            findings: {
+                [key: string]: {
+                    total: number;
+                    items: {
+                        ref: string;
+                        detail?: string;
+                    }[];
+                };
+            };
+            asn: {
+                /** Format: int64 */
+                max_seen: number;
+                collisions: number;
+                /**
+                 * Format: int64
+                 * @description Stand des Zaehlers dms:asn nach dem Lauf (mindestens das Maximum der Quelle)
+                 */
+                counter_value?: number | null;
+            };
+            rights: {
+                /** @description immer false (F-23): Besitzer und Berechtigungen werden nicht uebernommen */
+                imported: boolean;
+                /** @example rights_not_imported */
+                note_code: string;
+                owners_seen?: number;
+                source_users?: number;
+                source_groups?: number;
+            };
+            /** @description Matching-Algorithmen der Quelle als Vorschlaege fuer dms_rules; nie automatisch angelegt */
+            rule_suggestions: {
+                /** @enum {string} */
+                target_kind?: "correspondent" | "document_type" | "tag" | "storage_path";
+                target_name?: string;
+                /** @enum {string} */
+                algorithm?: "none" | "any" | "all" | "literal" | "regex" | "fuzzy" | "auto" | "unknown";
+                match?: string;
+                case_insensitive?: boolean;
+                translatable?: boolean;
+            }[];
+        };
+        DmsNote: {
+            /** Format: uuid */
+            id: string;
+            body: string;
+            /** Format: date-time */
+            noted_at?: string | null;
+            /** @description z. B. paperless:note:<id> */
+            origin?: string | null;
+            /** Format: date-time */
+            created_at: string;
+        };
         DmsSource: {
             /** Format: uuid */
             id: string;
@@ -2313,6 +2530,8 @@ export interface components {
         DmsSuggestion: string;
         /** @description Quelle des Mandanten. Fremd oder unbekannt liefert 404. */
         DmsSource: string;
+        /** @description Import-Lauf des Mandanten. Fremd oder unbekannt liefert 404. */
+        DmsImport: string;
         DmsDuplicate: string;
     };
     requestBodies: never;
@@ -5542,6 +5761,180 @@ export interface operations {
             403: components["responses"]["Problem"];
             404: components["responses"]["Problem"];
             409: components["responses"]["Problem"];
+        };
+    };
+    listDmsImports: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Laeufe, neueste zuerst */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["DmsImport"][];
+                    };
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    startDmsImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DmsImportInput"];
+            };
+        };
+        responses: {
+            /** @description Lauf angelegt */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmsImport"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getDmsImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                /** @description Import-Lauf des Mandanten. Fremd oder unbekannt liefert 404. */
+                import: components["parameters"]["DmsImport"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Lauf */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmsImport"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    getDmsImportReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                /** @description Import-Lauf des Mandanten. Fremd oder unbekannt liefert 404. */
+                import: components["parameters"]["DmsImport"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Bericht (Anhang, nosniff, no-store) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmsImportReport"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    cancelDmsImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                /** @description Import-Lauf des Mandanten. Fremd oder unbekannt liefert 404. */
+                import: components["parameters"]["DmsImport"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Lauf */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmsImport"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+        };
+    };
+    listDmsDocumentNotes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                document: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Notizen, aelteste zuerst */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["DmsNote"][];
+                    };
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
         };
     };
 }

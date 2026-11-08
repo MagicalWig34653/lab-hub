@@ -1,0 +1,536 @@
+[
+  {
+    "fields": {
+      "email": "user-a@example.org",
+      "is_superuser": true,
+      "password": "pbkdf2_sha256$synthetic$canary-D6-hash",
+      "username": "fixture_user_a"
+    },
+    "model": "auth.user",
+    "pk": 1
+  },
+  {
+    "fields": {
+      "email": "user-b@example.org",
+      "is_superuser": false,
+      "password": "pbkdf2_sha256$synthetic$canary-D6-hash-b",
+      "username": "fixture_user_b"
+    },
+    "model": "auth.user",
+    "pk": 2
+  },
+  {
+    "fields": {
+      "name": "fixture_group"
+    },
+    "model": "auth.group",
+    "pk": 1
+  },
+  {
+    "fields": {
+      "is_insensitive": true,
+      "match": "strom energie",
+      "matching_algorithm": 1,
+      "name": "Muster Strom GmbH",
+      "owner": 1
+    },
+    "model": "documents.correspondent",
+    "pk": 1
+  },
+  {
+    "fields": {
+      "is_insensitive": true,
+      "match": "Beispiel Versicherung",
+      "matching_algorithm": 3,
+      "name": "Beispiel Versicherung AG",
+      "owner": 1
+    },
+    "model": "documents.correspondent",
+    "pk": 2
+  },
+  {
+    "fields": {
+      "is_insensitive": true,
+      "match": "",
+      "matching_algorithm": 6,
+      "name": "Fiktiv Handwerk",
+      "owner": 1
+    },
+    "model": "documents.correspondent",
+    "pk": 3
+  },
+  {
+    "fields": {
+      "is_insensitive": true,
+      "match": "verlag.*",
+      "matching_algorithm": 4,
+      "name": "Erfunden Verlag",
+      "owner": 1
+    },
+    "model": "documents.correspondent",
+    "pk": 4
+  },
+  {
+    "fields": {
+      "is_insensitive": true,
+      "match": "rechnung invoice",
+      "matching_algorithm": 1,
+      "name": "Rechnung",
+      "owner": 1
+    },
+    "model": "documents.documenttype",
+    "pk": 1
+  },
+  {
+    "fields": {
+      "is_insensitive": true,
+      "match": "",
+      "matching_algorithm": 0,
+      "name": "Vertrag",
+      "owner": 1
+    },
+    "model": "documents.documenttype",
+    "pk": 2
+  },
+  {
+    "fields": {
+      "is_insensitive": true,
+      "match": "",
+      "matching_algorithm": 0,
+      "name": "Brief",
+      "owner": 1
+    },
+    "model": "documents.documenttype",
+    "pk": 3
+  },
+  {
+    "fields": {
+      "color": "#a6cee3",
+      "is_inbox_tag": false,
+      "is_insensitive": true,
+      "match": "",
+      "matching_algorithm": 0,
+      "name": "Steuer",
+      "owner": 1
+    },
+    "model": "documents.tag",
+    "pk": 1
+  },
+  {
+    "fields": {
+      "color": "#1f78b4",
+      "is_inbox_tag": false,
+      "is_insensitive": true,
+      "match": "",
+      "matching_algorithm": 0,
+      "name": "steuer",
+      "owner": 1
+    },
+    "model": "documents.tag",
+    "pk": 2
+  },
+  {
+    "fields": {
+      "color": "#b2df8a",
+      "is_inbox_tag": false,
+      "is_insensitive": true,
+      "match": "",
+      "matching_algorithm": 0,
+      "name": "Versicherung",
+      "owner": 1
+    },
+    "model": "documents.tag",
+    "pk": 3
+  },
+  {
+    "fields": {
+      "color": "#33a02c",
+      "is_inbox_tag": false,
+      "is_insensitive": true,
+      "match": "",
+      "matching_algorithm": 0,
+      "name": "Versicherungen",
+      "owner": 1
+    },
+    "model": "documents.tag",
+    "pk": 4
+  },
+  {
+    "fields": {
+      "color": "#fb9a99",
+      "is_inbox_tag": false,
+      "is_insensitive": true,
+      "match": "",
+      "matching_algorithm": 0,
+      "name": "Wichtig",
+      "owner": 1
+    },
+    "model": "documents.tag",
+    "pk": 5
+  },
+  {
+    "fields": {
+      "color": "#e31a1c",
+      "is_inbox_tag": true,
+      "is_insensitive": true,
+      "match": "",
+      "matching_algorithm": 0,
+      "name": "Eingang",
+      "owner": 1
+    },
+    "model": "documents.tag",
+    "pk": 6
+  },
+  {
+    "fields": {
+      "match": "",
+      "matching_algorithm": 0,
+      "name": "Jahr und Korrespondent",
+      "owner": 1,
+      "path": "{{ created_year }}/{{ correspondent }}/{{ title }}"
+    },
+    "model": "documents.storagepath",
+    "pk": 1
+  },
+  {
+    "fields": {
+      "match": "",
+      "matching_algorithm": 0,
+      "name": "Nach Benutzer",
+      "owner": 1,
+      "path": "{{ owner_username }}/{{ title | lower }}"
+    },
+    "model": "documents.storagepath",
+    "pk": 2
+  },
+  {
+    "fields": {
+      "data_type": "monetary",
+      "extra_data": null,
+      "name": "Betrag"
+    },
+    "model": "documents.customfield",
+    "pk": 1
+  },
+  {
+    "fields": {
+      "data_type": "string",
+      "extra_data": null,
+      "name": "Referenz"
+    },
+    "model": "documents.customfield",
+    "pk": 2
+  },
+  {
+    "fields": {
+      "data_type": "date",
+      "extra_data": null,
+      "name": "Fällig am"
+    },
+    "model": "documents.customfield",
+    "pk": 3
+  },
+  {
+    "__exported_file_name__": "0000101.pdf",
+    "__exported_thumbnail_name__": "thumbnails/0000101.webp",
+    "fields": {
+      "added": "2023-02-03T09:15:00.000000Z",
+      "archive_serial_number": 1,
+      "checksum": "a302508b9e82db4d573d203088c98c6e",
+      "content": "Stromrechnung Januar 2023 Betrag 84,20 Euro Zaehlernummer 4711",
+      "correspondent": 1,
+      "created": "2023-02-01",
+      "document_type": 1,
+      "filename": "0000101.pdf",
+      "mime_type": "application/pdf",
+      "owner": 1,
+      "storage_path": 1,
+      "tags": [
+        1,
+        5
+      ],
+      "title": "Stromrechnung Januar 2023"
+    },
+    "model": "documents.document",
+    "pk": 101
+  },
+  {
+    "__exported_file_name__": "0000102.pdf",
+    "__exported_thumbnail_name__": "thumbnails/0000102.webp",
+    "fields": {
+      "added": "2023-03-02T08:00:00.000000Z",
+      "archive_serial_number": 2,
+      "checksum": "c9f1020750e79542b293b7bb1ec16a12",
+      "content": "Stromrechnung Februar 2023 Betrag 79,90 Euro",
+      "correspondent": 1,
+      "created": "2023-03-01",
+      "document_type": 1,
+      "filename": "0000102.pdf",
+      "mime_type": "application/pdf",
+      "owner": 1,
+      "storage_path": 1,
+      "tags": [
+        2
+      ],
+      "title": "Stromrechnung Februar 2023"
+    },
+    "model": "documents.document",
+    "pk": 102
+  },
+  {
+    "__exported_file_name__": "0000103.pdf",
+    "__exported_thumbnail_name__": "thumbnails/0000103.webp",
+    "fields": {
+      "added": "2023-01-04T10:30:00.000000Z",
+      "archive_serial_number": 3,
+      "checksum": "250a7092e62a5304d3055e60f4f98c94",
+      "content": "Haftpflichtversicherung Police Nummer HP-0815 Laufzeit ein Jahr",
+      "correspondent": 2,
+      "created": "2022-12-15",
+      "document_type": 2,
+      "filename": "0000103.pdf",
+      "mime_type": "application/pdf",
+      "owner": 1,
+      "storage_path": null,
+      "tags": [
+        3
+      ],
+      "title": "Haftpflicht Police"
+    },
+    "model": "documents.document",
+    "pk": 103
+  },
+  {
+    "__exported_file_name__": "0000104.pdf",
+    "__exported_thumbnail_name__": "thumbnails/0000104.webp",
+    "fields": {
+      "added": "2023-04-11T12:00:00.000000Z",
+      "archive_serial_number": 4,
+      "checksum": "9a191be526788562840dd6fc6784167f",
+      "content": "Nachtrag zur Police HP-0815 Aenderung der Deckungssumme",
+      "correspondent": 2,
+      "created": "2023-04-10",
+      "document_type": 2,
+      "filename": "0000104.pdf",
+      "mime_type": "application/pdf",
+      "owner": 1,
+      "storage_path": 2,
+      "tags": [
+        4
+      ],
+      "title": "Versicherungsnachtrag"
+    },
+    "model": "documents.document",
+    "pk": 104
+  },
+  {
+    "__exported_file_name__": "0000105.pdf",
+    "__exported_thumbnail_name__": "thumbnails/0000105.webp",
+    "fields": {
+      "added": "2023-05-21T07:45:00.000000Z",
+      "archive_serial_number": 17,
+      "checksum": "fdb9d1789563cff33e606807d03d650c",
+      "content": "Angebot Dachrinne reinigen pauschal 250 Euro",
+      "correspondent": 3,
+      "created": "2023-05-20",
+      "document_type": 1,
+      "filename": "0000105.pdf",
+      "mime_type": "application/pdf",
+      "owner": 1,
+      "storage_path": null,
+      "tags": [
+        5,
+        6
+      ],
+      "title": "Handwerker Angebot"
+    },
+    "model": "documents.document",
+    "pk": 105
+  },
+  {
+    "__exported_file_name__": "0000106.pdf",
+    "__exported_thumbnail_name__": "thumbnails/0000106.webp",
+    "fields": {
+      "added": "2023-06-02T15:20:00.000000Z",
+      "archive_serial_number": null,
+      "checksum": "1a9f70beaee014ad8670ede725c229c4",
+      "content": "Sehr geehrte Damen und Herren, wir bedanken uns fuer Ihr Abonnement",
+      "correspondent": 4,
+      "created": "2023-06-01",
+      "document_type": 3,
+      "filename": "0000106.pdf",
+      "mime_type": "application/pdf",
+      "owner": 1,
+      "storage_path": null,
+      "tags": [],
+      "title": "Brief vom Verlag"
+    },
+    "model": "documents.document",
+    "pk": 106
+  },
+  {
+    "__exported_archive_name__": "archive/0000107.pdf",
+    "__exported_file_name__": "0000107.png",
+    "__exported_thumbnail_name__": "thumbnails/0000107.webp",
+    "fields": {
+      "added": "2023-06-13T09:00:00.000000Z",
+      "archive_checksum": "940882b868cb751eaa37b7df47b2fed0",
+      "archive_serial_number": 5,
+      "checksum": "bd30ce61a7822afcf2be77bc42914b8c",
+      "content": "Quittung Handwerk Betrag 45 Euro bar bezahlt",
+      "correspondent": 3,
+      "created": "2023-06-12",
+      "document_type": 1,
+      "filename": "0000107.png",
+      "mime_type": "image/png",
+      "owner": 1,
+      "storage_path": null,
+      "tags": [
+        6
+      ],
+      "title": "Scan Quittung"
+    },
+    "model": "documents.document",
+    "pk": 107
+  },
+  {
+    "__exported_archive_name__": "archive/0000108.pdf",
+    "__exported_file_name__": "0000108.png",
+    "__exported_thumbnail_name__": "thumbnails/0000108.webp",
+    "fields": {
+      "added": "2023-07-02T09:00:00.000000Z",
+      "archive_checksum": "a36f3acf2f0ebf46a2877d7049baffa5",
+      "archive_serial_number": 6,
+      "checksum": "0214011326e60a1cf9bbbd448c2ee4fb",
+      "content": "Vertrag ueber Wartungsarbeiten Laufzeit zwei Jahre",
+      "correspondent": 2,
+      "created": "2023-07-01",
+      "document_type": 2,
+      "filename": "0000108.png",
+      "mime_type": "image/png",
+      "owner": 1,
+      "storage_path": null,
+      "tags": [],
+      "title": "Scan Vertrag"
+    },
+    "model": "documents.document",
+    "pk": 108
+  },
+  {
+    "__exported_file_name__": "0000109.png",
+    "__exported_thumbnail_name__": "thumbnails/0000109.webp",
+    "fields": {
+      "added": "2023-07-16T11:11:00.000000Z",
+      "archive_serial_number": null,
+      "checksum": "5c34ede70b9b89d5df2a812e7062e860",
+      "content": "",
+      "correspondent": null,
+      "created": "2023-07-15",
+      "document_type": null,
+      "filename": "0000109.png",
+      "mime_type": "image/png",
+      "owner": 1,
+      "storage_path": null,
+      "tags": [],
+      "title": "Scan ohne Text"
+    },
+    "model": "documents.document",
+    "pk": 109
+  },
+  {
+    "__exported_file_name__": "0000110.pdf",
+    "__exported_thumbnail_name__": "thumbnails/0000110.webp",
+    "fields": {
+      "added": "2023-08-02T13:13:00.000000Z",
+      "archive_serial_number": null,
+      "checksum": "",
+      "content": "Notiz fuer den Test: dieser Eintrag hat keine Pruefsumme im Manifest",
+      "correspondent": null,
+      "created": "2023-08-01",
+      "document_type": 3,
+      "filename": "0000110.pdf",
+      "mime_type": "application/pdf",
+      "owner": 1,
+      "storage_path": null,
+      "tags": [],
+      "title": "Notiz ohne Pruefsumme"
+    },
+    "model": "documents.document",
+    "pk": 110
+  },
+  {
+    "fields": {
+      "created": "2023-01-05T10:00:00Z",
+      "document": 103,
+      "note": "Erste Notiz zur Police: Unterlagen liegen im Ordner Versicherung.",
+      "user": 1
+    },
+    "model": "documents.note",
+    "pk": 1
+  },
+  {
+    "fields": {
+      "created": "2023-01-06T10:00:00Z",
+      "document": 103,
+      "note": "Zweite Notiz: Beitrag jaehrlich zahlbar.",
+      "user": 1
+    },
+    "model": "documents.note",
+    "pk": 2
+  },
+  {
+    "fields": {
+      "created": "2023-07-03T10:00:00Z",
+      "document": 108,
+      "note": "Vertrag Wartung: Kuendigungsfrist beachten.",
+      "user": 2
+    },
+    "model": "documents.note",
+    "pk": 3
+  },
+  {
+    "fields": {
+      "document": 101,
+      "field": 1,
+      "value_monetary": "EUR84.20"
+    },
+    "model": "documents.customfieldinstance",
+    "pk": 1
+  },
+  {
+    "fields": {
+      "document": 101,
+      "field": 2,
+      "value_text": "SR-2023-01"
+    },
+    "model": "documents.customfieldinstance",
+    "pk": 2
+  },
+  {
+    "fields": {
+      "document": 102,
+      "field": 1,
+      "value_monetary": "EUR79.90"
+    },
+    "model": "documents.customfieldinstance",
+    "pk": 3
+  },
+  {
+    "fields": {
+      "document": 102,
+      "field": 3,
+      "value_date": "2023-03-15"
+    },
+    "model": "documents.customfieldinstance",
+    "pk": 4
+  },
+  {
+    "fields": {
+      "document": 105,
+      "field": 1,
+      "value_monetary": "250.00"
+    },
+    "model": "documents.customfieldinstance",
+    "pk": 5
+  }
+]

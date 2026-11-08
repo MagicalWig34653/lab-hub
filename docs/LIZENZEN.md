@@ -71,3 +71,8 @@ Pflichten bei **Weitergabe** des Worker-Images (Registry): Ghostscript (AGPL-3.0
 
 **Keine neue Abhängigkeit.** Der IMAP-Client (`Modules/DMS/Sources/IMAPClient.swift`) und der MIME-Parser (`MailMessage.swift`) sind Eigenentwicklung auf `swift-nio` (Apache-2.0) und `swift-nio-ssl` (Apache-2.0, bündelt BoringSSL; Prüfauftrag F-03 unverändert offen), beide ohnehin Abhängigkeiten von Vapor/Fluent. Die Verschlüsselung der Zugangsdaten nutzt `swift-crypto` (Apache-2.0), das bereits eingebunden ist. Begründung gegen eine IMAP-Bibliothek: Der Hub braucht nur LOGIN/AUTHENTICATE PLAIN, SELECT, UID SEARCH/FETCH/STORE/COPY/MOVE und LOGOUT (rund 300 Zeilen); eine zusätzliche Bibliothek hätte Lizenz-, Wartungs- und Sicherheitsfläche (TLS-Voreinstellungen, Größenlimits, Zeitlimits) ohne Gewinn. Getestet wird gegen **GreenMail** (`greenmail/standalone`, Apache-2.0) als Docker-Image **nur in den Tests**, nicht im Produkt oder in Images.
 
+
+## WP-D6 (Paperless-Import, 08.11.2026, keine Rechtsberatung)
+
+- Keine neue Paketabhängigkeit (`Package.swift` unverändert). Die REST-Quelle importiert `AsyncHTTPClient` (`swift-server/async-http-client` 1.36.2, Apache-2.0) und `NIOSSL` direkt; beide sind bereits transitiv über Vapor im Build. Soll das ausdrücklich in `Package.swift` stehen, ist das eine Entscheidung des Package-Besitzers (offen).
+- **Paperless-ngx (GPL-3.0):** Es wurde kein Code, kein Text und keine Testdatei übernommen. Das Format von `manifest.json` und der REST-API ist aus der Funktionsbeschreibung abgeleitet, die Fixture (`backend/Tests/Fixtures/paperless-synthetic/`, `generate.py`) und der Mock-Server sind selbst geschrieben, alle Inhalte erfunden.
