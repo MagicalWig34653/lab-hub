@@ -278,8 +278,9 @@ final class AuditHardeningTests: AuthTestCase {
     func testH6_5_ownerAndPublicLoseUpdateDeleteTruncateTrigger() async throws {
         let owner = try await scalar("SELECT current_user AS v", as: String.self)
         let acl = try await scalar("SELECT coalesce(relacl::text, '') AS v FROM pg_class WHERE relname = 'audit_log'", as: String.self)
-        // nur INSERT (a) und SELECT (r) für den Eigentümer; kein Eintrag für PUBLIC; kein w (UPDATE), d (DELETE), D (TRUNCATE), t (TRIGGER)
-        XCTAssertEqual(acl, "{\(owner)=ar/\(owner)}")
+        // INSERT (a), SELECT (r) und seit WP-H8 (019_audit_trigger_privilege) TRIGGER (t) für den Eigentümer, damit Migrationen mit normaler Einzelrolle
+        // Trigger auf audit_log anlegen können; kein Eintrag für PUBLIC; weiter kein w (UPDATE), d (DELETE), D (TRUNCATE)
+        XCTAssertEqual(acl, "{\(owner)=art/\(owner)}")
         // Trigger bleiben als zweite Schicht; INSERT und SELECT gehen weiter
         let triggers = try await scalar("SELECT count(*)::bigint AS v FROM pg_trigger WHERE tgrelid = 'audit_log'::regclass AND NOT tgisinternal", as: Int64.self)
         XCTAssertEqual(triggers, 2)

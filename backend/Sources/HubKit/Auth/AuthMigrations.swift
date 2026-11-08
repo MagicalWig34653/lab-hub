@@ -136,6 +136,22 @@ struct HardenAuditLog: AsyncMigration {
     }
 }
 
+/// WP-H8 (Befund aus WP-F5): `018_audit_hardening` hat dem Eigentümer auch TRIGGER entzogen. Mit einer normalen, nicht-privilegierten Einzelrolle
+/// (so legt `setup.sh` sie an) scheitert danach jede Migration, die einen Trigger auf `audit_log` anlegt (`dms_021_revision`: `permission denied for table audit_log`);
+/// Tests und Dev-Compose laufen als Superuser und merkten es nicht. Reparatur als Folgemigration (018 bleibt unverändert, ausgelieferte Namen ändern sich nie):
+/// Dem Eigentümer wird TRIGGER zurückgegeben. Das schwächt die Härtung nicht messbar: Der Eigentümer kann sich jedes Recht ohnehin per `GRANT` selbst geben und
+/// `ALTER TABLE … DISABLE TRIGGER` ausführen; UPDATE, DELETE und TRUNCATE bleiben entzogen (kein Rückbau der DML-Hürde), die Trigger aus 011 bleiben die zweite Schicht.
+/// Wirkt für frische und bestehende Installationen (Kern-Migrationen laufen vor Modul-Migrationen). Keine `schema_version`-Änderung (nur Rechte, wie 016/018).
+struct RestoreAuditTriggerPrivilege: AsyncMigration {
+    let name = "019_audit_trigger_privilege"
+    func prepare(on db: any Database) async throws {
+        try await run(db, ["GRANT TRIGGER ON audit_log TO CURRENT_USER"])
+    }
+    func revert(on db: any Database) async throws {
+        try await run(db, ["REVOKE TRIGGER ON audit_log FROM CURRENT_USER"])
+    }
+}
+
 /// Hilfstabellen der Anmeldung: kurzlebige WebAuthn-Challenges und Rate-Limit-Ereignisse (beides in der DB, nie im Speicher).
 struct CreateAuthSupport: AsyncMigration {
     let name = "012_auth_support"
