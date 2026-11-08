@@ -50,4 +50,10 @@ public func configure(_ app: Application, environment: [String: String] = Proces
     app.middleware.use(RequestIdMiddleware())
     app.middleware.use(ProblemMiddleware())
     try routes(app)
+    // WP-H9: PWA statisch ausliefern (greift nur, wenn keine Backend-Route passt; nie /api, /health, /ready)
+    if let pwa = try PWAConfig.fromEnvironment(environment) {
+        app.middleware.use(try PWAStaticMiddleware(config: pwa))
+    }
+    // WP-H9: Objektspeicher-Konfiguration beim Start prüfen (Fehlkonfiguration früh), Warnungen ins Log
+    for warning in try ObjectStoreConfig.fromEnvironment(environment).validate() { app.logger.warning("\(warning)") }
 }

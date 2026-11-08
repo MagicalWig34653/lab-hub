@@ -15,6 +15,8 @@
 		"test": "vitest run",
 		"test:e2e": "playwright test",
 		"test:e2e:dms": "E2E_DMS=1 playwright test e2e/dms.spec.ts",
+		"test:e2e:stack": "E2E_DMS=1 playwright test -c playwright.stack.config.ts e2e/dms.spec.ts",
+		"test:e2e:stack-restart": "playwright test -c playwright.stack.config.ts e2e/stack-restart.spec.ts",
 		"test:e2e:mock": "VITE_MOCK=1 npm run build && playwright test -c playwright.mock.config.ts"
 	},
 	"imports": {

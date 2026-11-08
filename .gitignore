@@ -4,3 +4,4 @@
 node_modules/
 pwa/build/
 .DS_Store
+deploy/compose/secrets/

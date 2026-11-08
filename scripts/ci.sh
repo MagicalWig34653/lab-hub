@@ -6,6 +6,7 @@ cd "$(dirname "$0")/.."
 export LH_SCRATCH="${LH_SCRATCH:-${TMPDIR:-/tmp}/labhub-build}"
 
 shellcheck deploy/*.sh scripts/*.sh docker-entrypoint.sh
+scripts/check-env-docs.sh   # WP-H9: jede gelesene Umgebungsvariable ist dokumentiert
 
 case "${LH_CI_PWA:-auto}" in
     0) echo "ci: Node-Schritte (OpenAPI-YAML, PWA) ausgelassen (LH_CI_PWA=0)" ;;

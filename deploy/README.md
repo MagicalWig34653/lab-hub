@@ -57,3 +57,23 @@ REVOKE UPDATE, DELETE, TRUNCATE ON audit_log FROM labhub_app;
 ```
 
 Die Laufzeitrolle darf keine DDL-Rechte haben (`CREATE` im Schema entziehen) und kein Superuser sein. Offen bleibt, dass Tabellen ohne eigene Trigger (z. B. `dms_*`) für die Laufzeitrolle voll schreibbar sind; das ist gewollt. Superuser und Eigentümer umgehen jede dieser Maßnahmen.
+
+## PWA-Auslieferung und Gesamtlauf (WP-H9)
+
+**PWA.** Das Backend-Image enthält die gebaute PWA (Dockerfile-Stufe `pwa`: `npm ci`, `npm run build`) fest unter `/usr/share/lab-hub/pwa`; zur Laufzeit wird nichts geschrieben (read-only Root bleibt). Das Backend liefert sie für `GET`/`HEAD` auf Pfade ohne Backend-Route aus; `/api/*`, `/health`, `/ready` bleiben unberührt (unbekannte `/api`-Pfade: 404 `application/problem+json`, nie `index.html`). Pfade ohne Dateiendung liefern `index.html` (Deep-Links wie `/dms/inbox`), fehlende Dateien mit Endung 404. Pfad-Traversal (`..`, `%2e%2e`, `\`, Symlinks aus dem Verzeichnis heraus, versteckte Dateien) ist abgewiesen.
+
+| Variable | Bedeutung |
+| --- | --- |
+| `PWA_DIR` | Verzeichnis mit `index.html`; im Image gesetzt. Ausdrücklich gesetzt und ohne `index.html`: Startfehler. Ohne Angabe und ohne Standardverzeichnis (`swift run`): keine Auslieferung. |
+| `PWA_ENABLED` | `false` schaltet die Auslieferung ab (reines API-Backend, z. B. wenn ein Proxy die PWA ausliefert). |
+| `PWA_HSTS_MAX_AGE` | Sekunden; sendet `Strict-Transport-Security` an PWA-Antworten. Nur hinter einem TLS-Proxy setzen (Standard aus). |
+
+Cache: `_app/immutable/*` mit `public, max-age=31536000, immutable`; `index.html`, `version.json` und alle übrigen Dateien mit `no-cache` (ETag für `index.html`). Header an PWA-Antworten: `Content-Security-Policy`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: same-origin`, `Permissions-Policy` (Kamera, Mikrofon, Standort aus), optional HSTS.
+
+CSP: `default-src 'self'; script-src 'self' 'sha256-<Hash des Start-Inline-Skripts>'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; font-src 'self'; connect-src 'self'; frame-src 'self' blob:; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'`. Strategie: SvelteKit schreibt genau ein Inline-Skript in `index.html`; das Backend berechnet beim Start dessen SHA-256 aus der ausgelieferten Datei und trägt es ein (kein Nonce, weil die Datei statisch ist; kein `unsafe-inline`/`unsafe-eval` für Skripte). `style-src 'unsafe-inline'` ist wegen `style`-Attributen von SvelteKit/Tailwind nötig. `blob:` für Bild- und PDF-/Mail-Vorschau, `frame-src 'self'` für die Datei-Routen. Die Datei-Routen der API senden weiterhin ihre eigene, strengere CSP. Ein vorgeschalteter Proxy darf diese Header nicht überschreiben.
+
+**Alle Umgebungsvariablen** stehen mit Erklärung in `.env.example` oder in den Abschnitten oben; `scripts/check-env-docs.sh` (Teil von `scripts/ci.sh`) schlägt fehl, wenn eine im Backend gelesene Variable in keiner der beiden Stellen vorkommt. Zusätzlich: `SETUP_TOKEN` (nur Bootstrap, danach entfernen), `OBJECT_STORE` (`db` Standard, `fs` mit `OBJECT_STORE_FS_PATH`, nur ein Host; `s3` noch nicht implementiert), `HUB_REPLICAS` (nur Warnung bei `fs` mit mehr als einer Replik; die Konfiguration wird beim Start geprüft, Fehler brechen den Start ab), `DMS_DEFAULT_RETENTION_YEARS`, `DMS_MAX_UPLOAD_BYTES`, `DMS_FOLDER_ROOT`/`DMS_IMPORT_ROOT` (im Worker-Container fest `/mnt/consume` bzw. `/mnt/import`; nicht ändern), `DMS_MAIL_SESSION_TIMEOUT_SECONDS` (10 bis 3600), `DMS_REGEX_TIMEOUT_MS` (10 bis 5000, Zeitlimit je Regel-Regex), `OCR_TMPDIR` (Worker: `/tmp`), `WORKER_ENABLE_SELFTEST` (nur Tests, nie in Produktion).
+
+**Getrennte Migrationsrolle.** `setup.sh` legt eine einzige Datenbankrolle an. Für Produktion empfohlen: der Dienst `migrate` läuft mit `DB_USER`/`DB_PASSWORD(_FILE)` der Eigentümerrolle, Backend und Worker mit einer Laufzeitrolle ohne Eigentum und ohne DDL-Recht (Befehle im Abschnitt Härtung). Dafür dem Dienst `migrate` eigene `DB_USER`/Secret-Werte geben; Compose-Datei und `setup.sh` setzen das noch nicht um (offen).
+
+**Gesamtlauf (real getestet, siehe `docs/handoff/WP-H9.md`).** Image `docker build -t lab-hub:h9 .`, Worker `docker build -f Dockerfile.worker -t lab-hub:h9-worker .`; Compose-Stack mit eigenem Projektnamen, Port und `setup.sh --non-interactive` (Variablen `LH_*`). Stack-E2E: `cd pwa && E2E_PORT=<port> E2E_SETUP_TOKEN=<token> npm run test:e2e:stack`. Der Stack muss mit `SETUP_TOKEN` gestartet werden (Datei `deploy/.env`, danach entfernen). Swarm bleibt ungetestet (nur Syntaxprüfung).

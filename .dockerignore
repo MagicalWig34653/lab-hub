@@ -3,3 +3,8 @@
 .env
 deploy/
 docs/
+**/node_modules
+pwa/build/
+pwa/.svelte-kit/
+pwa/test-results/
+pwa/playwright-report/
