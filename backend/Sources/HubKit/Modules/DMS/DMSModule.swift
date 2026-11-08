@@ -59,7 +59,7 @@ public struct DMSModule: HubModule {
          PermissionDefinition("dms.import.manage", roles: [.accountant])] + Self.rulePermissions   // WP-D3: dms.rule.*, dms.suggestion.*
     }
 
-    public var migrations: [any Migration] { [CreateDMSCore(), CreateDMSIngest(), CreateDMSSearch(), CreateDMSOCR(), CreateDMSRules(), CreateDMSRevision(), CreateDMSSources(), CreateDMSImport()] }
+    public var migrations: [any Migration] { [CreateDMSCore(), CreateDMSIngest(), CreateDMSSearch(), CreateDMSOCR(), CreateDMSRules(), CreateDMSRevision(), CreateDMSSources(), CreateDMSImport(), CreateDMSExtraction()] }
     public var navigation: [NavigationItem] { [NavigationItem(key: "dms", labelKey: "nav.dms", path: "/dms", permission: "dms.document.read")] }
 
     func makeStore(_ req: Request) throws -> any ObjectStore {
@@ -90,6 +90,7 @@ public struct DMSModule: HubModule {
                 filter.asn = asn
             }
             filter.q = req.query["q"]
+            try DMSExtractionQuery.apply(req, to: &filter)
             return try dmsJSON(try await DMSDocuments.list(tenant: try req.requireTenant().tenantID, page: try HubPageRequest(req), filter: filter, on: req.db))
         }
         routes.on(.GET, "documents", ":document", permission: "dms.document.read") { req in
@@ -141,6 +142,16 @@ public struct DMSModule: HubModule {
                                                      subjectType: "dms.document", subjectID: id.uuidString, meta: ["role": .token(role)], requestID: req.requestId), on: s)
             }
             return try await DMSDownload.response(file: file, tenant: context.tenantID, store: try module.makeStore(req), inline: disposition == "inline")
+        }
+
+        // Extraktion (WP-D7): Dokumentart und Fakten lesen, Neu-Lauf
+        routes.on(.GET, "documents", ":document", "extraction", permission: "dms.document.read") { req in
+            let tenant = try req.requireTenant().tenantID
+            guard let f = try await DMSExtraction.loadFacts(document: try dmsDocumentID(req), tenant: tenant, on: try sql(req.db)) else { throw DMSError.notFound }
+            return try dmsJSON(DMSExtraction.out(f, detail: true))
+        }
+        routes.on(.POST, "documents", ":document", "extraction", "run", permission: "dms.document.update") { req in
+            try dmsJSON(try await DMSExtraction.rerun(document: try dmsDocumentID(req), tenant: try req.requireTenant().tenantID, actor: try req.requireAuth().user.id, requestID: req.requestId, on: req.db))
         }
 
         // Verarbeitungsstatus (WP-O2): Fortschritt der Ingest-Kette für die PWA

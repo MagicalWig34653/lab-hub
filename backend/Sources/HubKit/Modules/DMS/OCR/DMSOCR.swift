@@ -162,8 +162,8 @@ enum DMSOCR {
                 try await tx.raw("UPDATE dms_document_files SET page_count = COALESCE(page_count, \(bind: pages)) WHERE tenant_id = \(bind: tenant) AND document_id = \(bind: document) AND role = 'archive'").run()
             }
             try await DMSIngest.advance(item, tenant: tenant, to: .ocrDone, on: tx)
-            // WP-D3: Klassifikation (Regeln, Kontakt-Matching, Duplikate) zwischen ocr_done und classified, in derselben Transaktion unter der Zeilensperre des Items
-            try await DMSClassify.run(item: item, document: document, tenant: tenant, text: extraction.text, on: txDB)
+            // WP-D3/D7: Klassifikation (Regeln, Kontakt-Matching, Duplikate) und Extraktion (Dokumentart, Fakten) zwischen ocr_done und classified, in derselben Transaktion unter der Zeilensperre des Items
+            try await DMSTextStep.complete(item: item, document: document, tenant: tenant, text: extraction.text, on: txDB)
             for next in [DMSIngest.State.classified, .done] { try await DMSIngest.advance(item, tenant: tenant, to: next, on: tx) }
             try await AuditLog.record(AuditEvent(action: "dms.ingest.ocr_done", actor: nil, tenant: tenant, subjectType: "dms.ingest_item", subjectID: item.uuidString,
                                                  meta: ["engine": .safe(extraction.engine), "ocr": .number(extraction.usedOCR ? 1 : 0), "pdfa": .number(extraction.pdfa ? 1 : 0),

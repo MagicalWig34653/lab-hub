@@ -11,6 +11,8 @@ import Fluent
 /// Erlaubte Dateitypen (Erkennung am Dateianfang). Weitere Typen (Office, ZIP-Container, E-Rechnung-XML) folgen mit den jeweiligen WPs.
 enum DMSFileKind: String, Sendable {
     case pdf, png, jpeg, tiff, webp
+    /// WP-D7: nur aus dem Mail-Ingest (die Erkennung am Dateianfang liefert diese Arten nie): die Mail selbst (.eml) und ihr HTML-Teil als Derivat.
+    case eml, html
 
     var mime: String {
         switch self {
@@ -19,6 +21,8 @@ enum DMSFileKind: String, Sendable {
         case .jpeg: "image/jpeg"
         case .tiff: "image/tiff"
         case .webp: "image/webp"
+        case .eml: "message/rfc822"
+        case .html: "text/html"
         }
     }
     var fileExtension: String { self == .jpeg ? "jpg" : rawValue }
@@ -212,7 +216,7 @@ enum DMSDownload {
     }
 
     static func ext(for mime: String) -> String {
-        switch mime { case "application/pdf": "pdf"; case "image/png": "png"; case "image/jpeg": "jpg"; case "image/tiff": "tiff"; case "image/webp": "webp"; case "application/zip": "zip"; default: "bin" }
+        switch mime { case "application/pdf": "pdf"; case "image/png": "png"; case "image/jpeg": "jpg"; case "image/tiff": "tiff"; case "image/webp": "webp"; case "application/zip": "zip"; case "message/rfc822": "eml"; case "text/html": "html"; default: "bin" }
     }
 
     static func response(file: DMSDocuments.StoredFile, tenant: UUID, store: any ObjectStore, inline: Bool) async throws -> Response {
@@ -220,7 +224,7 @@ enum DMSDownload {
         let stream: ByteStream
         do { stream = try await store.get(key) } catch ObjectStoreError.notFound { throw HubError(.notFound, "not_found") }
         var headers = HTTPHeaders()
-        headers.replaceOrAdd(name: .contentType, value: file.mime)
+        headers.replaceOrAdd(name: .contentType, value: file.mime.hasPrefix("text/") ? file.mime + "; charset=utf-8" : file.mime)
         headers.replaceOrAdd(name: .contentDisposition, value: disposition(inline, title: file.title, ext: ext(for: file.mime)))
         headers.replaceOrAdd(name: "X-Content-Type-Options", value: "nosniff")
         headers.replaceOrAdd(name: "Content-Security-Policy", value: "default-src 'none'; sandbox")

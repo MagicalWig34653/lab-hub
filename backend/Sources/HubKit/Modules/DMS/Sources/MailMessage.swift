@@ -18,12 +18,29 @@ struct ParsedMail: Sendable {
     var subject: String?
     var date: String?
     var textBody: String?
+    /// WP-D7: HTML-Teil (decodiert, höchstens `maxHTMLBytes`) und daraus abgeleiteter Klartext. Der HTML-Teil wird nur gespeichert, nie ausgewertet oder nachgeladen.
+    var htmlBody: String?
+    var htmlText: String?
     var attachments: [MailAttachment]
+
+    /// Text für Suchindex und Extraktion: Kopfzeilen (Betreff, Von, Datum) und der aussagekräftigere Mailtext (der längere aus Klartext- und HTML-Teil).
+    var indexText: String {
+        let plain = (textBodyIsPlain ? textBody : nil)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let html = htmlText?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let body = html.count > plain.count ? html : plain
+        var head = ""
+        if let subject, !subject.isEmpty { head += "Betreff: \(subject)\n" }
+        if let from, !from.isEmpty { head += "Von: \(from)\n" }
+        if let date, !date.isEmpty { head += "Datum: \(date)\n" }
+        return head + (head.isEmpty ? "" : "\n") + body
+    }
+    fileprivate var textBodyIsPlain = false
 }
 
 enum MailParser {
     static let maxDepth = 8
     static let maxParts = 200
+    static let maxHTMLBytes = 2 * 1024 * 1024
 
     struct Headers {
         var fields: [(name: String, value: String)] = []
@@ -32,13 +49,17 @@ enum MailParser {
 
     static func parse(_ raw: Data) -> ParsedMail {
         let (headers, body) = split(raw)
-        var mail = ParsedMail(messageID: nil, from: nil, subject: nil, date: nil, textBody: nil, attachments: [])
+        var mail = ParsedMail(messageID: nil, from: nil, subject: nil, date: nil, textBody: nil, htmlBody: nil, htmlText: nil, attachments: [])
         mail.messageID = headers.first("message-id").map { $0.trimmingCharacters(in: .whitespaces) }.flatMap { $0.isEmpty ? nil : String($0.prefix(998)) }
         mail.from = headers.first("from").flatMap(address)
         mail.subject = headers.first("subject").map { decodeWords($0) }.map { String($0.prefix(300)) }
         mail.date = headers.first("date").map { String($0.prefix(100)) }
         var parts = 0
         walk(headers: headers, body: body, depth: 0, parts: &parts, mail: &mail)
+        if let html = mail.htmlBody {
+            mail.htmlText = HTMLText.extract(html)
+            if mail.textBody == nil { mail.textBody = mail.htmlText }
+        }
         return mail
     }
 
@@ -90,8 +111,8 @@ enum MailParser {
         filename = filename.map { decodeWords($0) }
         if type.hasPrefix("text/"), filename == nil, disposition != "attachment" {
             let text = decodeText(decoded, charset: params["charset"])
-            if type == "text/plain" { mail.textBody = (mail.textBody.map { $0 + "\n\n" } ?? "") + text }
-            else if type == "text/html", mail.textBody == nil { mail.textBody = stripHTML(text) }
+            if type == "text/plain" { mail.textBody = (mail.textBodyIsPlain ? mail.textBody.map { $0 + "\n\n" } ?? "" : "") + text; mail.textBodyIsPlain = true }
+            else if type == "text/html", mail.htmlBody == nil { mail.htmlBody = String(text.prefix(maxHTMLBytes)) }
             return
         }
         if type.hasPrefix("message/") { return }   // eingebettete Mails werden nicht ausgepackt

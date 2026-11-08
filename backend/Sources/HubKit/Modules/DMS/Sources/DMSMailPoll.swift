@@ -95,6 +95,27 @@ enum DMSMailPoll {
         func attempt(_ work: () async throws -> SourceIngestOutcome) async {
             do { note(try await work()) } catch let e as HubError { result.failed += 1; result.errorCode = e.code == "storage_quota_exceeded" ? e.code : "ingest_failed" } catch { result.failed += 1; result.errorCode = "ingest_failed" }
         }
+        // WP-D7: Die Mail selbst ist das Original (.eml, byte-identisch). Ob sie abgelegt wird, bestimmt `keep_mail`; im Standard (`relevant`), wenn der Mailtext
+        // (Betreff + Text bzw. aus HTML abgeleiteter Text) als Dokumentart erkannt wird. Der Text kommt in den Suchindex, der HTML-Teil als Derivat (nie aktiv ausgeliefert).
+        let indexText = mail.indexText
+        let mode = config.keep_mail ?? "relevant"
+        let keep = mode == "always" || (mode == "relevant" && DocumentExtractor.extract(ExtractionInput(text: indexText, subject: mail.subject, sender: mail.from)).kind != .other)
+        var mailDocument: UUID?
+        if keep {
+            let eml = DMSSourceIngest.itemKey("maileml", messageKey)
+            let subjectName = DMSSourceIngest.cleanName(mail.subject.map { String($0.prefix(100)) + ".eml" }) ?? "mail.eml"
+            await attempt {
+                let htmlData = mail.htmlBody.map { Data($0.utf8) }
+                let outcome = try await DMSSourceIngest.ingest(bytes: raw, filename: subjectName, title: String((mail.subject?.isEmpty == false ? mail.subject! : "Mail").prefix(300)),
+                                                               itemKey: { _ in eml }, sender: mail.from, originRef: "mail:\(idRef)", source: source, ingestSource: .mail, limits: limits,
+                                                               config: objectStore, requestID: requestID, kind: .eml, mail: .init(text: indexText, html: htmlData), db: db)
+                if case .ingested(let id) = outcome { mailDocument = id }
+                return outcome
+            }
+            if mailDocument == nil { mailDocument = try? await DMSSourceIngest.existingDocument(source: source, key: eml, db: db) }   // Wiederholung: Mail-Dokument gibt es schon
+        }
+        let linkTarget = mailDocument
+        let actor = source.createdBy, tenant = source.tenant
         var index = 0
         for attachment in mail.attachments {
             index += 1
@@ -103,7 +124,12 @@ enum DMSMailPoll {
             await attempt {
                 try await DMSSourceIngest.ingest(bytes: attachment.data, filename: name, title: DMSSourceIngest.title(fromFilename: name, fallback: "Mailanhang"),
                                                  itemKey: { DMSSourceIngest.itemKey("mail", messageKey, $0) }, sender: mail.from, originRef: "mail:\(idRef)#\(index)",
-                                                 source: source, ingestSource: .mail, limits: limits, config: objectStore, requestID: requestID, db: db)
+                                                 source: source, ingestSource: .mail, limits: limits, config: objectStore, requestID: requestID,
+                                                 afterCreate: linkTarget.map { mailID in { @Sendable attachmentID, tx in
+                                                     // Verknüpfung Anhang -> Mail (Art `mail_attachment`), Quelle `system`; in der Transaktion der Aufnahme
+                                                     _ = try await LinkService.create(tenant: tenant, actor: actor, body: LinkBody(from_type: "dms.document", from_id: attachmentID, to_type: "dms.document",
+                                                                                                                                   to_id: mailID, kind: "mail_attachment", source: "system"), requestID: requestID, on: tx)
+                                                 } }, db: db)
             }
         }
         if config.include_body, let body = mail.textBody?.trimmingCharacters(in: .whitespacesAndNewlines), !body.isEmpty {

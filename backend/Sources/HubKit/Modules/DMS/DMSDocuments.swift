@@ -21,8 +21,24 @@ enum DMSDocuments {
         d.asn, d.status, d.trashed_at, d.trash_reason, d.created_by, d.created_at, d.updated_at, d.rev
         """
 
+    /// WP-D7: Übersichtsspalten der Extraktion (Join `dms_extractions x`), gleiche Spaltenaliase in Liste und Einzelansicht.
+    private static let extractionColumns = """
+        x.kind AS x_kind, x.kind_score::float8 AS x_score, x.kind_certain AS x_certain, x.extractor_version AS x_version, x.amount::text AS x_amount, x.currency AS x_currency,
+        x.extracted_date::text AS x_date, x.due_date::text AS x_due, x.reference AS x_reference, x.updated_at AS x_updated
+        """
+    private static let extractionJoin = "LEFT JOIN dms_extractions x ON x.document_id = d.id AND x.tenant_id = d.tenant_id"
+
+    private static func extractionSummary(_ r: any SQLRow) throws -> DMSExtractionOut? {
+        guard let kind = try r.decode(column: "x_kind", as: String?.self) else { return nil }
+        return DMSExtractionOut(kind: kind, kind_score: try r.decode(column: "x_score", as: Double.self), kind_certain: try r.decode(column: "x_certain", as: Bool.self),
+                                extractor_version: Int(try r.decode(column: "x_version", as: Int32.self)), amount: try r.decode(column: "x_amount", as: String?.self),
+                                currency: try r.decode(column: "x_currency", as: String?.self), extracted_date: try r.decode(column: "x_date", as: String?.self),
+                                due_date: try r.decode(column: "x_due", as: String?.self), reference: try r.decode(column: "x_reference", as: String?.self),
+                                updated_at: iso(try r.decode(column: "x_updated", as: Date.self)))
+    }
+
     private static func summary(_ r: any SQLRow) throws -> DMSDocumentOut {
-        DMSDocumentOut(
+        var out = DMSDocumentOut(
             id: try r.decode(column: "id", as: UUID.self), title: try r.decode(column: "title", as: String.self),
             doc_date: try r.decode(column: "doc_date", as: String?.self), received_at: iso(try r.decode(column: "received_at", as: Date.self)),
             document_type_id: try r.decode(column: "document_type_id", as: UUID?.self), storage_path_id: try r.decode(column: "storage_path_id", as: UUID?.self),
@@ -31,14 +47,17 @@ enum DMSDocuments {
             trash_reason: try r.decode(column: "trash_reason", as: String?.self), created_by: try r.decode(column: "created_by", as: UUID?.self),
             created_at: iso(try r.decode(column: "created_at", as: Date.self)), updated_at: iso(try r.decode(column: "updated_at", as: Date.self)),
             rev: Int(try r.decode(column: "rev", as: Int32.self)))
+        out.extraction = try extractionSummary(r)
+        return out
     }
 
     // MARK: Lesen
 
     /// Einzelansicht mit Tags, Feldern und Dateien. Fremde oder unbekannte ID: nil (Aufrufer antwortet 404).
     static func load(_ id: UUID, tenant: UUID, on s: any SQLDatabase) async throws -> DMSDocumentOut? {
-        guard let row = try await s.raw("SELECT \(unsafeRaw: columns) FROM dms_documents d WHERE d.tenant_id = \(bind: tenant) AND d.id = \(bind: id)").first() else { return nil }
+        guard let row = try await s.raw("SELECT \(unsafeRaw: columns), \(unsafeRaw: extractionColumns) FROM dms_documents d \(unsafeRaw: extractionJoin) WHERE d.tenant_id = \(bind: tenant) AND d.id = \(bind: id)").first() else { return nil }
         var out = try summary(row)
+        if out.extraction != nil, let f = try await DMSExtraction.loadFacts(document: id, tenant: tenant, on: s) { out.extraction = DMSExtraction.out(f, detail: true) }
         out.tag_ids = try await s.raw("SELECT tag_id FROM dms_document_tags WHERE tenant_id = \(bind: tenant) AND document_id = \(bind: id) ORDER BY tag_id").all()
             .map { try $0.decode(column: "tag_id", as: UUID.self) }
         var fields: [String: DMSFieldValue] = [:]
@@ -76,14 +95,39 @@ enum DMSDocuments {
         var correspondentID: UUID?
         var asn: Int64?
         var q: String?
+        // WP-D7: Extraktion (Art und Fakten), Sortierung
+        var kind: String?
+        var kindCertain: Bool?
+        var currency: String?
+        var amountMin: String?, amountMax: String?
+        var extractedFrom: String?, extractedTo: String?
+        var dueFrom: String?, dueTo: String?
+        var reference: String?
+        var sort = "created_at"
+        var descending = false
+    }
+
+    /// Sortierschlüssel (feste Liste, nie Nutzereingabe im SQL). Fehlende Werte stehen immer am Ende; der Cursor trägt den Schlüssel als Text.
+    private static func sortSpec(_ sort: String, descending: Bool) -> (expr: String, text: String, cast: String) {
+        func nulls(_ col: String, _ lo: String, _ hi: String) -> String { "COALESCE(\(col), \(descending ? lo : hi))" }
+        switch sort {
+        case "amount": let e = nulls("x.amount", "-1e15::numeric", "1e15::numeric"); return (e, "(\(e))::text", "numeric")
+        case "extracted_date": let e = nulls("x.extracted_date", "DATE '0001-01-01'", "DATE '9999-12-31'"); return (e, "(\(e))::text", "date")
+        case "due_date": let e = nulls("x.due_date", "DATE '0001-01-01'", "DATE '9999-12-31'"); return (e, "(\(e))::text", "date")
+        default: return ("d.created_at", "d.created_at::text", "timestamptz")
+        }
     }
 
     static func list(tenant: UUID, page: HubPageRequest, filter f: Filter, on db: any Database) async throws -> HubPage<DMSDocumentOut> {
         let s = try sql(db)
         let pattern = f.q.flatMap { $0.isEmpty ? nil : "%" + $0.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "%", with: "\\%").replacingOccurrences(of: "_", with: "\\_") + "%" }
         let cur = page.cursor
+        let spec = sortSpec(f.sort, descending: f.descending)
+        let op = f.descending ? "<" : ">", dir = f.descending ? "DESC" : "ASC"
+        let cursorClause: SQLQueryString = cur == nil ? "TRUE"
+            : "(\(unsafeRaw: spec.expr), d.id) \(unsafeRaw: op) (\(bind: cur!.createdAt)::\(unsafeRaw: spec.cast), \(bind: cur!.id)::uuid)"
         let rows = try await s.raw("""
-            SELECT \(unsafeRaw: columns), d.created_at::text AS created_text FROM dms_documents d
+            SELECT \(unsafeRaw: columns), \(unsafeRaw: extractionColumns), \(unsafeRaw: spec.text) AS created_text FROM dms_documents d \(unsafeRaw: extractionJoin)
             WHERE d.tenant_id = \(bind: tenant) AND (d.trashed_at IS NOT NULL) = \(bind: f.trashed)
               AND (\(bind: f.status)::text IS NULL OR d.status = \(bind: f.status)::text)
               AND (\(bind: f.typeID)::uuid IS NULL OR d.document_type_id = \(bind: f.typeID)::uuid)
@@ -92,8 +136,18 @@ enum DMSDocuments {
               AND (\(bind: f.correspondentID)::uuid IS NULL OR EXISTS (SELECT 1 FROM links l WHERE l.tenant_id = d.tenant_id AND l.from_type = 'dms.document'
                     AND l.from_id = d.id AND l.to_type = 'contact' AND l.kind = 'correspondent' AND l.removed_at IS NULL AND l.to_id = \(bind: f.correspondentID)::uuid))
               AND (\(bind: pattern)::text IS NULL OR d.title ILIKE \(bind: pattern)::text)
-              AND (\(bind: cur?.createdAt)::text IS NULL OR (d.created_at, d.id) > (\(bind: cur?.createdAt)::timestamptz, \(bind: cur?.id)::uuid))
-            ORDER BY d.created_at, d.id LIMIT \(bind: page.limit + 1)
+              AND (\(bind: f.kind)::text IS NULL OR x.kind = \(bind: f.kind)::text)
+              AND (\(bind: f.kindCertain)::boolean IS NULL OR x.kind_certain = \(bind: f.kindCertain)::boolean)
+              AND (\(bind: f.currency)::text IS NULL OR x.currency = \(bind: f.currency)::text)
+              AND (\(bind: f.amountMin)::text IS NULL OR x.amount >= \(bind: f.amountMin)::text::numeric)
+              AND (\(bind: f.amountMax)::text IS NULL OR x.amount <= \(bind: f.amountMax)::text::numeric)
+              AND (\(bind: f.extractedFrom)::text IS NULL OR x.extracted_date >= \(bind: f.extractedFrom)::text::date)
+              AND (\(bind: f.extractedTo)::text IS NULL OR x.extracted_date <= \(bind: f.extractedTo)::text::date)
+              AND (\(bind: f.dueFrom)::text IS NULL OR x.due_date >= \(bind: f.dueFrom)::text::date)
+              AND (\(bind: f.dueTo)::text IS NULL OR x.due_date <= \(bind: f.dueTo)::text::date)
+              AND (\(bind: f.reference)::text IS NULL OR x.reference = \(bind: f.reference)::text)
+              AND \(cursorClause)
+            ORDER BY \(unsafeRaw: spec.expr) \(unsafeRaw: dir), d.id \(unsafeRaw: dir) LIMIT \(bind: page.limit + 1)
             """).all()
         let items = try rows.map { (try summary($0), try $0.decode(column: "created_text", as: String.self)) }
         var total: Int?

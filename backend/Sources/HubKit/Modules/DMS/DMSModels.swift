@@ -43,6 +43,8 @@ struct DMSDocumentOut: Content, Sendable {
     var duplicates: [UUID]?
     /// Nur bei Upload (WP-O2): Eingangsvorgang; Fortschritt über `GET documents/{id}/processing`.
     var ingest_item_id: UUID?
+    /// WP-D7: Dokumentart und wichtigste Fakten (Betrag, Währung, Datum, Fälligkeit, Referenz); in der Einzelansicht mit allen Fakten. Fehlt, solange nichts extrahiert wurde.
+    var extraction: DMSExtractionOut?
 }
 
 /// Wert eines benutzerdefinierten Feldes (JSON-Skalar).

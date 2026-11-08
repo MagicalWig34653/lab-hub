@@ -60,6 +60,8 @@ struct MailSourceConfig: Codable, Sendable, Equatable {
     var sender_contains: String?
     var subject_contains: String?
     var max_per_run: Int
+    /// WP-D7: `relevant` (Standard: die Mail wird als Original (.eml) abgelegt, wenn der Mailtext als Dokumentart erkannt wird), `always`, `never`.
+    var keep_mail: String?
 }
 
 struct FolderSourceConfig: Codable, Sendable, Equatable {
@@ -133,7 +135,7 @@ enum DMSSources {
         let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
         switch kind {
         case .mail:
-            for k in raw.keys where !["host", "port", "username", "mailbox", "processed_mailbox", "interval_seconds", "include_body", "sender_contains", "subject_contains", "max_per_run"].contains(k) {
+            for k in raw.keys where !["host", "port", "username", "mailbox", "processed_mailbox", "interval_seconds", "include_body", "sender_contains", "subject_contains", "max_per_run", "keep_mail"].contains(k) {
                 throw DMSError.invalid("config.\(k)", "unknown")
             }
             let host = try str(raw["host"], "config.host", max: 253)!.lowercased()
@@ -148,7 +150,8 @@ enum DMSSources {
                 include_body: raw["include_body"] as? Bool ?? false,
                 sender_contains: try ascii(try str(raw["sender_contains"], "config.sender_contains", max: 100, required: false), "config.sender_contains"),
                 subject_contains: try ascii(try str(raw["subject_contains"], "config.subject_contains", max: 100, required: false), "config.subject_contains"),
-                max_per_run: try int(raw["max_per_run"], "config.max_per_run", range: 1...200, default: 50))
+                max_per_run: try int(raw["max_per_run"], "config.max_per_run", range: 1...200, default: 50),
+                keep_mail: try keepMail(raw["keep_mail"]))
             return try encoder.encode(config)
         case .folder:
             for k in raw.keys where !["path", "interval_seconds", "stable_seconds"].contains(k) { throw DMSError.invalid("config.\(k)", "unknown") }
@@ -160,6 +163,12 @@ enum DMSSources {
                                             stable_seconds: try int(raw["stable_seconds"], "config.stable_seconds", range: 0...3600, default: 10))
             return try encoder.encode(config)
         }
+    }
+
+    private static func keepMail(_ raw: Any?) throws -> String {
+        guard let raw else { return "relevant" }
+        guard let v = raw as? String, ["relevant", "always", "never"].contains(v) else { throw DMSError.invalid("config.keep_mail") }
+        return v
     }
 
     static func out(_ r: any SQLRow) throws -> DMSSourceOut {

@@ -76,3 +76,7 @@ Pflichten bei **Weitergabe** des Worker-Images (Registry): Ghostscript (AGPL-3.0
 
 - Keine neue Paketabhängigkeit (`Package.swift` unverändert). Die REST-Quelle importiert `AsyncHTTPClient` (`swift-server/async-http-client` 1.36.2, Apache-2.0) und `NIOSSL` direkt; beide sind bereits transitiv über Vapor im Build. Soll das ausdrücklich in `Package.swift` stehen, ist das eine Entscheidung des Package-Besitzers (offen).
 - **Paperless-ngx (GPL-3.0):** Es wurde kein Code, kein Text und keine Testdatei übernommen. Das Format von `manifest.json` und der REST-API ist aus der Funktionsbeschreibung abgeleitet, die Fixture (`backend/Tests/Fixtures/paperless-synthetic/`, `generate.py`) und der Mock-Server sind selbst geschrieben, alle Inhalte erfunden.
+
+## WP-D7 (Dokumenterkennung, Mail-Original, HTML-Text, 08.11.2026, keine Rechtsberatung)
+
+**Keine neue Abhängigkeit.** HTML-zu-Text (`Modules/DMS/Sources/HTMLText.swift`) ist ein eigener, begrenzter Textextraktor (kein SwiftSoup, keine Parser-Bibliothek), der Extraktor (`Modules/DMS/Extraction`) nutzt nur Foundation (`NSRegularExpression`, `Decimal`). Entscheidung gegen SwiftSoup (MIT): der Bedarf (Text, Tabellenzeilen, Entitäten) ist klein, ein Baum mit Selektoren wird nicht gebraucht, und die eigene Lösung hat feste Größen-/Tiefenlimits. Testdaten sind selbst erfunden (Firmen, example.org, IBANs aus dem Standard-Testbereich); GreenMail (Test-Container `greenmail/standalone`) steht unverändert wie in D4 nur in Tests.

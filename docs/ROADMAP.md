@@ -32,6 +32,7 @@ Ausgangsstand (vorhanden, getestet laut `deploy/README.md`/Tests): `migrate`, `s
 | | F4b | PWA an Backend-Stand (Verarbeitungsstatus, Durchsuchen, Quota/Unterbrechung) und echter E2E mit OCR-Worker | F4, O2, H6 | S | | umgesetzt, echter E2E nur mit lokalem Backend-Patch grün (Branch wp-F4b, Handoff docs/handoff/WP-F4b.md) |
 | 3b DMS vertiefen | D3 | Regeln, Vorschläge, Kontakt-Matching, Duplikate | O2, S1 | L | P F4 | offen |
 | | D4 | Quellen: Mail-Ingest, Konsumordner, Share-API | O1 | L | P D3 | offen |
+| | D7 | Dokumenterkennung (alle Arten, voll: Rechnung) im Mail-Eingang und OCR-Text; Mail als Original, HTML-Text | D3, D4 | L | | umgesetzt (Branch wp-D7, `docs/handoff/WP-D7.md`) |
 | | D5 | Revisionssicherheit: Löschkonzept, Prüf-Job, Export | D2 | M | P D3, D4 | offen |
 | | D6 | Paperless-Import | D2, D3 | M | P D5 | offen |
 | | F5 | DMS-UI: Prüfen, Regeln, Stammdaten, Papierkorb | F4, D3, D5 | M | | offen |
@@ -130,6 +131,9 @@ Grundsatz: Hub ohne Swift-App nutzbar (`AGENTS.md`); die Rechnungsphase ist dahe
 
 **WP-D5 Revisionssicherheit (M).** `MODUL-DMS.md` Abschnitt 8: AK-D-REV-1…4, Prüf-Job, Export-Job (ZIP + Index + Manifest). Abh.: D2.
 *Status WP-D5: umgesetzt und getestet (Branch wp-D5; Migration `dms_021_revision`): Aufbewahrung je Dokumenttyp (konfigurierbar, GoBD-orientiert, keine Konformitätszusage), Löschsperre, Purge nur aus Papierkorb nach Frist/ohne Sperre/ohne Verknüpfung mit Löschprotokoll und Blob-Referenzprüfung, Hash-Kette des DMS-Audits (F-16), Prüf-Job `dms.verify`, Export-Job `dms.export` (ZIP + index.csv + manifest.json mit SHA-256), 231 Tests grün; offen: Deploy der Worker-Arten, Zeitplaner, Alarmkanal; siehe `docs/handoff/WP-D5.md`.*
+
+**WP-D7 Dokumenterkennung (L).** Allgemeiner, deterministischer Extraktor (Detektoren je Dokumentart, voll ausgebaut `invoice`, einfach `reminder` und Stichwortarten, Fallback `other`), Fakten mit Fundstelle/Konfidenz/Begründung, Tabelle `dms_extractions`, Vorschläge (nie still angewendet), Felder in Liste/Details/Filter/Sortierung, `DocumentFacts` + Outbox für spätere Module; Mail-Original (.eml), Anhänge verknüpft, HTML-Text im Index. Abh.: D3, D4.
+*Status WP-D7: umgesetzt (Branch wp-D7, Handoff `docs/handoff/WP-D7.md`, Migration `dms_024_extraction`): AK-D7-1…17, Korpus mit 42 synthetischen Fällen (Precision 1,0, Recall 1,0 für „Rechnung“). Offen: Hervorhebung/UI (PWA), Rechnungsmodul-Anbindung (X1) über `DocumentFacts`, HTML-zu-PDF-Rendern (spätere Option).*
 
 **WP-D6 Paperless-Import (M).** `MODUL-DMS.md` Abschnitt 10, AK-D9, nur synthetische Fixture. Abh.: D2, D3. Offen: F-23.
 *Status WP-D6: umgesetzt (Branch wp-D6, Handoff `docs/handoff/WP-D6.md`): Export-Verzeichnis (D6a) und REST-API (D6b) mit Trockenlauf/Bericht, idempotent und fortsetzbar, Abbruch, ASN über `ensureAtLeast`, Worker-Job `dms.import.paperless` mit Lease; synthetische Fixture + Mock-API. Nicht gegen eine echte Instanz verifiziert, F-23 wie vorgeschlagen umgesetzt (Annahme bis Bestätigung).*

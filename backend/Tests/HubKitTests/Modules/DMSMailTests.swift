@@ -11,7 +11,7 @@ import Logging
 
 final class GreenMail: @unchecked Sendable {
     static let image = "greenmail/standalone:2.1.3"
-    static let users = (1...6).map { "mail\($0)" }
+    static let users = (1...7).map { "mail\($0)" }
     private static let lock = NSLock()
     nonisolated(unsafe) private static var shared: GreenMail?
     nonisolated(unsafe) private static var unavailable: String?
@@ -299,5 +299,46 @@ final class DMSMailTests: DMSSourceTestBase {
         try await aEq(try await count("dms_source_items"), 0)
         try await aEq(try await mailboxState("mail6", "INBOX").unseen, 1)
         try await aEq(try await count("object_chunks"), 0, "kein Waisen-Blob")
+    }
+
+    // MARK: WP-D7
+
+    /// AK-D7-1/2/3/6 über echtes IMAP (GreenMail): HTML-Rechnungsmail ohne Anhang -> Rechnung mit Feldern, Mail als byte-identisches Original (.eml) abgelegt, Mail verschoben;
+    /// Mail mit PDF-Anhang -> Anhang verknüpft; Newsletter wird nicht abgelegt; zweiter Poll (neu eingeliefert) erzeugt nichts doppelt.
+    func testAKD7_imapHtmlInvoiceAndAttachment() async throws {
+        let w = try await world()
+        let log = LogCapture()
+        let invoiceHTML = "<html><body><h1>Rechnung</h1><p>Beispiel Shop GmbH</p><table><tr><td>Rechnungsnummer</td><td>4711</td></tr><tr><td>Rechnungsdatum</td><td>07.11.2026</td></tr><tr><td>Gesamtbetrag</td><td>1.234,56 &euro;</td></tr></table><img src=\"https://tracker.example.org/p.gif\"></body></html>"
+        func htmlMessage(subject: String, id: String, html: String) -> Data {
+            Data(["From: Shop <billing@example.org>", "To: mail@example.org", "Subject: \(subject)", "Message-ID: <\(id)@example.org>", "Date: Sun, 8 Nov 2026 10:00:00 +0100", "MIME-Version: 1.0",
+                  "Content-Type: text/html; charset=utf-8", "", html, ""].joined(separator: "\r\n").utf8)
+        }
+        let m1 = htmlMessage(subject: "Ihre Rechnung Nr. 4711", id: "d7-1", html: invoiceHTML)
+        let m2 = message(subject: "Rechnung anbei", id: "d7-2", text: "Hallo", attachments: [("Rechnung.pdf", "application/pdf", pdf("d7-pdf"))])
+        let m3 = htmlMessage(subject: "Newsletter November", id: "d7-3", html: "<p>Neues im November. <a href=\"https://example.org/abmelden\">Abmelden</a> | Newsletter im Browser ansehen</p>")
+        try await seed("mail7", [m1, m2, m3], create: ["Verarbeitet"])
+        let id = try await createMailSource(w, user: "mail7", extra: ["include_body": false])
+        try await runWorker(worker(db, log: log), until: "erster Lauf") { try await self.runs(id) >= 1 }
+        let status = try await call(app1, .GET, src(w.tenantA) + "/\(id)", token: w.alice.token)
+        XCTAssertEqual(status.json["last_status"] as? String, "ok", "\(status.json)")
+        // m1: Mail-Original + Rechnung; m2: Anhang (Mailtext allein nicht erkannt: kein .eml); m3: nichts
+        try await aEq(try await count("dms_document_files", where: "mime = 'message/rfc822'"), 1)
+        let doc = try await scalar("SELECT document_id::text AS v FROM dms_document_files WHERE mime = 'message/rfc822'", as: String.self)
+        let download = try await raw(app1, .GET, base(w.tenantA) + "/documents/\(doc)/file", token: w.alice.token)
+        XCTAssertEqual(download.body.count, m1.count, "byte-identisch (GreenMail liefert die eingelieferten Bytes)")
+        XCTAssertEqual(download.body, m1)
+        let e = try await call(app1, .GET, base(w.tenantA) + "/documents/\(doc)/extraction", token: w.alice.token)
+        XCTAssertEqual(e.json["kind"] as? String, "invoice", "\(e.json)"); XCTAssertEqual(e.json["amount"] as? String, "1234.56"); XCTAssertEqual(e.json["reference"] as? String, "4711")
+        try await aEq(try await count("dms_documents"), 2, "Rechnung (Mail) und PDF-Anhang; Newsletter nicht")
+        try await aEq(try await count("links", where: "kind = 'mail_attachment'"), 0, "m2 hat kein Mail-Dokument (Mailtext nicht erkannt)")
+        try await aEq(try await mailboxState("mail7", "INBOX").unseen, 0)
+        try await aEq(try await mailboxState("mail7", "Verarbeitet").all, 3)
+        // zweiter Poll mit denselben Nachrichten
+        try await seed("mail7", [m1, m2, m3])
+        let before = try await count("dms_documents")
+        _ = try await call(app2, .POST, src(w.tenantA) + "/\(id)/run", token: w.alice.token)
+        try await runWorker(worker(app2.db(.psql) as! any SQLDatabase, log: log), until: "zweiter Lauf") { try await self.runs(id) >= 2 }
+        try await aEq(try await count("dms_documents"), before, "Wiederholung ohne Duplikate")
+        try await aEq(try await count("dms_extractions"), 1, "Extraktion nur für die Mail; der PDF-Anhang wartet auf OCR (OCR-Worker)")
     }
 }

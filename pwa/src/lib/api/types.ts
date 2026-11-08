@@ -680,6 +680,10 @@ export interface paths {
         /**
          * Dokumente (Berechtigung dms.document.read); trashed=true zeigt den Papierkorb
          * @description Filter status, document_type_id, tag_id, correspondent_id, asn, q (Titel enthaelt). Cursor-Pagination wie ueberall.
+         *     WP-D7 (Extraktion, fuer alle Dokumentarten gleich): kind (Dokumentart), kind_certain, currency (ISO, Grossbuchstaben), amount_min/amount_max (Dezimalzeichenkette, bis zwei Nachkommastellen),
+         *     extracted_from/extracted_to (Belegdatum aus dem Text), due_from/due_to (Faelligkeit/Frist), reference (genau, Rechnungsnummer oder Aktenzeichen).
+         *     sort = created_at (Standard), amount, extracted_date oder due_date; order = asc (Standard) oder desc. Dokumente ohne den sortierten Wert stehen immer am Ende.
+         *     Der Cursor gilt nur fuer dieselbe Sortierung. Ungueltige Werte: 422 mit Feldname.
          */
         get: operations["listDmsDocuments"];
         put?: never;
@@ -778,6 +782,49 @@ export interface paths {
         put?: never;
         /** Aus dem Papierkorb wiederherstellen (Berechtigung dms.document.trash) */
         post: operations["restoreDmsDocument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/dms/documents/{document}/extraction": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Dokumentart und Fakten eines Dokuments (WP-D7, Berechtigung dms.document.read); ohne Extraktion 404
+         * @description Allgemeines Ergebnis fuer alle Dokumente: kind (invoice, receipt, contract, letter, bank_statement, insurance, tax_notice, reminder, other) mit Score und Begruendung,
+         *     facts mit Typ, Wert (Betraege als Dezimalzeichenkette, Daten yyyy-MM-dd, IBAN/USt-ID kompakt), Konfidenz, Begruendung und Fundstelle (offset, length, excerpt).
+         *     Nur fuer kind=invoice liefert invoice das typisierte Faktenprofil (Grundlage der Eingangsrechnung-Vorschlaege, WP X1). Nichts wird angewendet, Vorschlaege stehen unter suggestions.
+         */
+        get: operations["getDmsDocumentExtraction"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/dms/documents/{document}/extraction/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Extraktion fuer ein Dokument neu ausfuehren (WP-D7, Berechtigung dms.document.update)
+         * @description Wiederholt die Extraktion mit dem zuletzt gespeicherten Text (Extraktorversion wird gespeichert). Gleicher Text und gleiche Version ergeben dasselbe Ergebnis; Vorschlaege und das
+         *     Ereignis werden nicht doppelt angelegt. Audit dms.extraction.rerun. Papierkorb oder Dokument ohne Text: 409 (conflict, Detail no_text bzw. document_trashed).
+         */
+        post: operations["runDmsDocumentExtraction"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1463,7 +1510,7 @@ export interface paths {
         put?: never;
         /**
          * Quelle anlegen (Berechtigung dms.source.manage); Audit dms.source.created, plant den ersten Lauf ein
-         * @description kind mail: IMAP ueber implizites TLS (config.host, port 993, username, mailbox INBOX, processed_mailbox, interval_seconds 30..86400, include_body, sender_contains, subject_contains,
+         * @description kind mail: IMAP ueber implizites TLS (config.host, port 993, username, mailbox INBOX, processed_mailbox, interval_seconds 30..86400, include_body, sender_contains, subject_contains, keep_mail (WP-D7: relevant = Standard, die Mail wird als Original .eml abgelegt, wenn der Mailtext als Dokumentart erkannt wird; always; never; Anhaenge werden immer aufgenommen, mit Verknuepfung kind mail_attachment),
          *     max_per_run) und password (Pflicht). Das Passwort wird mit AES-256-GCM verschluesselt (Schluessel aus SECRET_KEY, Betrieb) gespeichert und nie ausgegeben, geloggt oder auditiert
          *     (Antwort: has_secret). Ohne SECRET_KEY auf dem Server: 422 mit Feld password und Code secret_key_missing (5xx-Details gibt die API nie aus). Verarbeitet werden ungelesene Nachrichten; danach als gelesen markiert und optional verschoben, nie geloescht.
          *     kind folder: config.path relativ zum Mount <DMS_FOLDER_ROOT>/<mandant>/ im Worker-Container (nur [A-Za-z0-9_. -] und /), interval_seconds 10..86400, stable_seconds 0..3600.
@@ -1855,6 +1902,7 @@ export interface components {
         DmsFile: {
             /** @enum {string} */
             role: "original" | "archive" | "thumbnail" | "derivative";
+            /** @description Auch message/rfc822 (Mail-Original) und text/html (Derivat mail_html: nie aktiv ausgeliefert, nur mit CSP default-src 'none'; sandbox und nosniff) */
             mime: string;
             /** Format: int64 */
             size_bytes: number;
@@ -1911,6 +1959,67 @@ export interface components {
              * @description Nur beim Upload: Eingangsvorgang; Fortschritt ueber GET .../documents/{document}/processing
              */
             ingest_item_id?: string;
+            /** @description WP-D7: Dokumentart und wichtigste Fakten; fehlt, solange nichts extrahiert wurde. In der Liste ohne facts/reasons/invoice. */
+            extraction?: components["schemas"]["DmsExtraction"];
+        };
+        /** @enum {string} */
+        DmsDocumentKind: "invoice" | "receipt" | "contract" | "letter" | "bank_statement" | "insurance" | "tax_notice" | "reminder" | "other";
+        DmsFact: {
+            /** @enum {string} */
+            type: "invoice_number" | "reference" | "date" | "due_date" | "deadline" | "amount" | "amount_gross" | "amount_net" | "amount_tax" | "iban" | "vat_id" | "seller" | "title";
+            /** @description Betraege als Dezimalzeichenkette (1234.56), Daten yyyy-MM-dd, IBAN/USt-ID kompakt in Grossbuchstaben */
+            value: string;
+            /** @description ISO 4217 bei Betraegen */
+            currency?: string | null;
+            confidence: number;
+            reason: string;
+            source?: {
+                /** @description UTF-16-Offset im Dokumenttext */
+                offset: number;
+                length: number;
+                excerpt: string;
+            } | null;
+        };
+        /** @description Typisiertes Faktenprofil einer Rechnung (Betraege als Dezimalzeichenketten); Quelle fuer Eingangsrechnung-Vorschlaege des Rechnungsmoduls. */
+        DmsInvoiceProfile: {
+            number?: string | null;
+            /** Format: date */
+            issue_date?: string | null;
+            /** Format: date */
+            due_date?: string | null;
+            gross?: string | null;
+            net?: string | null;
+            tax?: string | null;
+            currency?: string | null;
+            seller_name?: string | null;
+            seller_iban?: string | null;
+            seller_vat_id?: string | null;
+        };
+        /**
+         * @description Ergebnis des deterministischen Extraktors (alle Dokumentarten). amount/currency/extracted_date/due_date/reference sind die Uebersichtswerte
+         *     (Brutto- bzw. Gesamtbetrag, Belegdatum, Faelligkeit, Rechnungsnummer bzw. Aktenzeichen) und per Liste filter- und sortierbar.
+         *     kind_certain=false: Art unsicher (Score zwischen 0,35 und 0,6).
+         */
+        DmsExtraction: {
+            kind: components["schemas"]["DmsDocumentKind"];
+            kind_score: number;
+            kind_certain: boolean;
+            extractor_version: number;
+            amount?: string | null;
+            currency?: string | null;
+            /** Format: date */
+            extracted_date?: string | null;
+            /** Format: date */
+            due_date?: string | null;
+            reference?: string | null;
+            /** Format: date-time */
+            updated_at: string;
+            /** @description Nur in der Einzelansicht */
+            reasons?: string[];
+            /** @description Nur in der Einzelansicht */
+            facts?: components["schemas"]["DmsFact"][];
+            /** @description Nur bei kind=invoice in der Einzelansicht */
+            invoice?: components["schemas"]["DmsInvoiceProfile"];
         };
         /** @description Stammdatenzeile; Felder je Ressource (name, code, description, default_retention_years, exclusive, group_id, color, template, data_type, options). */
         DmsMaster: {
@@ -2252,7 +2361,7 @@ export interface components {
                 [key: string]: string;
             };
             /** @enum {string} */
-            source: "rule" | "contact_match";
+            source: "rule" | "contact_match" | "extraction";
             /** Format: uuid */
             rule_id?: string | null;
             rule_version?: number | null;
@@ -3765,6 +3874,18 @@ export interface operations {
                 correspondent_id?: string;
                 asn?: number;
                 q?: string;
+                kind?: components["schemas"]["DmsDocumentKind"];
+                kind_certain?: boolean;
+                currency?: string;
+                amount_min?: string;
+                amount_max?: string;
+                extracted_from?: string;
+                extracted_to?: string;
+                due_from?: string;
+                due_to?: string;
+                reference?: string;
+                sort?: "created_at" | "amount" | "extracted_date" | "due_date";
+                order?: "asc" | "desc";
             };
             header?: never;
             path: {
@@ -3983,6 +4104,61 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DmsDocument"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+        };
+    };
+    getDmsDocumentExtraction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                document: components["parameters"]["DmsDocument"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Extraktion */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmsExtraction"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    runDmsDocumentExtraction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                document: components["parameters"]["DmsDocument"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Neues Ergebnis */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmsExtraction"];
                 };
             };
             401: components["responses"]["Problem"];

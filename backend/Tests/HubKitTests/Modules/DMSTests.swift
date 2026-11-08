@@ -570,7 +570,9 @@ final class DMSTests: DMSTestBase {
             "POST sources/{source}/run": .accepted, "POST sources/{source}/test": .conflict,
             // WP-D6: Import-Laeufe (Probe-Lauf `queued`, ohne Bericht -> Bericht 404) und Notizen
             "POST imports": .accepted, "GET imports": .ok, "GET imports/{import}": .ok, "GET imports/{import}/report": .notFound, "POST imports/{import}/cancel": .ok,
-            "GET documents/{document}/notes": .ok]
+            "GET documents/{document}/notes": .ok,
+            // WP-D7: Probe-Dokument ohne Text -> Extraktion lesen 404, Neu-Lauf 409 (kein Text)
+            "GET documents/{document}/extraction": .notFound, "POST documents/{document}/extraction/run": .conflict]
         let masters = ["types", "tag-groups", "tags", "storage-paths", "custom-fields"]
         var expectedAll = expected
         for m in masters { expectedAll["GET \(m)"] = .ok; expectedAll["POST \(m)"] = .created; expectedAll["PATCH \(m)/{id}"] = .ok; expectedAll["DELETE \(m)/{id}"] = .noContent }
@@ -873,6 +875,7 @@ final class DMSTests: DMSTestBase {
         try await aEq(try await count("pg_trigger", where: "tgname IN ('dms_document_files_protect', 'dms_files_protect', 'dms_documents_protect_asn')"), 3)
 
         let migration = CreateDMSCore()
+        try await CreateDMSExtraction().revert(on: app1.db(.psql)) // WP-D7: Extraktion, Outbox, Quelle `extraction`
         try await CreateDMSImport().revert(on: app1.db(.psql))    // WP-D6: Laeufe, Idempotenz-Zuordnung, Befunde, Notizen
         try await CreateDMSSources().revert(on: app1.db(.psql))   // WP-D4: Quellen, Idempotenz- und Messdaten
         try await CreateDMSRevision().revert(on: app1.db(.psql))  // WP-D5: Spalten an dms_documents, Löschprotokoll, Kette, Läufe
@@ -893,6 +896,7 @@ final class DMSTests: DMSTestBase {
         try await CreateDMSRevision().prepare(on: app1.db(.psql))
         try await CreateDMSSources().prepare(on: app1.db(.psql))
         try await CreateDMSImport().prepare(on: app1.db(.psql))
+        try await CreateDMSExtraction().prepare(on: app1.db(.psql))
     }
 }
 
