@@ -45,7 +45,7 @@ interface Suggestion {
 	document_id: string;
 	kind: 'correspondent' | 'type' | 'tag' | 'date' | 'title' | 'path';
 	value: Record<string, string>;
-	source: 'rule' | 'contact_match';
+	source: 'rule' | 'contact_match' | 'extraction';
 	rule_id: string | null;
 	rule_version: number | null;
 	confidence: number;

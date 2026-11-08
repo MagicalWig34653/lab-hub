@@ -60,6 +60,74 @@ export interface MockDoc {
 	storage_path_id: string | null;
 	legal_hold: boolean;
 	retention_override: string | null;
+	/** Recognition result (WP-D7 shape); visible once processing is done. */
+	extraction?: MockExtraction | null;
+	/** Mail document: the original is `message/rfc822`, the protected HTML part is a derivative. */
+	html?: string;
+	/** Core link: this document is an attachment of the mail with this id. */
+	mailId?: string;
+}
+
+export interface MockFact {
+	type: string;
+	value: string;
+	currency?: string | null;
+	confidence: number;
+	reason: string;
+	source: { offset: number; length: number; excerpt: string } | null;
+}
+export interface MockExtraction {
+	kind: string;
+	kind_score: number;
+	kind_certain: boolean;
+	extractor_version: number;
+	amount: string | null;
+	currency: string | null;
+	extracted_date: string | null;
+	due_date: string | null;
+	reference: string | null;
+	updated_at: string;
+	reasons: string[];
+	facts: MockFact[];
+}
+/** Seed input: a recognition result with only the overview values; facts are derived. */
+export type SeedExtraction = Partial<Pick<MockExtraction, 'kind' | 'kind_certain' | 'amount' | 'currency' | 'extracted_date' | 'due_date' | 'reference'>>;
+
+/**
+ * Tiny stand-in for the real extractor: "Rechnung"/"Invoice" in the text = invoice, then amount ("Betrag: 119,00 EUR"),
+ * due date ("Fällig: 2026-12-01"), number ("Rechnungsnummer: R-1"). Synthetic and deterministic; the real one lives in the backend.
+ */
+export function mockExtract(text: string): MockExtraction | null {
+	const lower = text.toLowerCase();
+	const kind = /mahnung/.test(lower) ? 'reminder' : /rechnung|invoice/.test(lower) ? 'invoice' : /vertrag|contract/.test(lower) ? 'contract' : 'other';
+	const facts: MockFact[] = [];
+	const find = (re: RegExp) => {
+		const m = re.exec(text);
+		return m ? { m, source: { offset: m.index, length: m[0].length, excerpt: m[0] } } : null;
+	};
+	const amountHit = find(/Betrag:\s*(\d+(?:[.,]\d{1,2})?)\s*([A-Z]{3})/);
+	const dueHit = find(/F[aä]llig:\s*(\d{4}-\d{2}-\d{2})/);
+	const numberHit = find(/Rechnungsnummer:\s*([A-Za-z0-9-]+)/);
+	const raw = amountHit ? amountHit.m[1].replace(',', '.') : null;
+	const money = raw === null ? null : !raw.includes('.') ? `${raw}.00` : raw.split('.')[1].length === 1 ? `${raw}0` : raw;
+	if (amountHit && money) facts.push({ type: kind === 'invoice' ? 'amount_gross' : 'amount', value: money, currency: amountHit.m[2], confidence: 0.9, reason: 'Beschriftung "Betrag"', source: amountHit.source });
+	if (dueHit) facts.push({ type: 'due_date', value: dueHit.m[1], confidence: 0.85, reason: 'Beschriftung "Fällig"', source: dueHit.source });
+	if (numberHit) facts.push({ type: kind === 'invoice' ? 'invoice_number' : 'reference', value: numberHit.m[1], confidence: 0.9, reason: 'Beschriftung "Rechnungsnummer"', source: numberHit.source });
+	if (kind === 'other' && facts.length === 0) return null;
+	return {
+		kind,
+		kind_score: kind === 'other' ? 0.2 : 0.8,
+		kind_certain: kind !== 'other',
+		extractor_version: 1,
+		amount: money,
+		currency: amountHit ? amountHit.m[2] : null,
+		extracted_date: null,
+		due_date: dueHit ? dueHit.m[1] : null,
+		reference: numberHit ? numberHit.m[1] : null,
+		updated_at: new Date().toISOString(),
+		reasons: kind === 'other' ? [] : [`Stichwort für ${kind} gefunden`],
+		facts
+	};
 }
 
 export interface TenantData {
@@ -147,12 +215,20 @@ export function createDmsMock() {
 			updated_at: doc.updated_at,
 			rev: doc.rev
 		};
+		const ex = doc.extraction && doc.status !== 'processing' && !doc.quarantined ? doc.extraction : null;
+		if (ex) {
+			const { reasons, facts, ...overview } = ex;
+			out.extraction = detail ? { ...overview, reasons, facts, ...(ex.kind === 'invoice' ? { invoice: { number: ex.reference, gross: ex.amount, currency: ex.currency, due_date: ex.due_date } } : {}) } : overview;
+		}
 		if (detail) {
 			out.tag_ids = doc.tag_ids;
 			out.fields = doc.fields;
 			out.files = [
 				{ role: 'original', mime: doc.file.mime, size_bytes: doc.file.bytes.length, sha256: doc.file.sha256, page_count: 1, original_name: doc.file.name }
 			];
+			if (doc.html !== undefined) {
+				(out.files as unknown[]).push({ role: 'derivative', mime: 'text/html', size_bytes: Buffer.byteLength(doc.html), sha256: createHash('sha256').update(doc.html).digest('hex'), page_count: null, original_name: 'mail.html' });
+			}
 		}
 		void d;
 		return out;
@@ -254,6 +330,63 @@ export function createDmsMock() {
 		};
 	}
 
+	const cents = (value: string | null | undefined) => (value === null || value === undefined ? null : Math.round(Number(value) * 100));
+
+	/** Extraction filters of `GET …/documents` (WP-D7); documents without a recognition never match a filter on its values. */
+	function extractionFilter(list: MockDoc[], ctx: DmsContext): MockDoc[] {
+		const get = (k: string) => ctx.query.get(k) ?? '';
+		for (const k of ['amount_min', 'amount_max']) if (get(k) && !/^-?\d{1,13}(\.\d{1,2})?$/.test(get(k))) ctx.fail(422, 'validation_failed', `Eingabe ungueltig: ${k}`);
+		const min = cents(get('amount_min') || null);
+		const max = cents(get('amount_max') || null);
+		const keys = ['kind', 'kind_certain', 'currency', 'amount_min', 'amount_max', 'extracted_from', 'extracted_to', 'due_from', 'due_to', 'reference'];
+		if (!keys.some(get)) return list;
+		return list.filter((x) => {
+			const e = x.extraction;
+			if (!e || x.status === 'processing' || x.quarantined) return false;
+			if (get('kind') && e.kind !== get('kind')) return false;
+			if (get('kind_certain') && String(e.kind_certain) !== get('kind_certain')) return false;
+			if (get('currency') && e.currency !== get('currency')) return false;
+			const amount = cents(e.amount);
+			if (min !== null && (amount === null || amount < min)) return false;
+			if (max !== null && (amount === null || amount > max)) return false;
+			const date = e.extracted_date ?? x.doc_date;
+			if (get('extracted_from') && (!date || date < get('extracted_from'))) return false;
+			if (get('extracted_to') && (!date || date > get('extracted_to'))) return false;
+			if (get('due_from') && (!e.due_date || e.due_date < get('due_from'))) return false;
+			if (get('due_to') && (!e.due_date || e.due_date > get('due_to'))) return false;
+			if (get('reference') && e.reference !== get('reference')) return false;
+			return true;
+		});
+	}
+
+	/** Sorting like the contract: documents without the sorted value stay at the end, whatever the direction. Default: newest first (the mock's own order). */
+	function sortList(list: MockDoc[], ctx: DmsContext): MockDoc[] {
+		const sort = ctx.query.get('sort');
+		if (!sort || sort === 'created_at') return (ctx.query.get('order') ?? '') === 'asc' ? [...list].reverse() : list;
+		const dir = (ctx.query.get('order') ?? 'asc') === 'desc' ? -1 : 1;
+		const key = (x: MockDoc): number | string | null =>
+			sort === 'amount' ? cents(x.extraction?.amount) : sort === 'extracted_date' ? (x.extraction?.extracted_date ?? x.doc_date) : (x.extraction?.due_date ?? null);
+		return [...list].sort((a, b) => {
+			const ka = key(a);
+			const kb = key(b);
+			if (ka === null && kb === null) return a.id.localeCompare(b.id);
+			if (ka === null) return 1;
+			if (kb === null) return -1;
+			const c = ka < kb ? -1 : ka > kb ? 1 : 0;
+			return c !== 0 ? c * dir : a.id.localeCompare(b.id);
+		});
+	}
+
+	/** Core links (K5) as far as the document pages need them: `mail_attachment` (from = attachment, to = mail). */
+	function links(ctx: DmsContext) {
+		const d = tenantData(ctx.tenantId);
+		const id = ctx.query.get('id') ?? '';
+		const items = d.docs
+			.filter((x) => x.mailId && (x.id === id || x.mailId === id))
+			.map((x) => ({ id: `link-${x.id}`, from_type: 'dms.document', from_id: x.id, to_type: 'dms.document', to_id: x.mailId as string, kind: 'mail_attachment', source: 'system', created_at: x.created_at }));
+		ctx.send(200, { items });
+	}
+
 	function upload(d: TenantData, ctx: DmsContext) {
 		need(ctx, 'dms.document.create');
 		const key = ctx.headers['idempotency-key'];
@@ -301,7 +434,8 @@ export function createDmsMock() {
 			ingestItemId: randomUUID(),
 			storage_path_id: null,
 			legal_hold: false,
-			retention_override: null
+			retention_override: null,
+			extraction: mockExtract(text)
 		};
 		d.docs.push(doc);
 		onUploaded(d, doc, duplicates);
@@ -337,11 +471,27 @@ export function createDmsMock() {
 				.filter((x) => !q || x.title.toLowerCase().includes(q))
 				.filter((x) => !status || (settle(x), x.status === status))
 				.sort((a, b) => b.created_at.localeCompare(a.created_at) || b.id.localeCompare(a.id));
-			const result = page(list, ctx.query);
+			const result = page(sortList(extractionFilter(list, ctx), ctx), ctx.query);
 			return ctx.send(200, { ...result, items: result.items.map((x) => publicDoc(d, x, false)) }), true;
 		}
 		if (resource === 'documents' && id) {
 			if (m === 'GET' && !action) return need(ctx, 'dms.document.read'), ctx.send(200, publicDoc(d, find(d, ctx, id), true)), true;
+			if (m === 'GET' && action === 'extraction' && !sub) {
+				need(ctx, 'dms.document.read');
+				const out = publicDoc(d, find(d, ctx, id), true).extraction;
+				if (!out) ctx.fail(404, 'not_found', 'Nicht gefunden');
+				return ctx.send(200, out), true;
+			}
+			if (m === 'POST' && action === 'extraction' && sub === 'run') {
+				need(ctx, 'dms.document.update');
+				const doc = find(d, ctx, id);
+				if (doc.trashed_at) ctx.fail(409, 'conflict', 'Im Papierkorb');
+				doc.extraction = doc.extraction ?? mockExtract(doc.text);
+				if (!doc.extraction) ctx.fail(409, 'conflict', 'Kein Text');
+				doc.extraction.updated_at = new Date().toISOString();
+				doc.extraction.extractor_version++;
+				return ctx.send(200, publicDoc(d, doc, true).extraction), true;
+			}
 			if (m === 'GET' && action === 'processing' && !sub) return need(ctx, 'dms.document.read'), ctx.send(200, processingOf(find(d, ctx, id))), true;
 			if (m === 'POST' && action === 'processing' && sub === 'retry') {
 				need(ctx, 'dms.document.update');
@@ -356,6 +506,15 @@ export function createDmsMock() {
 				need(ctx, 'dms.document.read');
 				const doc = find(d, ctx, id);
 				const role = ctx.query.get('role') ?? 'original';
+				if (role === 'derivative' && doc.html !== undefined) {
+					return ctx.sendRaw(200, Buffer.from(doc.html), {
+						'content-type': 'text/html; charset=utf-8',
+						'x-content-type-options': 'nosniff',
+						'content-security-policy': "default-src 'none'; sandbox",
+						'cache-control': 'private, no-store',
+						'content-disposition': 'inline; filename="mail.html"'
+					}), true;
+				}
 				if (role !== 'original') ctx.fail(404, 'not_found', 'Nicht gefunden');
 				need(ctx, 'dms.document.download_original');
 				return ctx.sendRaw(200, doc.file.bytes, {
@@ -443,17 +602,26 @@ export function createDmsMock() {
 		ctx.send(200, { items, next_cursor: null });
 	}
 
-	/** Test helper: `count` processed documents titled "Seed 001" … (newest first). */
-	function seed(tenantId: string, count: number, options: { trashed?: boolean; doc_date?: string; title?: string; tamper?: boolean } = {}) {
+	/**
+	 * Test helper: `count` processed documents titled "Seed 001" … (newest first). `extraction` gives each a recognition result;
+	 * `type_name` sets the document type; `suggest` adds an open extraction suggestion (type "Rechnung");
+	 * `mail` additionally creates a mail with a protected HTML part that the document is an attachment of.
+	 */
+	function seed(
+		tenantId: string,
+		count: number,
+		options: { trashed?: boolean; doc_date?: string; title?: string; tamper?: boolean; extraction?: SeedExtraction; suggest?: boolean; mail?: boolean; type_name?: string } = {}
+	) {
 		const d = tenantData(tenantId);
-		for (let i = 0; i < count; i++) {
+		const base = (i: number, title: string, extra: Partial<MockDoc> = {}): MockDoc => {
 			const at = new Date(Date.now() - i * 1000).toISOString();
-			d.docs.push({
+			const ex = options.extraction;
+			return {
 				id: randomUUID(),
-				title: options.title ?? `Seed ${String(i + 1).padStart(3, '0')}`,
+				title,
 				doc_date: options.doc_date ?? null,
 				received_at: at,
-				document_type_id: null,
+				document_type_id: options.type_name ? (d.types.find((t) => t.name === options.type_name)?.id ?? null) : null,
 				correspondent_id: null,
 				asn: null,
 				status: 'needs_review',
@@ -471,10 +639,63 @@ export function createDmsMock() {
 				ingestItemId: null,
 				storage_path_id: null,
 				legal_hold: false,
-				retention_override: null
-			});
+				retention_override: null,
+				extraction: ex
+					? {
+							kind: ex.kind ?? 'invoice',
+							kind_score: 0.9,
+							kind_certain: ex.kind_certain ?? true,
+							extractor_version: 1,
+							amount: ex.amount ?? null,
+							currency: ex.currency ?? (ex.amount ? 'EUR' : null),
+							extracted_date: ex.extracted_date ?? null,
+							due_date: ex.due_date ?? null,
+							reference: ex.reference ?? null,
+							updated_at: at,
+							reasons: ['Stichwort gefunden'],
+							facts: [
+								...(ex.amount ? [{ type: 'amount_gross', value: ex.amount, currency: ex.currency ?? 'EUR', confidence: 0.9, reason: 'Beschriftung "Betrag"', source: { offset: 0, length: 12, excerpt: `Betrag: ${ex.amount}` } }] : []),
+								...(ex.due_date ? [{ type: 'due_date', value: ex.due_date, currency: null, confidence: 0.85, reason: 'Beschriftung "Fällig"', source: { offset: 20, length: 18, excerpt: `Fällig: ${ex.due_date}` } }] : []),
+								...(ex.reference ? [{ type: 'invoice_number', value: ex.reference, currency: null, confidence: 0.9, reason: 'Beschriftung "Rechnungsnummer"', source: { offset: 40, length: 20, excerpt: `Rechnungsnummer: ${ex.reference}` } }] : [])
+							]
+						}
+					: null,
+				...extra
+			};
+		};
+		for (let i = 0; i < count; i++) {
+			const doc = base(i, options.title ?? `Seed ${String(i + 1).padStart(3, '0')}`);
+			if (options.mail) {
+				const mail = base(i, `${doc.title} (Mail)`, {
+					file: { mime: 'message/rfc822', bytes: Buffer.from('From: a@example.org\r\nSubject: Synthetic\r\n\r\nSynthetic mail'), sha256: randomUUID(), name: 'mail.eml' },
+					html: '<p>Synthetische Mail <script>window.__mailxss=1</script></p>',
+					extraction: null
+				});
+				d.docs.push(mail);
+				doc.mailId = mail.id;
+			}
+			d.docs.push(doc);
+			const type = d.types.find((t) => t.name === 'Rechnung');
+			if (options.suggest && doc.extraction && type) {
+				d.admin.suggestions.push({
+					id: randomUUID(),
+					document_id: doc.id,
+					kind: 'type',
+					value: { document_type_id: type.id },
+					source: 'extraction',
+					rule_id: null,
+					rule_version: null,
+					confidence: 0.8,
+					reason: 'Erkannte Art: Rechnung',
+					evidence: {},
+					state: 'open',
+					applied_automatically: false,
+					decided_at: null,
+					created_at: new Date(Date.now() + i).toISOString()
+				});
+			}
 		}
 	}
 
-	return { handle, contacts, reset, seed };
+	return { handle, contacts, links, reset, seed };
 }

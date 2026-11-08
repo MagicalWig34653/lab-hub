@@ -51,7 +51,7 @@
 		</p>
 		<p class="text-muted-foreground text-xs">
 			{tx('dms.suggestion.confidence', { percent })}
-			{#if suggestion.source === 'contact_match'}· {tx('dms.suggestion.source.contact')}{:else if ruleName}· {tx('dms.suggestion.source.rule', { name: ruleName })}{/if}
+			{#if suggestion.source === 'contact_match'}· {tx('dms.suggestion.source.contact')}{:else if suggestion.source === 'extraction'}· {tx('dms.suggestion.source.extraction')}{:else if ruleName}· {tx('dms.suggestion.source.rule', { name: ruleName })}{/if}
 		</p>
 		{#if stale}
 			<p class="text-destructive text-xs" role="status" data-testid="suggestion-stale">{tx('dms.suggestion.stale')}</p>

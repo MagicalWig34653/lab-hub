@@ -60,7 +60,7 @@ test('AK-F5-1 review workflow: rule -> upload -> suggestion with reason -> keybo
 	await createRule(page);
 	await expect(page.getByTestId('rule-row')).toHaveCount(1);
 
-	await page.getByTestId('dms-nav-documents').click();
+	await page.getByTestId('nav-dms').click();
 	await uploadAndWait(page, pdf('eins.pdf', 'Rechnung Nummer 1 vom 2026-03-04'), pdf('zwei.pdf', 'Rechnung Nummer 2 aus dem Herbst'));
 
 	await page.getByTestId('dms-nav-review').click();
@@ -95,7 +95,7 @@ test('AK-F5-1 review workflow: rule -> upload -> suggestion with reason -> keybo
 	await expect(page.getByTestId('review-row').first().getByTestId('suggestion-document')).toBeFocused();
 
 	// the accepted suggestion changed the document (type Rechnung), the rejected one did not add its tag
-	await page.getByTestId('dms-nav-documents').click();
+	await page.getByTestId('nav-dms').click();
 	await page.getByTestId('dms-row').filter({ hasText: acceptedTitle }).getByRole('link').first().click();
 	await expect(page.getByTestId('dms-detail-title')).toHaveText(acceptedTitle);
 	await expect(page.getByTestId('dms-edit-type').locator('option:checked')).toHaveText('Rechnung');
@@ -120,7 +120,7 @@ test('AK-F5-1 review workflow: rule -> upload -> suggestion with reason -> keybo
 test('AK-F5-1 review: suggestion of a rule in the document detail', async ({ page, context }) => {
 	await bootstrap(page, context);
 	await createRule(page);
-	await page.getByTestId('dms-nav-documents').click();
+	await page.getByTestId('nav-dms').click();
 	await uploadAndWait(page, pdf('eins.pdf', 'Rechnung Nummer 7'));
 	await page.getByTestId('dms-row').first().getByRole('link').first().click();
 	const card = page.getByTestId('doc-suggestion').first();

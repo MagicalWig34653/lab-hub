@@ -2,8 +2,6 @@
 export const adminDe: Record<string, string> = {
 	'dms.noPermissionHere': 'Für diese Seite fehlt die Berechtigung.',
 
-	'dms.nav.label': 'Dokumentenbereiche',
-	'dms.nav.documents': 'Dokumente',
 	'dms.nav.review': 'Prüfen',
 	'dms.nav.rules': 'Regeln',
 	'dms.nav.duplicates': 'Duplikate',
@@ -279,8 +277,6 @@ export const adminDe: Record<string, string> = {
 export const adminEn: Record<string, string> = {
 	'dms.noPermissionHere': 'You lack the permission for this page.',
 
-	'dms.nav.label': 'Document areas',
-	'dms.nav.documents': 'Documents',
 	'dms.nav.review': 'Review',
 	'dms.nav.rules': 'Rules',
 	'dms.nav.duplicates': 'Duplicates',

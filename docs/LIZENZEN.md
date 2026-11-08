@@ -80,3 +80,7 @@ Pflichten bei **Weitergabe** des Worker-Images (Registry): Ghostscript (AGPL-3.0
 ## WP-D7 (Dokumenterkennung, Mail-Original, HTML-Text, 08.11.2026, keine Rechtsberatung)
 
 **Keine neue Abhängigkeit.** HTML-zu-Text (`Modules/DMS/Sources/HTMLText.swift`) ist ein eigener, begrenzter Textextraktor (kein SwiftSoup, keine Parser-Bibliothek), der Extraktor (`Modules/DMS/Extraction`) nutzt nur Foundation (`NSRegularExpression`, `Decimal`). Entscheidung gegen SwiftSoup (MIT): der Bedarf (Text, Tabellenzeilen, Entitäten) ist klein, ein Baum mit Selektoren wird nicht gebraucht, und die eigene Lösung hat feste Größen-/Tiefenlimits. Testdaten sind selbst erfunden (Firmen, example.org, IBANs aus dem Standard-Testbereich); GreenMail (Test-Container `greenmail/standalone`) steht unverändert wie in D4 nur in Tests.
+
+## WP-F4c (Dokumentübersicht, Seitenleiste, 08.11.2026)
+
+**Keine neue Abhängigkeit.** Die Seitenleiste folgt dem Aufbau der Projekte thermoctl und timetrack-pwa (gruppierte, einklappbare Navigation, Schublade auf Mobilgeräten, Seitenkopf-Typografie); es wurde nur das Muster nachgebaut, kein Code kopiert. Beide nutzen dieselben Bausteine wie der Hub (`@lucide/svelte` ISC, `bits-ui`, `tailwind-variants`, `clsx`, `tailwind-merge`: MIT), weitere Pakete werden nicht benötigt. Neue lucide-Icons (ISC) stammen aus dem vorhandenen Paket.

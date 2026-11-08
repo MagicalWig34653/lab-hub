@@ -53,6 +53,8 @@ export const en: Record<MessageKey, string> = {
 	'common.retry': 'Retry',
 	'common.cancel': 'Cancel',
 	'shell.tenant': 'Tenant',
+	'shell.openMenu': 'Open menu',
+	'shell.closeMenu': 'Close menu',
 	'shell.navigation': 'Main navigation',
 	'nav.dashboard': 'Overview',
 	'nav.settings': 'Settings',

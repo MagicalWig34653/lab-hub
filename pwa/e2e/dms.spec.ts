@@ -13,6 +13,8 @@ import { addVirtualAuthenticator } from './virtual-authenticator';
 // preview/download -> trash. Run with `npm run test:e2e:dms` (needs a fresh database, see docs/FRONTEND.md section 11).
 // WP-F5 extends the path: master data (document type) -> rule with dry run -> upload -> suggestion appears in the review
 // queue with its reason -> accepted by keyboard -> the document has the type; then integrity check, export, trash page.
+// WP-F4c adds a last step: a synthetic invoice scan is recognised as kind "Rechnung" with its gross amount, shows up in the
+// document overview and is found again by the amount filter.
 // WP-F5b adds: sources UI (mail source with a refused connection), API token -> curl upload (share API) -> document appears
 // -> revoked token refused. The backend needs SECRET_KEY (>= 16 characters) for the mail source password.
 const execFileAsync = promisify(execFile);
@@ -77,7 +79,7 @@ test('AK-F4-1 real: bootstrap, invitation, passkey, scan upload, OCR done, searc
 	await page.getByTestId('rule-save').click();
 	await expect(page.getByTestId('rule-saved')).toBeVisible();
 	await expect(page.getByTestId('rule-row')).toHaveCount(1);
-	await page.getByTestId('dms-nav-documents').click();
+	await page.getByTestId('nav-dms').click();
 	await expect(page.getByTestId('dms-search')).toBeVisible();
 
 	// Browsing an empty archive works without a search term.
@@ -101,7 +103,7 @@ test('AK-F4-1 real: bootstrap, invitation, passkey, scan upload, OCR done, searc
 	await page.getByTestId('suggestion-document').focus();
 	await page.keyboard.press('a');
 	await expect(page.getByTestId('review-empty')).toBeVisible();
-	await page.getByTestId('dms-nav-documents').click();
+	await page.getByTestId('nav-dms').click();
 	await expect(page.getByTestId('dms-search')).toBeVisible();
 
 	// 5. Hit in the search with a highlighted snippet.
@@ -148,7 +150,7 @@ test('AK-F4-1 real: bootstrap, invitation, passkey, scan upload, OCR done, searc
 	const zip = await context.request.get((await page.getByTestId('export-download').getAttribute('href'))!);
 	expect(zip.status()).toBe(200);
 	expect((await zip.body()).subarray(0, 2).toString('latin1')).toBe('PK');
-	await page.getByTestId('dms-nav-documents').click();
+	await page.getByTestId('nav-dms').click();
 	await page.getByTestId('dms-row').first().getByRole('link').first().click();
 	await expect(page.getByTestId('dms-detail-title')).toBeVisible();
 
@@ -232,7 +234,7 @@ test('AK-F4-1 real: bootstrap, invitation, passkey, scan upload, OCR done, searc
 		expect(again.status).toBe(201);
 		expect((JSON.parse(again.body) as { id: string }).id).toBe(created.id);
 
-		await page.getByTestId('dms-nav-documents').click();
+		await page.getByTestId('nav-dms').click();
 		await expect(page.getByTestId('dms-row')).toHaveCount(1, { timeout: 30_000 });
 		await page.getByTestId('dms-row').first().getByRole('link').first().click();
 		await expect(page).toHaveURL(new RegExp(created.id));
@@ -253,6 +255,44 @@ test('AK-F4-1 real: bootstrap, invitation, passkey, scan upload, OCR done, searc
 	} finally {
 		rmSync(dir, { recursive: true, force: true });
 	}
+
+	// 12. WP-F4c: a synthetic invoice scan -> OCR -> recognition -> kind "Rechnung" and gross amount in the overview -> amount filter.
+	await page.getByTestId('nav-dms').click();
+	const invoicePdf = await renderScanPdf(page, [
+		'Rechnung',
+		'Rechnungsnummer: RE-2026-0815',
+		'Rechnungsdatum: 08.11.2026',
+		'Nettobetrag: 100,00 EUR',
+		'Umsatzsteuer 19 %: 19,00 EUR',
+		'Gesamtbetrag brutto: 119,00 EUR',
+		'Zahlbar innerhalb von 14 Tagen ohne Abzug.'
+	]);
+	await page.getByTestId('dms-file-input').setInputFiles({ name: 'rechnung-e2e.pdf', mimeType: 'application/pdf', buffer: invoicePdf });
+	await expect(page.getByTestId('dms-upload-item').filter({ hasText: 'rechnung-e2e' })).toHaveAttribute('data-state', 'done', { timeout: 180_000 });
+	await page.reload();
+	const invoiceRow = page.getByTestId('dms-row').filter({ hasText: 'rechnung-e2e' });
+	await expect(invoiceRow).toHaveCount(1, { timeout: 30_000 });
+	await expect(invoiceRow.getByTestId('kind-badge')).toContainText('Rechnung');
+	await expect(invoiceRow.getByTestId('dms-row-amount')).toContainText('119,00');
+	await expectNoSeriousA11y(page);
+	// filter by amount: the range 100..150 finds it, 200 and up does not
+	await page.getByTestId('dms-filter-kind').selectOption('invoice');
+	await page.getByTestId('dms-filter-min').fill('100');
+	await page.getByTestId('dms-filter-min').blur();
+	await page.getByTestId('dms-filter-max').fill('150');
+	await page.getByTestId('dms-filter-max').blur();
+	await expect(page.getByTestId('dms-row').filter({ hasText: 'rechnung-e2e' })).toHaveCount(1);
+	await page.getByTestId('dms-filter-min').fill('200');
+	await page.getByTestId('dms-filter-min').blur();
+	await page.getByTestId('dms-filter-max').fill('');
+	await page.getByTestId('dms-filter-max').blur();
+	await expect(page.getByTestId('dms-empty')).toBeVisible();
+	await page.getByTestId('dms-filter-reset').click();
+	// detail: the recognised facts with their source passage
+	await page.getByTestId('dms-row').filter({ hasText: 'rechnung-e2e' }).getByRole('link').first().click();
+	await expect(page.locator('[data-testid=dms-fact][data-type=amount_gross]').getByTestId('dms-fact-value')).toContainText('119,00');
+	await expect(page.getByTestId('dms-fact').first().getByTestId('dms-fact-source')).toBeVisible();
+	await expectNoSeriousA11y(page);
 
 	await ownerContext.close();
 	await context.close();

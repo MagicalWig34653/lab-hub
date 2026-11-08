@@ -1,13 +1,16 @@
 import FileText from '@lucide/svelte/icons/file-text';
 import type { ModuleManifest } from '#lib/modules/manifest';
 import { adminDe, adminEn } from './messages-admin';
+import { overviewDe, overviewEn } from './messages-overview';
 import { sourcesDe, sourcesEn } from './messages-sources';
+import { dmsNavigation } from './navigation';
 
 /** DMS hook-in (WP-F2 mechanism, WP-F4 pages): routes live below `src/routes/(app)/dms/`, components next to this file. */
 export const dmsManifest: ModuleManifest = {
 	key: 'dms',
 	routePrefix: '/dms',
 	icon: FileText,
+	navigation: dmsNavigation,
 	messages: {
 		de: {
 			'nav.dms': 'Dokumente',
@@ -45,11 +48,9 @@ export const dmsManifest: ModuleManifest = {
 			'dms.search.submit': 'Suchen',
 			'dms.search.shortcuts': 'Tastatur: „/“ springt zur Suche, Pfeiltasten (oder J/K) wechseln in der Liste, Enter öffnet.',
 
-			'dms.filter.title': 'Filter',
 			'dms.filter.all': 'Alle',
 			'dms.filter.dateFrom': 'Datum von',
 			'dms.filter.dateTo': 'Datum bis',
-			'dms.filter.trashLimited': 'Im Papierkorb gelten nur Typ, Korrespondent und der erste Tag.',
 			'dms.filter.trash': 'Papierkorb anzeigen',
 			'dms.filter.reset': 'Filter zurücksetzen',
 			'dms.facet.type': 'Typ',
@@ -105,7 +106,8 @@ export const dmsManifest: ModuleManifest = {
 			'dms.trash.action': 'In den Papierkorb',
 			'dms.trash.restore': 'Wiederherstellen',
 			...adminDe,
-			...sourcesDe
+			...sourcesDe,
+			...overviewDe
 		},
 		en: {
 			'nav.dms': 'Documents',
@@ -143,11 +145,9 @@ export const dmsManifest: ModuleManifest = {
 			'dms.search.submit': 'Search',
 			'dms.search.shortcuts': 'Keyboard: “/” jumps to search, arrow keys (or J/K) move in the list, Enter opens.',
 
-			'dms.filter.title': 'Filters',
 			'dms.filter.all': 'All',
 			'dms.filter.dateFrom': 'Date from',
 			'dms.filter.dateTo': 'Date to',
-			'dms.filter.trashLimited': 'In the trash only type, correspondent and the first tag apply.',
 			'dms.filter.trash': 'Show trash',
 			'dms.filter.reset': 'Reset filters',
 			'dms.facet.type': 'Type',
@@ -203,7 +203,8 @@ export const dmsManifest: ModuleManifest = {
 			'dms.trash.action': 'Move to trash',
 			'dms.trash.restore': 'Restore',
 			...adminEn,
-			...sourcesEn
+			...sourcesEn,
+			...overviewEn
 		}
 	}
 };

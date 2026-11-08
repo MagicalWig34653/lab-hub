@@ -18,6 +18,10 @@ export type DmsSearchHit = Schemas['DmsSearchHit'];
 export type DmsSearchPage = Schemas['DmsSearchPage'];
 export type DmsFacets = Schemas['DmsFacets'];
 export type DmsProcessing = Schemas['DmsProcessing'];
+export type DmsExtraction = Schemas['DmsExtraction'];
+export type DmsFact = Schemas['DmsFact'];
+export type DmsDocumentKind = Schemas['DmsDocumentKind'];
+export type Link = Schemas['Link'];
 export type Contact = Schemas['Contact'];
 export type DmsRule = Schemas['DmsRule'];
 export type DmsRuleInput = Schemas['DmsRuleInput'];
@@ -159,6 +163,19 @@ export interface DocumentListQuery {
 	limit?: number;
 	/** Ask for `total` (expensive on large tenants; used by the dashboard card only). */
 	count?: boolean;
+	// WP-D7 extraction filters and sorting (same for every document kind).
+	kind?: DmsDocumentKind;
+	kind_certain?: boolean;
+	currency?: string;
+	amount_min?: string;
+	amount_max?: string;
+	extracted_from?: string;
+	extracted_to?: string;
+	due_from?: string;
+	due_to?: string;
+	reference?: string;
+	sort?: 'created_at' | 'amount' | 'extracted_date' | 'due_date';
+	order?: 'asc' | 'desc';
 }
 
 export interface SearchQuery {
@@ -232,6 +249,9 @@ export const dmsApi = {
 		request<DmsSearchPage>('GET', withQuery(`/tenants/${tenant}/dms/search`, { ...query })),
 	document: (tenant: string, id: string) => request<DmsDocument>('GET', `/tenants/${tenant}/dms/documents/${id}`),
 	processing: (tenant: string, id: string) => request<DmsProcessing>('GET', `/tenants/${tenant}/dms/documents/${id}/processing`),
+	/** Document kind and facts (WP-D7); 404 while nothing was extracted. */
+	extraction: (tenant: string, id: string) => request<DmsExtraction>('GET', `/tenants/${tenant}/dms/documents/${id}/extraction`),
+	runExtraction: (tenant: string, id: string) => request<DmsExtraction>('POST', `/tenants/${tenant}/dms/documents/${id}/extraction/run`),
 	retryProcessing: (tenant: string, id: string) => request<DmsProcessing>('POST', `/tenants/${tenant}/dms/documents/${id}/processing/retry`),
 	update: (tenant: string, id: string, patch: Record<string, unknown>, rev?: number) =>
 		request<DmsDocument>('PATCH', `/tenants/${tenant}/dms/documents/${id}`, patch, rev === undefined ? undefined : { 'If-Match': String(rev) }),
@@ -338,6 +358,11 @@ export const apiTokenApi = {
 	list: () => request<{ items: ApiToken[] }>('GET', '/auth/api-tokens'),
 	create: (body: { name: string; scopes: ['dms.upload']; expires_in_days?: number }) => request<ApiToken>('POST', '/auth/api-tokens', body),
 	revoke: (id: string) => request<void>('DELETE', `/auth/api-tokens/${id}`)
+};
+
+/** Core links (K5): links of one object in both directions, e.g. mail and attachment (`kind` `mail_attachment`, from = attachment). Needs `contact.link.read`. */
+export const linkApi = {
+	list: (tenant: string, type: string, id: string) => request<{ items: Link[] }>('GET', withQuery(`/tenants/${tenant}/links`, { type, id }))
 };
 
 export const contactApi = {

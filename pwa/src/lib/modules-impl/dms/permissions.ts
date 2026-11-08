@@ -19,3 +19,6 @@ export const P = {
 
 /** The only API token scope of the backend (share/scan API). */
 export const TOKEN_SCOPE = 'dms.upload' as const;
+
+/** Object type of a document in the core links (K5). Not a text. */
+export const LINK_DOC_TYPE = 'dms.document';

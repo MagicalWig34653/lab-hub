@@ -10,6 +10,9 @@
 	import { errorMessage, i18n, tx } from '#lib/i18n/index.svelte';
 	import { workspace } from '#lib/workspace.svelte';
 	import DocumentSuggestions from './DocumentSuggestions.svelte';
+	import FactsPanel from './FactsPanel.svelte';
+	import KindBadge from './KindBadge.svelte';
+	import LinksPanel from './LinksPanel.svelte';
 	import { loadMasters, type Masters } from './masters';
 	import { P } from './permissions';
 	import { isProcessingOver, isQuarantined } from './upload.svelte';
@@ -45,7 +48,9 @@
 
 	// --- preview ---
 	let previewUrl = $state<string | null>(null);
-	let previewKind = $state<'image' | 'pdf' | 'none'>('none');
+	let previewKind = $state<'image' | 'pdf' | 'html' | 'none'>('none');
+	/** Bumped after a re-run of the recognition: the candidate list reloads. */
+	let suggestionsKey = $state(0);
 	let previewError = $state<string | null>(null);
 
 	// --- processing status (GET …/processing); polled until over, then the document is reloaded for the archive version ---
@@ -117,6 +122,14 @@
 	}
 
 	async function loadPreview(d: DmsDocument) {
+		// A mail is kept as .eml (no preview); its protected HTML part is shown in a sandboxed frame straight from the file route,
+		// whose answer carries CSP `default-src 'none'; sandbox` and nosniff. Never inserted as markup into this page.
+		const isMail = (d.files ?? []).some((f) => f.role === 'original' && f.mime === 'message/rfc822');
+		if (isMail && (d.files ?? []).some((f) => f.role === 'derivative' && f.mime.startsWith('text/html'))) {
+			previewKind = 'html';
+			previewUrl = dmsApi.fileUrl(tenantId, d.id, 'derivative', 'inline');
+			return;
+		}
 		const role = previewRole(d);
 		if (!role) return;
 		try {
@@ -147,7 +160,7 @@
 			try {
 				const d = await dmsApi.document(tenantId, documentId);
 				doc = { ...(doc as DmsDocument), files: d.files, status: d.status, rev: d.rev };
-				if (previewUrl) URL.revokeObjectURL(previewUrl);
+				if (previewUrl && previewKind !== 'html') URL.revokeObjectURL(previewUrl);
 				previewUrl = null;
 				previewKind = 'none';
 				void loadPreview(d);
@@ -173,7 +186,7 @@
 	onDestroy(() => {
 		destroyed = true;
 		clearTimeout(pollTimer);
-		if (previewUrl) URL.revokeObjectURL(previewUrl);
+		if (previewUrl && previewKind !== 'html') URL.revokeObjectURL(previewUrl);
 	});
 
 	async function save(event: SubmitEvent) {
@@ -273,7 +286,10 @@
 {:else if loadError || !doc}
 	<ErrorBanner message={loadError} />
 {:else}
-	<h1 class="mb-4 text-2xl font-semibold break-words" data-testid="dms-detail-title">{doc.title}</h1>
+	<div class="mb-4 flex flex-wrap items-center gap-3">
+		<h1 class="text-2xl font-semibold break-words" data-testid="dms-detail-title">{doc.title}</h1>
+		{#if doc.extraction}<KindBadge kind={doc.extraction.kind} certain={doc.extraction.kind_certain} />{/if}
+	</div>
 
 	{#if trashed}
 		<div class="mb-4" data-testid="dms-trashed-banner">
@@ -309,6 +325,15 @@
 					<img src={previewUrl} alt={doc.title} class="max-h-[32rem] max-w-full" data-testid="dms-preview-image" />
 				{:else if previewUrl && previewKind === 'pdf'}
 					<iframe src={previewUrl} title={tx('dms.preview.frame', { title: doc.title })} class="h-[32rem] w-full" data-testid="dms-preview-pdf"></iframe>
+				{:else if previewUrl && previewKind === 'html'}
+					<iframe
+						src={previewUrl}
+						sandbox=""
+						referrerpolicy="no-referrer"
+						title={tx('dms.preview.mailFrame', { title: doc.title })}
+						class="bg-background h-[32rem] w-full"
+						data-testid="dms-preview-mail"
+					></iframe>
 				{:else if previewError}
 					<p class="text-destructive p-4 text-sm">{previewError}</p>
 				{:else}
@@ -343,6 +368,8 @@
 					<dd class="font-mono text-xs break-all">{original.sha256}</dd>
 				{/if}
 			</dl>
+			<FactsPanel tenant={tenantId} documentId={documentId} canRerun={canUpdate && !trashed} onrerun={() => (suggestionsKey += 1)} />
+			<LinksPanel tenant={tenantId} {documentId} />
 		</section>
 
 		<section aria-labelledby="dms-edit-title">
@@ -448,7 +475,9 @@
 				{/if}
 			</div>
 			{#if canSuggestions && !trashed}
-				<DocumentSuggestions tenant={tenantId} {documentId} {masters} onchanged={() => act(() => dmsApi.document(tenantId, documentId))} />
+				{#key suggestionsKey}
+					<DocumentSuggestions tenant={tenantId} {documentId} {masters} onchanged={() => act(() => dmsApi.document(tenantId, documentId))} />
+				{/key}
 			{/if}
 		</section>
 	</div>

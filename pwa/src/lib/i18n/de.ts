@@ -51,6 +51,8 @@ export const de = {
 	'common.retry': 'Erneut versuchen',
 	'common.cancel': 'Abbrechen',
 	'shell.tenant': 'Mandant',
+	'shell.openMenu': 'Menü öffnen',
+	'shell.closeMenu': 'Menü schließen',
 	'shell.navigation': 'Hauptnavigation',
 	'nav.dashboard': 'Übersicht',
 	'nav.settings': 'Einstellungen',

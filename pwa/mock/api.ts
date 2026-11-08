@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { randomUUID } from 'node:crypto';
-import { createDmsMock } from './dms.ts';
+import { createDmsMock, type SeedExtraction } from './dms.ts';
 import { createTokenStore } from './dms-sources.ts';
 
 /**
@@ -64,7 +64,8 @@ const DMS_READ = [
 	'dms.suggestion.read',
 	'dms.suggestion.decide',
 	'dms.rule.read',
-	'contact.contact.read'
+	'contact.contact.read',
+	'contact.link.read'
 ];
 const OWNER_PERMISSIONS = [
 	...DMS_READ,
@@ -489,7 +490,7 @@ export function createMockApi(): MockApi {
 				else tenant.modules.delete(parts[3]);
 				return send(res, 200, moduleState(tenant, parts[3]));
 			}
-			if (parts[2] === 'dms' || (method === 'GET' && sub === 'contacts')) {
+			if (parts[2] === 'dms' || (method === 'GET' && (sub === 'contacts' || sub === 'links'))) {
 				if (!tenant.modules.has('dms')) throw new ProblemError(404, 'module_disabled', 'Modul nicht aktiviert');
 				const ctx = {
 					method,
@@ -509,6 +510,10 @@ export function createMockApi(): MockApi {
 						throw new ProblemError(status, code, title);
 					}
 				};
+				if (sub === 'links') {
+					require(user, tenant, 'contact.link.read');
+					return dms.links(ctx);
+				}
 				if (sub === 'contacts') {
 					require(user, tenant, 'contact.contact.read');
 					return dms.contacts(ctx);
@@ -569,7 +574,7 @@ export function createMockApi(): MockApi {
 			if (path === '/api/__mock/dms/seed' && req.method === 'POST') {
 				// Test helper: `count` synthetic documents in the first tenant (pagination tests).
 				const raw = await readRaw(req);
-				const { count, ...options } = JSON.parse(raw.toString('utf8') || '{}') as { count?: number; trashed?: boolean; doc_date?: string; title?: string; tamper?: boolean };
+				const { count, ...options } = JSON.parse(raw.toString('utf8') || '{}') as { count?: number; trashed?: boolean; doc_date?: string; title?: string; tamper?: boolean; extraction?: SeedExtraction; suggest?: boolean; mail?: boolean; type_name?: string };
 				dms.seed(tenants[0].id, count ?? 0, options);
 				send(res, 204);
 				return true;
