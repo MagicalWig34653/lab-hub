@@ -1,6 +1,7 @@
 import FileText from '@lucide/svelte/icons/file-text';
 import type { ModuleManifest } from '#lib/modules/manifest';
 import { adminDe, adminEn } from './messages-admin';
+import { sourcesDe, sourcesEn } from './messages-sources';
 
 /** DMS hook-in (WP-F2 mechanism, WP-F4 pages): routes live below `src/routes/(app)/dms/`, components next to this file. */
 export const dmsManifest: ModuleManifest = {
@@ -103,7 +104,8 @@ export const dmsManifest: ModuleManifest = {
 			'dms.trash.reasonRequired': 'Bitte gib einen Grund an.',
 			'dms.trash.action': 'In den Papierkorb',
 			'dms.trash.restore': 'Wiederherstellen',
-			...adminDe
+			...adminDe,
+			...sourcesDe
 		},
 		en: {
 			'nav.dms': 'Documents',
@@ -200,7 +202,8 @@ export const dmsManifest: ModuleManifest = {
 			'dms.trash.reasonRequired': 'Please enter a reason.',
 			'dms.trash.action': 'Move to trash',
 			'dms.trash.restore': 'Restore',
-			...adminEn
+			...adminEn,
+			...sourcesEn
 		}
 	}
 };

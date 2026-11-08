@@ -30,6 +30,9 @@ export type DmsDeletionLogEntry = Schemas['DmsDeletionLogEntry'];
 export type DmsIntegrityRun = Schemas['DmsIntegrityRun'];
 export type DmsExport = Schemas['DmsExport'];
 export type DmsExportParams = Schemas['DmsExportParams'];
+export type DmsSource = Schemas['DmsSource'];
+export type DmsSourceInput = Schemas['DmsSourceInput'];
+export type ApiToken = Schemas['ApiToken'];
 type Ops = import('./types').operations;
 type JsonOf<T> = T extends { content: { 'application/json': infer B } } ? B : never;
 export type TenantDetail = JsonOf<Ops['getTenant']['responses'][200]>;
@@ -154,6 +157,8 @@ export interface DocumentListQuery {
 	q?: string;
 	cursor?: string | null;
 	limit?: number;
+	/** Ask for `total` (expensive on large tenants; used by the dashboard card only). */
+	count?: boolean;
 }
 
 export interface SearchQuery {
@@ -311,6 +316,30 @@ export const dmsAdminApi = {
 };
 
 /** Contacts are the correspondents of documents (K5); only listing is needed here. */
+/** WP-D4 routes: DMS sources (mail, consume folder). The password is only ever sent, never returned. */
+export interface DmsSourceTest {
+	ok: boolean;
+	unseen?: number;
+	error?: string;
+}
+export type DmsSourcePatch = Partial<Pick<DmsSourceInput, 'name' | 'config' | 'password' | 'enabled'>>;
+
+export const dmsSourcesApi = {
+	list: (tenant: string) => request<{ items: DmsSource[] }>('GET', `/tenants/${tenant}/dms/sources`),
+	create: (tenant: string, body: DmsSourceInput) => request<DmsSource>('POST', `/tenants/${tenant}/dms/sources`, body),
+	update: (tenant: string, id: string, body: DmsSourcePatch) => request<DmsSource>('PATCH', `/tenants/${tenant}/dms/sources/${id}`, body),
+	remove: (tenant: string, id: string) => request<void>('DELETE', `/tenants/${tenant}/dms/sources/${id}`),
+	run: (tenant: string, id: string) => request<DmsSource>('POST', `/tenants/${tenant}/dms/sources/${id}/run`),
+	test: (tenant: string, id: string) => request<DmsSourceTest>('POST', `/tenants/${tenant}/dms/sources/${id}/test`)
+};
+
+/** WP-D4 (F-05 minimal): personal API tokens for the share/scan API. The plain token is only in the create response. */
+export const apiTokenApi = {
+	list: () => request<{ items: ApiToken[] }>('GET', '/auth/api-tokens'),
+	create: (body: { name: string; scopes: ['dms.upload']; expires_in_days?: number }) => request<ApiToken>('POST', '/auth/api-tokens', body),
+	revoke: (id: string) => request<void>('DELETE', `/auth/api-tokens/${id}`)
+};
+
 export const contactApi = {
 	list: (tenant: string, query: { q?: string; limit?: number; cursor?: string | null } = {}) =>
 		request<{ items: Contact[]; next_cursor: string | null }>('GET', withQuery(`/tenants/${tenant}/contacts`, { ...query }))

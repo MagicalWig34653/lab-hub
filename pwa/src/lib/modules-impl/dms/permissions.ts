@@ -11,5 +11,11 @@ export const P = {
 	masterManage: 'dms.master.manage',
 	tagManage: 'dms.tag.manage',
 	integrityRun: 'dms.integrity.run',
-	exportRun: 'dms.export.run'
+	exportRun: 'dms.export.run',
+	sourceRead: 'dms.source.read',
+	sourceManage: 'dms.source.manage',
+	documentCreate: 'dms.document.create'
 } as const;
+
+/** The only API token scope of the backend (share/scan API). */
+export const TOKEN_SCOPE = 'dms.upload' as const;

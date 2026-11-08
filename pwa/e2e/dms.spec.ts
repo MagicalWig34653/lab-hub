@@ -1,5 +1,10 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
+import { execFile } from 'node:child_process';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { promisify } from 'node:util';
 import { renderScanPdf } from './scan-pdf';
 import { addVirtualAuthenticator } from './virtual-authenticator';
 
@@ -8,6 +13,9 @@ import { addVirtualAuthenticator } from './virtual-authenticator';
 // preview/download -> trash. Run with `npm run test:e2e:dms` (needs a fresh database, see docs/FRONTEND.md section 11).
 // WP-F5 extends the path: master data (document type) -> rule with dry run -> upload -> suggestion appears in the review
 // queue with its reason -> accepted by keyboard -> the document has the type; then integrity check, export, trash page.
+// WP-F5b adds: sources UI (mail source with a refused connection), API token -> curl upload (share API) -> document appears
+// -> revoked token refused. The backend needs SECRET_KEY (>= 16 characters) for the mail source password.
+const execFileAsync = promisify(execFile);
 const setupToken = process.env.E2E_SETUP_TOKEN;
 
 test.skip(!setupToken || !process.env.E2E_DMS, 'E2E_SETUP_TOKEN/E2E_DMS not set: needs a fresh backend with SETUP_TOKEN and a running OCR worker');
@@ -19,7 +27,7 @@ async function expectNoSeriousA11y(page: Page) {
 }
 
 test('AK-F4-1 real: bootstrap, invitation, passkey, scan upload, OCR done, search hit, preview, download, trash', async ({ browser }) => {
-	test.setTimeout(240_000);
+	test.setTimeout(420_000);
 
 	// 1. Operator bootstrap, enable the DMS module, create an invitation for an accountant (may trash documents).
 	const ownerContext = await browser.newContext();
@@ -168,6 +176,83 @@ test('AK-F4-1 real: bootstrap, invitation, passkey, scan upload, OCR done, searc
 	await expect(page.getByTestId('trash-purge')).toHaveCount(0);
 	await expect(page.getByTestId('trash-owner-only')).toBeVisible();
 	await expectNoSeriousA11y(page);
+
+	// 10. WP-F5b: sources UI against the real backend (SECRET_KEY set): a mail source whose server refuses the connection
+	// reports `imap_connect_failed` as a text, the password is never shown; disable, delete.
+	await page.getByTestId('dms-nav-sources').click();
+	await page.getByTestId('source-new-mail').click();
+	await page.getByTestId('source-name').fill('E2E Postfach');
+	await page.getByTestId('source-host').fill('127.0.0.1');
+	await page.getByTestId('source-port').fill('1');
+	await page.getByTestId('source-username').fill('e2e@example.org');
+	await page.getByTestId('source-password').fill('E2E-Not-A-Real-Password');
+	await page.getByTestId('source-save').click();
+	await expect(page.getByTestId('source-saved')).toBeVisible();
+	const sourceRow = page.getByTestId('source-row').filter({ hasText: 'E2E Postfach' });
+	await expect(page.locator('body')).not.toContainText('E2E-Not-A-Real-Password');
+	await sourceRow.getByTestId('source-test').click();
+	await expect(sourceRow.getByTestId('source-test-result')).toHaveAttribute('data-code', 'imap_connect_failed', { timeout: 30_000 });
+	await sourceRow.getByTestId('source-edit').click();
+	await expect(page.getByTestId('source-password')).toHaveValue('');
+	await page.getByTestId('source-cancel').click();
+	await sourceRow.getByTestId('source-toggle').click();
+	await expect(sourceRow).toHaveAttribute('data-enabled', 'false');
+	await expectNoSeriousA11y(page);
+	await sourceRow.getByTestId('source-delete').click();
+	await page.getByTestId('source-delete-dialog-confirm').click();
+	await expect(page.getByTestId('sources-empty')).toBeVisible();
+
+	// 11. WP-F5b: API token -> upload with curl -> document appears -> revoked token is refused.
+	await page.getByTestId('dms-nav-tokens').click();
+	await page.getByTestId('token-name').fill('E2E curl');
+	await page.getByTestId('token-create').click();
+	const token = ((await page.getByTestId('token-plain').textContent()) ?? '').trim();
+	expect(token).toMatch(/^lhp_[A-Za-z0-9_-]{43}$/);
+	await page.getByTestId('token-dismiss').click();
+	await page.getByTestId('dms-nav-scanner').click();
+	const endpointPath = new URL((await page.getByTestId('scanner-endpoint').innerText()).trim()).pathname;
+	expect(endpointPath).toMatch(/^\/api\/v1\/tenants\/[0-9a-f-]{36}\/dms\/share$/i);
+	const shareUrl = `http://localhost:${process.env.E2E_PORT ?? 5173}${endpointPath}?filename=curl-scan.pdf`;
+	const curlUnique = 'Heizkostenabrechnung';
+	const curlPdf = await renderScanPdf(page, [`Jahresabrechnung ${curlUnique}`, 'Eingang per curl und API-Token']);
+	const dir = mkdtempSync(join(tmpdir(), 'labhub-f5b-'));
+	const file = join(dir, 'curl-scan.pdf');
+	writeFileSync(file, curlPdf);
+	const upload = async (bearer: string) => {
+		const { stdout } = await execFileAsync('curl', ['-sS', '-X', 'POST', shareUrl, '-H', `Authorization: Bearer ${bearer}`, '-H', 'Content-Type: application/octet-stream', '--data-binary', `@${file}`, '-w', '\n%{http_code}']);
+		const cut = stdout.lastIndexOf('\n');
+		return { status: Number(stdout.slice(cut + 1)), body: stdout.slice(0, cut) };
+	};
+	try {
+		const first = await upload(token);
+		expect(first.status).toBe(201);
+		const created = JSON.parse(first.body) as { id: string };
+		// The same file again is answered with the first document (no second document).
+		const again = await upload(token);
+		expect(again.status).toBe(201);
+		expect((JSON.parse(again.body) as { id: string }).id).toBe(created.id);
+
+		await page.getByTestId('dms-nav-documents').click();
+		await expect(page.getByTestId('dms-row')).toHaveCount(1, { timeout: 30_000 });
+		await page.getByTestId('dms-row').first().getByRole('link').first().click();
+		await expect(page).toHaveURL(new RegExp(created.id));
+		await expect(page.getByTestId('dms-detail-title')).toBeVisible();
+		await expect(page.getByTestId('dms-processing-status')).toHaveCount(0, { timeout: 180_000 });
+		await page.getByTestId('dms-back').click();
+		await page.getByTestId('dms-search').fill(curlUnique);
+		await page.getByTestId('dms-search-submit').click();
+		await expect(page.getByTestId('dms-row')).toHaveCount(1, { timeout: 30_000 });
+		await expect(page.getByTestId('dms-snippet').locator('mark').first()).toContainText(/heizkostenabrechnung/i);
+
+		// Revoke in the UI: the same token is refused at once.
+		await page.getByTestId('dms-nav-tokens').click();
+		await page.getByTestId('token-revoke').click();
+		await page.getByTestId('token-revoke-dialog-confirm').click();
+		await expect(page.getByTestId('token-state')).toHaveText('Widerrufen');
+		expect((await upload(token)).status).toBe(401);
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
 
 	await ownerContext.close();
 	await context.close();

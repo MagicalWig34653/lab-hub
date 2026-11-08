@@ -35,6 +35,7 @@ Ausgangsstand (vorhanden, getestet laut `deploy/README.md`/Tests): `migrate`, `s
 | | D5 | Revisionssicherheit: Löschkonzept, Prüf-Job, Export | D2 | M | P D3, D4 | offen |
 | | D6 | Paperless-Import | D2, D3 | M | P D5 | offen |
 | | F5 | DMS-UI: Prüfen, Regeln, Stammdaten, Papierkorb | F4, D3, D5 | M | | offen |
+| | F5b | DMS-UI: Quellen-Verwaltung, API-Tokens, Scanner-Hinweis, Dashboard-Karte | F5, D4 | S | | umgesetzt (Branch wp-F5b, `docs/handoff/WP-F5b.md`) |
 | 4 Rechnung | R0 | Spike: Linux-Build Rechenkern, Testvektoren | K0 | S | P ab Phase 0 | umgesetzt (Branch wp-R0, `docs/handoff/WP-R0.md`) |
 | | R1 | Stammdaten Rechnung | K3, K5, R0 | M | | offen |
 | | R2 | Belege, Berechnung, Finalisieren mit Hub-Zähler | R1, K6 | L | | offen |
@@ -134,6 +135,9 @@ Grundsatz: Hub ohne Swift-App nutzbar (`AGENTS.md`); die Rechnungsphase ist dahe
 
 **WP-F5 DMS-UI vertiefen (M).** Prüf-Warteschlange mit Vorschlägen, Regeln mit Trockenlauf, Tag-Pflege/Merge, Quellen, Papierkorb/Löschkonzept, Export. Abh.: F4, D3, D5.
 *Status WP-F5: umgesetzt (Branch wp-F5, Handoff `docs/handoff/WP-F5.md`): Prüf-Warteschlange (Tastatur, Stale-Hinweis), Regeln mit Trockenlauf, Duplikate, Stammdaten, Papierkorb/Löschkonzept mit Purge-Bestätigung, Integritätsprüfung, Export; Mock-E2E und echter E2E (Regel -> Scan -> Vorschlag -> annehmen) grün. Quellen-Verwaltung (D4) nicht gebaut; Tag-Merge, Neu-Klassifikation und Zeitplan haben keine Backend-Route. Befund: Migration `dms_021` scheitert bei einer einzelnen, nicht-privilegierten Datenbankrolle nach `018_audit_hardening`.*
+
+**WP-F5b DMS-UI Quellen und API-Tokens (S).** Quellen-Verwaltung (Mail/IMAP, Konsumordner) mit Verbindungstest, letztem Lauf, Fehlercodes; API-Tokens (einmalige Anzeige, Widerruf); Seite „Scanner einrichten“; Dashboard-Karte „Verarbeitung“. Abh.: F5, D4.
+*Status WP-F5b: umgesetzt (Branch wp-F5b, Handoff `docs/handoff/WP-F5b.md`); Befunde und fehlende Routen siehe Handoff.*
 
 ## Phase 4 – Rechnungsmodul
 

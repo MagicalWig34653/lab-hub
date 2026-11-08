@@ -5,6 +5,7 @@
 	import * as Card from '#lib/components/ui/card';
 	import { Button } from '#lib/components/ui/button';
 	import { errorMessage, t, type MessageKey } from '#lib/i18n/index.svelte';
+	import ProcessingCard from '#lib/modules-impl/dms/ProcessingCard.svelte';
 	import { session } from '#lib/session.svelte';
 	import { workspace } from '#lib/workspace.svelte';
 
@@ -91,4 +92,9 @@
 			{/if}
 		</Card.Content>
 	</Card.Root>
+	{#if workspace.activeId && workspace.moduleEffective('dms') && workspace.can('dms.document.read')}
+		<div class="mt-4">
+			{#key workspace.activeId}<ProcessingCard tenant={workspace.activeId} />{/key}
+		</div>
+	{/if}
 {/if}

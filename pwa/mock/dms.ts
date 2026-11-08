@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { handleAdmin, newAdminState, onUploaded, type AdminState } from './dms-admin.ts';
+import { handleSources } from './dms-sources.ts';
 
 /**
  * Mock of the DMS routes (contracts/openapi.yaml: dms/*, contacts list). Test double with synthetic data only.
@@ -315,6 +316,7 @@ export function createDmsMock() {
 		const d = tenantData(ctx.tenantId);
 		const m = ctx.method;
 		if (handleAdmin(d, ctx, { publicDoc: (doc) => publicDoc(d, doc, true), page })) return true;
+		if (handleSources(d, ctx)) return true;
 
 		if (m === 'POST' && resource === 'uploads') return upload(d, ctx), true;
 		if (m === 'GET' && resource === 'search') return need(ctx, 'dms.document.read'), ctx.send(200, search(d, ctx)), true;

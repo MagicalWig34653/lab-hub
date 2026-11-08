@@ -13,7 +13,10 @@
 		{ path: '/dms/masters', label: 'dms.nav.masters', permission: 'dms.document.read', exact: false },
 		{ path: '/dms/trash', label: 'dms.nav.trash', permission: P.documentTrash, exact: false },
 		{ path: '/dms/integrity', label: 'dms.nav.integrity', permission: P.integrityRun, exact: false },
-		{ path: '/dms/exports', label: 'dms.nav.exports', permission: P.exportRun, exact: false }
+		{ path: '/dms/exports', label: 'dms.nav.exports', permission: P.exportRun, exact: false },
+		{ path: '/dms/sources', label: 'dms.nav.sources', permission: P.sourceRead, exact: false },
+		{ path: '/dms/tokens', label: 'dms.nav.tokens', permission: P.documentCreate, exact: false },
+		{ path: '/dms/scanner', label: 'dms.nav.scanner', permission: P.documentCreate, exact: false }
 	] as const;
 
 	const visible = $derived(entries.filter((e) => workspace.can(e.permission)));

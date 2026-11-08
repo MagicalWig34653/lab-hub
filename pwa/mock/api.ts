@@ -1,6 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { createDmsMock } from './dms.ts';
+import { createTokenStore } from './dms-sources.ts';
 
 /**
  * In-memory mock of the lab-hub auth API (contracts/openapi.yaml, WP-K1/K2). Test double only: it does not verify
@@ -75,6 +76,8 @@ const OWNER_PERMISSIONS = [
 	'dms.tag.manage',
 	'dms.integrity.run',
 	'dms.export.run',
+	'dms.source.read',
+	'dms.source.manage',
 	'tenant.tenant.read',
 	'tenant.member.read',
 	'tenant.member.invite',
@@ -113,8 +116,10 @@ export function createMockApi(): MockApi {
 	let tenants: MockTenant[] = [];
 	let invitations = new Map<string, MockInvitation>();
 	const dms = createDmsMock();
+	const apiTokens = createTokenStore();
 
 	function reset() {
+		apiTokens.reset();
 		users = [];
 		sessions = new Map();
 		challenges = new Map();
@@ -442,6 +447,13 @@ export function createMockApi(): MockApi {
 			if (user.passkeys.length === 1) throw new ProblemError(409, 'last_passkey', 'Letzter Passkey');
 			user.passkeys.splice(index, 1);
 			return send(res, 204);
+		}
+
+		if (parts[0] === 'auth' && parts[1] === 'api-tokens') {
+			const { user } = auth();
+			const result = apiTokens.handle(method, parts.slice(2), body, user.id);
+			if ('code' in result) throw new ProblemError(result.status, result.code, result.title);
+			return send(res, result.status, result.body);
 		}
 
 		if (method === 'GET' && path === '/api/v1/modules') {

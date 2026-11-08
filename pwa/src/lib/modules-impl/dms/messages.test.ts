@@ -9,7 +9,7 @@ const { de, en } = dmsManifest.messages;
 /** Source files of the DMS module that carry texts or text keys (not the catalogues, not permission names, not tests). */
 function dmsSourceFiles(): string[] {
 	const dirs = [join(process.cwd(), 'src', 'lib', 'modules-impl', 'dms'), join(process.cwd(), 'src', 'routes', '(app)', 'dms')];
-	const skip = new Set(['manifest.ts', 'messages-admin.ts', 'permissions.ts']);
+	const skip = new Set(['manifest.ts', 'messages-admin.ts', 'messages-sources.ts', 'permissions.ts']);
 	const files: string[] = [];
 	const walk = (dir: string) => {
 		for (const entry of readdirSync(dir, { withFileTypes: true })) {
