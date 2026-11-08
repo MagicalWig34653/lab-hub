@@ -129,14 +129,30 @@ enum DMSExtraction {
         var amount: String?, currency: String?, date: String?, due: String?, reference: String?
     }
 
+    /// Übersichtswerte gelten für jede Art, kommen aber je Art aus dem passenden Fakt (WP-D8, `docs/MODUL-DMS.md` „Dokumentarten und Fakten“):
+    /// Betrag = Rechnung Brutto, Vertrag wiederkehrender Betrag, Versicherung Beitrag, Behörde Zahlbetrag/Erstattung (vorzeichenbehaftet), Kontoauszug Endsaldo, sonst `amount`.
+    /// Fälligkeit/Frist = die früheste bekannte Frist (Fälligkeit, Zahlungs-/Einspruchsfrist, Frist), beim Vertrag das Vertragsende, bei der Versicherung Fälligkeit, sonst Ablauf.
     static func summary(_ r: ExtractionResult) -> Summary {
         func best(_ t: FactType) -> ExtractedFact? {
             r.facts(t).sorted { ($0.confidence, -($0.source?.offset ?? 0)) > ($1.confidence, -($1.source?.offset ?? 0)) }.first
         }
-        let money = best(.amountGross) ?? best(.amount)
-        let date = best(.date)
-        return Summary(amount: money?.value, currency: money?.currency, date: date?.value,
-                       due: best(.dueDate)?.value, reference: (best(.invoiceNumber) ?? best(.reference)).map { String($0.value.prefix(100)) })
+        func earliest(_ types: [FactType]) -> String? { types.flatMap { r.facts($0) }.map(\.value).min() }
+        let money: ExtractedFact?
+        let due: String?
+        let reference: ExtractedFact?
+        switch r.kind {
+        case .contract:
+            money = best(.recurringAmount) ?? best(.amount); due = best(.periodEnd)?.value ?? best(.dueDate)?.value; reference = best(.contractNumber) ?? best(.reference)
+        case .insurance:
+            money = best(.premium) ?? best(.amount); due = best(.dueDate)?.value ?? best(.periodEnd)?.value; reference = best(.policyNumber) ?? best(.reference)
+        case .taxNotice, .letter:
+            money = best(.settlementAmount) ?? best(.amount); due = earliest([.dueDate, .objectionDeadline, .deadline]); reference = best(.reference)
+        case .bankStatement:
+            money = best(.balanceClosing); due = nil; reference = best(.iban)
+        default:
+            money = best(.amountGross) ?? best(.amount); due = best(.dueDate)?.value; reference = best(.invoiceNumber) ?? best(.reference)
+        }
+        return Summary(amount: money?.value, currency: money?.currency, date: best(.date)?.value, due: due, reference: reference.map { String($0.value.prefix(100)) })
     }
 
     // MARK: Laden

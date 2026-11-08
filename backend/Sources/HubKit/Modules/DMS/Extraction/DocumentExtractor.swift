@@ -8,21 +8,13 @@ import Foundation
 
 enum DocumentExtractor {
     static let maxChars = 200_000
+    /// Reihenfolge = Rangfolge bei Gleichstand (WP-D8: Mahnung vor den übrigen Arten, Rechnung zuerst).
     static let detectors: [any DocumentDetector] = [
-        InvoiceDetector(), ReminderDetector(),
-        KeywordDetector(kind: .receipt, strong: ["Kassenbon", "Kassenbeleg", "Quittung", "Kassenzettel", "Receipt", "Bon-?Nr"],
-                        weak: ["Rückgeld", "Kartenzahlung", "EC-Karte", "Bar", "Zahlart", "Vielen Dank für Ihren Einkauf", "TSE", "Contactless"]),
-        KeywordDetector(kind: .contract, strong: ["Vertrag", "Vereinbarung", "Contract", "Agreement", "Kündigungsfrist", "Vertragsbeginn", "Vertragspartner", "Laufzeit"],
-                        weak: ["§", "Unterschrift", "Signature", "Parteien", "Kündigung", "Vertragsgegenstand", "Auftraggeber", "Auftragnehmer"]),
-        KeywordDetector(kind: .insurance, strong: ["Versicherungsschein", "Versicherungsnummer", "Versicherung", "Police", "Policy", "Insurance", "Prämie", "Schadenmeldung"],
-                        weak: ["Versicherungsnehmer", "Deckung", "Selbstbeteiligung", "Versicherungsschutz", "Beitrag", "Versicherungssumme"]),
-        KeywordDetector(kind: .bankStatement, strong: ["Kontoauszug", "Bank statement", "Account statement", "Alter Kontostand", "Neuer Kontostand", "Opening balance", "Closing balance", "Buchungstag"],
-                        weak: ["Valuta", "Umsatz", "Saldo", "BIC", "Buchungstext", "Haben", "Soll"]),
-        KeywordDetector(kind: .taxNotice, strong: ["Finanzamt", "Steuerbescheid", "Einkommensteuerbescheid", "Steuernummer", "Steuererklärung", "Umsatzsteuer-Voranmeldung", "Tax notice"],
-                        weak: ["Einspruch", "Veranlagung", "Festsetzung", "Nachzahlung", "Erstattung", "Steuerpflichtige"]),
-        KeywordDetector(kind: .letter, strong: ["Rechtsbehelfsbelehrung", "Bußgeldbescheid", "Ordnungsamt", "Stadtverwaltung", "Gemeindeverwaltung", "Behörde", "Anhörung", "Widerspruch"],
-                        weak: ["Bescheid", "Aktenzeichen", "Geschäftszeichen", "Verwarnung", "Verfahren"])
+        InvoiceDetector(), ReminderDetector(), ReceiptDetector(), ContractDetector(), InsuranceDetector(), BankStatementDetector(),
+        AuthorityDetector(kind: .taxNotice), AuthorityDetector(kind: .letter)
     ]
+
+    private static let invoiceBlockers: Set<DocumentKind> = [.receipt, .bankStatement, .taxNotice, .letter]
 
     static func extract(_ input: ExtractionInput) -> ExtractionResult {
         let text = input.text.count > maxChars ? String(input.text.prefix(maxChars)) : input.text
@@ -31,11 +23,7 @@ enum DocumentExtractor {
         let general = Facts.general(ns, input: input, subject: subject)
         let ctx = ExtractionContext(input: input, ns: ns, subjectNS: (subject ?? "") as NSString, general: general)
 
-        var scores = detectors.map { $0.score(ctx) }
-        if let r = scores.first(where: { $0.kind == .reminder }), r.score >= ExtractionResult.certainThreshold,
-           let i = scores.firstIndex(where: { $0.kind == .invoice }), scores[i].score > 0.3 {
-            scores[i] = KindScore(kind: .invoice, score: 0.3, reasons: scores[i].reasons + ["gedeckelt auf 0,3: Mahnung erkannt (Mahnung ist keine Rechnung)"])
-        }
+        let scores = resolve(detectors.map { $0.score(ctx) }, ctx: ctx)
         // stabile Sortierung: Score absteigend, Detektor-Reihenfolge bei Gleichstand
         let ordered = scores.enumerated().sorted { ($0.element.score, -$0.offset) > ($1.element.score, -$1.offset) }.map(\.element)
         let best = ordered[0]
@@ -47,9 +35,59 @@ enum DocumentExtractor {
             reasons = ["Keine Dokumentart erreicht die Schwelle \(fmt(ExtractionResult.uncertainThreshold)) (beste: \(best.kind.rawValue) \(fmt(best.score)))"]
         }
         var facts = Facts.finalize(general, kind: kind)
-        if let detector = detectors.first(where: { $0.kind == kind }) { facts += detector.facts(ctx) }
+        if let detector = ownDetector(kind, best: best) {
+            let own = detector.facts(ctx)
+            let replaced = Set(detector.replaces.map(\.rawValue)).intersection(own.map(\.type))
+            facts = facts.filter { !replaced.contains($0.type) } + own
+        }
+        facts = dedupe(facts)
         facts.sort { (Facts.order($0.type), $0.source?.offset ?? -1, $0.value) < (Facts.order($1.type), $1.source?.offset ?? -1, $1.value) }
         return ExtractionResult(kind: kind, kindScore: score, kindCertain: certain, reasons: reasons, scores: ordered, facts: facts)
+    }
+
+    private static func ownDetector(_ kind: DocumentKind, best: KindScore) -> (any DocumentDetector)? {
+        detectors.first { $0.kind == kind }
+    }
+
+    /// Gleicher Typ + gleicher Wert nur einmal (höchste Konfidenz bleibt, die Begründungen der anderen Fundstellen entfallen).
+    static func dedupe(_ facts: [ExtractedFact]) -> [ExtractedFact] {
+        var best: [String: ExtractedFact] = [:]
+        var orderKeys: [String] = []
+        for f in facts {
+            let key = f.type + "\u{1}" + f.value
+            if let old = best[key] { if f.confidence > old.confidence { best[key] = f } } else { best[key] = f; orderKeys.append(key) }
+        }
+        return orderKeys.map { best[$0]! }
+    }
+
+    /// Konfliktregeln zwischen den Arten (alle Zahlen sind Konstanten, jede Deckelung steht in der Begründung):
+    /// 1. Mahnung (sicher) deckelt Rechnung auf 0,3. 2. Behörde mit Bescheid-Kennzeichen (sicher) deckelt Mahnung auf 0,5 und Rechnung auf 0,3 („Mahnung der Behörde“ bleibt Behördenschreiben).
+    /// 3. Kassenbon/Kontoauszug (sicher, eigene Überschrift) deckelt Rechnung auf 0,3, sofern keine Rechnungsnummer im Text steht. 4. Ist Rechnung oder Mahnung sicher, werden Arten ohne eigene Struktur
+    /// (`primary == false`) auf 0,3 gedeckelt. 5. Versicherung (sicher, eigene Überschrift/Policennummer) deckelt Vertrag auf 0,5 (Versicherungsvertrag ist eine Versicherung).
+    static func resolve(_ input: [KindScore], ctx: ExtractionContext) -> [KindScore] {
+        var s = input
+        func idx(_ k: DocumentKind) -> Int? { s.firstIndex { $0.kind == k } }
+        func cap(_ k: DocumentKind, _ limit: Double, _ why: String) {
+            if let i = idx(k) { s[i] = capped(s[i], at: limit, reason: why) }
+        }
+        let certain = ExtractionResult.certainThreshold
+        if let r = idx(.reminder), s[r].score >= certain { cap(.invoice, 0.3, "Mahnung erkannt (Mahnung ist keine Rechnung)") }
+        let authority = s.filter { ($0.kind == .taxNotice || $0.kind == .letter) && $0.primary && $0.score >= certain }
+        if !authority.isEmpty {
+            cap(.reminder, 0.5, "Behördenschreiben mit Bescheid-/Aktenzeichen-Kennzeichen (Mahnung der Behörde bleibt Behördenschreiben)")
+            cap(.invoice, 0.3, "Behördenschreiben erkannt")
+        }
+        if !ctx.has(.invoiceNumber) {
+            for k in [DocumentKind.receipt, .bankStatement] { if let i = idx(k), s[i].primary, s[i].score >= certain { cap(.invoice, 0.3, "\(k.rawValue) mit eigener Überschrift erkannt, keine Rechnungsnummer") } }
+        }
+        let invoiceOrReminderCertain = [DocumentKind.invoice, .reminder].contains { k in idx(k).map { s[$0].score >= certain } ?? false }
+        if invoiceOrReminderCertain {
+            for k in [DocumentKind.contract, .insurance, .bankStatement, .receipt, .taxNotice, .letter] {
+                if let i = idx(k), !s[i].primary { s[i] = capped(s[i], at: 0.3, reason: "Rechnung/Mahnung erkannt, die Art hat keine eigene Struktur (Überschrift/Kennung)") }
+            }
+        }
+        if let i = idx(.insurance), s[i].primary, s[i].score >= certain { cap(.contract, 0.5, "Versicherungsschein/Police erkannt (Versicherungsvertrag ist eine Versicherung)") }
+        return s
     }
 
     static func fmt(_ d: Double) -> String { String(format: "%.2f", d).replacingOccurrences(of: ".", with: ",") }
@@ -75,7 +113,7 @@ func scoreBuilder() -> (add: (Double, String) -> Void, result: (DocumentKind) ->
 struct InvoiceDetector: DocumentDetector {
     let kind = DocumentKind.invoice
     private static let subjectWord = Rx("(?<![a-zäöü])(rechnung|invoice|faktura|rechnungs\\w*)(?![a-zäöü]{3})")
-    private static let titleLine = Rx("^\\s*(rechnung|invoice|tax invoice|ausgangsrechnung|eingangsrechnung|rechnung\\s+(?:nr|nummer)[^\\n]{0,30})\\s*$", multiline: true)
+    private static let titleLine = Rx("^[ \\t]*(rechnung|invoice|tax invoice|ausgangsrechnung|eingangsrechnung|rechnung[ \\t]+(?:nr|nummer)[^\\n]{0,30})[ \\t]*$", multiline: true)
     private static let strongLabel = Rx("rechnungs-?\\s?(?:nummer|nr|datum)|invoice\\s?(?:number|no|nr|date|#)|rechnung\\s+nr|re-?nr")
     private static let dueWords = Rx("fällig|zahlungsziel|zahlbar|due date|payment terms|zahlungsbedingungen|payment due")
     private static let taxWords = Rx("(?<![a-zäöü])(mwst|ust|umsatzsteuer|mehrwertsteuer|vat)(?![a-zäöü])")

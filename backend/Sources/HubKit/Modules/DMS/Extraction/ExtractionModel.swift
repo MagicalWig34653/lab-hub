@@ -20,6 +20,14 @@ enum FactType: String, Sendable, CaseIterable {
     case invoiceNumber = "invoice_number", reference, date, dueDate = "due_date", deadline
     case amount, amountGross = "amount_gross", amountNet = "amount_net", amountTax = "amount_tax"
     case iban, vatID = "vat_id", seller, title
+    // WP-D8: Fakten der Arten Vertrag, Versicherung, Behörde/Steuer, Kontoauszug, Kassenbon. Die Liste ist erweiterbar (Wert ist immer eine Zeichenkette; neue Typen brauchen keine Migration).
+    case counterparty, contractNumber = "contract_number", periodStart = "period_start", periodEnd = "period_end", term, noticePeriod = "notice_period", autoRenewal = "auto_renewal"
+    case recurringAmount = "recurring_amount", paymentInterval = "payment_interval"
+    case policyNumber = "policy_number", premium
+    case noticeType = "notice_type", taxNumber = "tax_number", taxID = "tax_id", objectionDeadline = "objection_deadline", settlementAmount = "settlement_amount"
+    case balanceOpening = "balance_opening", balanceClosing = "balance_closing"
+    case amountTax7 = "amount_tax_7", amountTax19 = "amount_tax_19", paymentMethod = "payment_method"
+    case insurer, authority
 }
 
 struct ExtractedFact: Codable, Sendable, Equatable {
@@ -40,6 +48,8 @@ struct KindScore: Sendable, Equatable {
     let kind: DocumentKind
     let score: Double
     let reasons: [String]
+    /// WP-D8: `true`, wenn die Art ihr eigenes Strukturmerkmal hat (Überschrift/Kennung); ohne dieses wird der Score von den Detektoren gedeckelt und in Konflikten mit Rechnung/Mahnung zurückgestellt.
+    var primary = true
 }
 
 /// Eingabe des Extraktors. Betreff und Absender stammen aus der Mail (oder fehlen); der Text ist der Dokumenttext (OCR, PDF-Textschicht, Mailtext).
@@ -55,7 +65,8 @@ struct ExtractionInput: Sendable {
 }
 
 struct ExtractionResult: Sendable, Equatable {
-    static let version = 1
+    /// 2 = WP-D8 (Vertrag, Versicherung, Behörde/Steuer, Kontoauszug, Kassenbon mit eigenen Fakten).
+    static let version = 2
     /// Schwellen (im Handoff dokumentiert): ab `certainThreshold` gilt die Art als erkannt, zwischen `uncertainThreshold` und `certainThreshold` als unsicher.
     static let certainThreshold = 0.6
     static let uncertainThreshold = 0.35
@@ -78,6 +89,15 @@ struct ExtractionContext: @unchecked Sendable {
     let ns: NSString
     let subjectNS: NSString
     let general: [ExtractedFact]
+    /// Betreff plus die ersten sechs nicht leeren Zeilen (Überschrift/Briefkopf).
+    let head: NSString
+
+    init(input: ExtractionInput, ns: NSString, subjectNS: NSString, general: [ExtractedFact]) {
+        self.input = input; self.ns = ns; self.subjectNS = subjectNS; self.general = general
+        var parts = [subjectNS as String], n = 0
+        for l in KS.lines(ns, limit: 60) where !l.text.trimmingCharacters(in: .whitespaces).isEmpty { parts.append(l.text); n += 1; if n >= 6 { break } }
+        head = parts.joined(separator: "\n") as NSString
+    }
 
     func has(_ type: FactType) -> Bool { general.contains { $0.type == type.rawValue } }
 }
@@ -87,8 +107,11 @@ protocol DocumentDetector: Sendable {
     func score(_ ctx: ExtractionContext) -> KindScore
     /// Zusätzliche Fakten, nur wenn diese Art gewählt wurde.
     func facts(_ ctx: ExtractionContext) -> [ExtractedFact]
+    /// Faktentypen, die allgemeine Fakten desselben Typs ersetzen, sobald der Detektor sie liefert (z. B. `seller` der Behörde statt der Rechtsform-Zeile).
+    var replaces: Set<FactType> { get }
 }
 
 extension DocumentDetector {
     func facts(_ ctx: ExtractionContext) -> [ExtractedFact] { [] }
+    var replaces: Set<FactType> { [] }
 }

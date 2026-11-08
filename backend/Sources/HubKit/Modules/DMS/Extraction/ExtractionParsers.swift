@@ -108,12 +108,12 @@ enum ExtractionParsers {
 
     // MARK: Daten
 
-    private static let monthNames: [String: Int] = [
+    static let monthNames: [String: Int] = [
         "januar": 1, "jan": 1, "january": 1, "februar": 2, "feb": 2, "february": 2, "märz": 3, "maerz": 3, "mär": 3, "mar": 3, "march": 3,
         "april": 4, "apr": 4, "mai": 5, "may": 5, "juni": 6, "jun": 6, "june": 6, "juli": 7, "jul": 7, "july": 7, "august": 8, "aug": 8,
         "september": 9, "sep": 9, "sept": 9, "oktober": 10, "okt": 10, "oct": 10, "october": 10, "november": 11, "nov": 11,
         "dezember": 12, "dez": 12, "dec": 12, "december": 12]
-    private static let monthAlt = "januar|january|februar|february|märz|maerz|march|april|mai|may|juni|june|juli|july|august|september|sept|oktober|october|november|dezember|december|jan|feb|mär|mar|apr|jun|jul|aug|sep|okt|oct|nov|dez|dec"
+    static let monthAlt = "januar|january|februar|february|märz|maerz|march|april|mai|may|juni|june|juli|july|august|september|sept|oktober|october|november|dezember|december|jan|feb|mär|mar|apr|jun|jul|aug|sep|okt|oct|nov|dez|dec"
     private static let dmy = Rx("(?<![\\d.])(\\d{1,2})\\.\\s?(\\d{1,2})\\.\\s?(\\d{4}|\\d{2})(?![\\d])")
     private static let iso = Rx("(?<![\\d-])(\\d{4})-(\\d{2})-(\\d{2})(?![\\d-])")
     private static let dMonthY = Rx("(?<![\\d])(\\d{1,2})\\.?\\s+(\(monthAlt))\\.?,?\\s+(\\d{4})(?![\\d])")
