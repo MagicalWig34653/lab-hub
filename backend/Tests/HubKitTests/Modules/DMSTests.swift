@@ -555,7 +555,7 @@ final class DMSTests: DMSTestBase {
         let expected: [String: HTTPStatus] = [
             "POST uploads": .created, "GET documents": .ok, "GET documents/{document}": .ok, "PATCH documents/{document}": .ok,
             "POST documents/{document}/archive": .ok, "POST documents/{document}/trash": .ok, "POST documents/{document}/restore": .ok, "GET documents/{document}/file": .ok,
-            "GET search": .ok, "GET documents/{document}/processing": .ok,
+            "GET search": .ok, "GET stats": .ok, "GET documents/{document}/processing": .ok,   // WP-D9: stats
             "POST documents/{document}/processing/retry": .conflict,   // WP-H6: Probe-Dokument ohne Quarantäne-Vorgang -> 409 ingest_not_failed
             // WP-D5: Probe-Dokument liegt nicht im Papierkorb -> Purge 409 document_not_trashed; Lauf/Export der Probe sind vorhanden bzw. (Export-Datei) noch nicht fertig
             "GET documents/{document}/retention": .ok, "PATCH documents/{document}/retention": .ok, "POST documents/{document}/purge": .conflict, "GET deletion-log": .ok,
@@ -875,6 +875,7 @@ final class DMSTests: DMSTestBase {
         try await aEq(try await count("pg_trigger", where: "tgname IN ('dms_document_files_protect', 'dms_files_protect', 'dms_documents_protect_asn')"), 3)
 
         let migration = CreateDMSCore()
+        try await CreateDMSDocumentSource().revert(on: app1.db(.psql)) // WP-D9: Quelle, Indizes
         try await CreateDMSExtraction().revert(on: app1.db(.psql)) // WP-D7: Extraktion, Outbox, Quelle `extraction`
         try await CreateDMSImport().revert(on: app1.db(.psql))    // WP-D6: Laeufe, Idempotenz-Zuordnung, Befunde, Notizen
         try await CreateDMSSources().revert(on: app1.db(.psql))   // WP-D4: Quellen, Idempotenz- und Messdaten
@@ -897,6 +898,7 @@ final class DMSTests: DMSTestBase {
         try await CreateDMSSources().prepare(on: app1.db(.psql))
         try await CreateDMSImport().prepare(on: app1.db(.psql))
         try await CreateDMSExtraction().prepare(on: app1.db(.psql))
+        try await CreateDMSDocumentSource().prepare(on: app1.db(.psql))
     }
 }
 

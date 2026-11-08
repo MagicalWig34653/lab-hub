@@ -18,17 +18,18 @@ enum DMSDocuments {
         d.id, d.title, d.doc_date::text AS doc_date, d.received_at, d.document_type_id, d.storage_path_id,
         (SELECT l.to_id FROM links l WHERE l.tenant_id = d.tenant_id AND l.from_type = 'dms.document' AND l.from_id = d.id AND l.to_type = 'contact'
            AND l.kind = 'correspondent' AND l.removed_at IS NULL ORDER BY l.created_at, l.id LIMIT 1) AS correspondent_id,
-        d.asn, d.status, d.trashed_at, d.trash_reason, d.created_by, d.created_at, d.updated_at, d.rev
+        d.asn, d.status, d.trashed_at, d.trash_reason, d.created_by, d.created_at, d.updated_at, d.rev, d.source,
+        (SELECT count(*) FROM dms_suggestions g WHERE g.tenant_id = d.tenant_id AND g.document_id = d.id AND g.state = 'open')::int AS open_suggestions
         """
 
     /// WP-D7: Übersichtsspalten der Extraktion (Join `dms_extractions x`), gleiche Spaltenaliase in Liste und Einzelansicht.
-    private static let extractionColumns = """
+    static let extractionColumns = """
         x.kind AS x_kind, x.kind_score::float8 AS x_score, x.kind_certain AS x_certain, x.extractor_version AS x_version, x.amount::text AS x_amount, x.currency AS x_currency,
         x.extracted_date::text AS x_date, x.due_date::text AS x_due, x.reference AS x_reference, x.updated_at AS x_updated
         """
-    private static let extractionJoin = "LEFT JOIN dms_extractions x ON x.document_id = d.id AND x.tenant_id = d.tenant_id"
+    static let extractionJoin = "LEFT JOIN dms_extractions x ON x.document_id = d.id AND x.tenant_id = d.tenant_id"
 
-    private static func extractionSummary(_ r: any SQLRow) throws -> DMSExtractionOut? {
+    static func extractionSummary(_ r: any SQLRow) throws -> DMSExtractionOut? {
         guard let kind = try r.decode(column: "x_kind", as: String?.self) else { return nil }
         return DMSExtractionOut(kind: kind, kind_score: try r.decode(column: "x_score", as: Double.self), kind_certain: try r.decode(column: "x_certain", as: Bool.self),
                                 extractor_version: Int(try r.decode(column: "x_version", as: Int32.self)), amount: try r.decode(column: "x_amount", as: String?.self),
@@ -46,7 +47,8 @@ enum DMSDocuments {
             status: try r.decode(column: "status", as: String.self), trashed_at: try r.decode(column: "trashed_at", as: Date?.self).map(iso),
             trash_reason: try r.decode(column: "trash_reason", as: String?.self), created_by: try r.decode(column: "created_by", as: UUID?.self),
             created_at: iso(try r.decode(column: "created_at", as: Date.self)), updated_at: iso(try r.decode(column: "updated_at", as: Date.self)),
-            rev: Int(try r.decode(column: "rev", as: Int32.self)))
+            rev: Int(try r.decode(column: "rev", as: Int32.self)), source: try r.decode(column: "source", as: String.self),
+            open_suggestions: Int(try r.decode(column: "open_suggestions", as: Int32.self)))
         out.extraction = try extractionSummary(r)
         return out
     }
@@ -103,12 +105,15 @@ enum DMSDocuments {
         var extractedFrom: String?, extractedTo: String?
         var dueFrom: String?, dueTo: String?
         var reference: String?
+        // WP-D9: Quelle, offene Vorschläge
+        var source: String?
+        var hasOpenSuggestions: Bool?
         var sort = "created_at"
         var descending = false
     }
 
     /// Sortierschlüssel (feste Liste, nie Nutzereingabe im SQL). Fehlende Werte stehen immer am Ende; der Cursor trägt den Schlüssel als Text.
-    private static func sortSpec(_ sort: String, descending: Bool) -> (expr: String, text: String, cast: String) {
+    static func sortSpec(_ sort: String, descending: Bool) -> (expr: String, text: String, cast: String) {
         func nulls(_ col: String, _ lo: String, _ hi: String) -> String { "COALESCE(\(col), \(descending ? lo : hi))" }
         switch sort {
         case "amount": let e = nulls("x.amount", "-1e15::numeric", "1e15::numeric"); return (e, "(\(e))::text", "numeric")
@@ -118,17 +123,30 @@ enum DMSDocuments {
         }
     }
 
-    static func list(tenant: UUID, page: HubPageRequest, filter f: Filter, on db: any Database) async throws -> HubPage<DMSDocumentOut> {
-        let s = try sql(db)
+    /// Gemeinsame Bedingungen von Liste, Summen und Suche (Alias `d` = dms_documents, `x` = dms_extractions): Extraktion, Quelle, offene Vorschläge.
+    static func extractionConditions(_ f: Filter) -> SQLQueryString {
+        """
+        AND (\(bind: f.kind)::text IS NULL OR x.kind = \(bind: f.kind)::text)
+        AND (\(bind: f.kindCertain)::boolean IS NULL OR x.kind_certain = \(bind: f.kindCertain)::boolean)
+        AND (\(bind: f.currency)::text IS NULL OR x.currency = \(bind: f.currency)::text)
+        AND (\(bind: f.amountMin)::text IS NULL OR x.amount >= \(bind: f.amountMin)::text::numeric)
+        AND (\(bind: f.amountMax)::text IS NULL OR x.amount <= \(bind: f.amountMax)::text::numeric)
+        AND (\(bind: f.extractedFrom)::text IS NULL OR x.extracted_date >= \(bind: f.extractedFrom)::text::date)
+        AND (\(bind: f.extractedTo)::text IS NULL OR x.extracted_date <= \(bind: f.extractedTo)::text::date)
+        AND (\(bind: f.dueFrom)::text IS NULL OR x.due_date >= \(bind: f.dueFrom)::text::date)
+        AND (\(bind: f.dueTo)::text IS NULL OR x.due_date <= \(bind: f.dueTo)::text::date)
+        AND (\(bind: f.reference)::text IS NULL OR x.reference = \(bind: f.reference)::text)
+        AND (\(bind: f.source)::text IS NULL OR d.source = \(bind: f.source)::text)
+        AND (\(bind: f.hasOpenSuggestions)::boolean IS NULL OR \(bind: f.hasOpenSuggestions)::boolean =
+              EXISTS (SELECT 1 FROM dms_suggestions g WHERE g.tenant_id = d.tenant_id AND g.document_id = d.id AND g.state = 'open'))
+        """
+    }
+
+    /// Bedingungen der Liste ohne Cursor (Mandant, Papierkorb, Stammdaten, Titel, Extraktion).
+    private static func listConditions(tenant: UUID, _ f: Filter) -> SQLQueryString {
         let pattern = f.q.flatMap { $0.isEmpty ? nil : "%" + $0.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "%", with: "\\%").replacingOccurrences(of: "_", with: "\\_") + "%" }
-        let cur = page.cursor
-        let spec = sortSpec(f.sort, descending: f.descending)
-        let op = f.descending ? "<" : ">", dir = f.descending ? "DESC" : "ASC"
-        let cursorClause: SQLQueryString = cur == nil ? "TRUE"
-            : "(\(unsafeRaw: spec.expr), d.id) \(unsafeRaw: op) (\(bind: cur!.createdAt)::\(unsafeRaw: spec.cast), \(bind: cur!.id)::uuid)"
-        let rows = try await s.raw("""
-            SELECT \(unsafeRaw: columns), \(unsafeRaw: extractionColumns), \(unsafeRaw: spec.text) AS created_text FROM dms_documents d \(unsafeRaw: extractionJoin)
-            WHERE d.tenant_id = \(bind: tenant) AND (d.trashed_at IS NOT NULL) = \(bind: f.trashed)
+        return """
+            d.tenant_id = \(bind: tenant) AND (d.trashed_at IS NOT NULL) = \(bind: f.trashed)
               AND (\(bind: f.status)::text IS NULL OR d.status = \(bind: f.status)::text)
               AND (\(bind: f.typeID)::uuid IS NULL OR d.document_type_id = \(bind: f.typeID)::uuid)
               AND (\(bind: f.asn)::bigint IS NULL OR d.asn = \(bind: f.asn)::bigint)
@@ -136,16 +154,38 @@ enum DMSDocuments {
               AND (\(bind: f.correspondentID)::uuid IS NULL OR EXISTS (SELECT 1 FROM links l WHERE l.tenant_id = d.tenant_id AND l.from_type = 'dms.document'
                     AND l.from_id = d.id AND l.to_type = 'contact' AND l.kind = 'correspondent' AND l.removed_at IS NULL AND l.to_id = \(bind: f.correspondentID)::uuid))
               AND (\(bind: pattern)::text IS NULL OR d.title ILIKE \(bind: pattern)::text)
-              AND (\(bind: f.kind)::text IS NULL OR x.kind = \(bind: f.kind)::text)
-              AND (\(bind: f.kindCertain)::boolean IS NULL OR x.kind_certain = \(bind: f.kindCertain)::boolean)
-              AND (\(bind: f.currency)::text IS NULL OR x.currency = \(bind: f.currency)::text)
-              AND (\(bind: f.amountMin)::text IS NULL OR x.amount >= \(bind: f.amountMin)::text::numeric)
-              AND (\(bind: f.amountMax)::text IS NULL OR x.amount <= \(bind: f.amountMax)::text::numeric)
-              AND (\(bind: f.extractedFrom)::text IS NULL OR x.extracted_date >= \(bind: f.extractedFrom)::text::date)
-              AND (\(bind: f.extractedTo)::text IS NULL OR x.extracted_date <= \(bind: f.extractedTo)::text::date)
-              AND (\(bind: f.dueFrom)::text IS NULL OR x.due_date >= \(bind: f.dueFrom)::text::date)
-              AND (\(bind: f.dueTo)::text IS NULL OR x.due_date <= \(bind: f.dueTo)::text::date)
-              AND (\(bind: f.reference)::text IS NULL OR x.reference = \(bind: f.reference)::text)
+              \(extractionConditions(f))
+            """
+    }
+
+    struct Totals: Content, Sendable, Equatable {
+        /// ISO-Währung; `nil` = Betrag ohne erkannte Währung (nie mit anderen Währungen vermischt).
+        let currency: String?
+        /// Dezimalzeichenkette (numeric, nie Gleitkomma), zwei Nachkommastellen.
+        let sum: String
+        /// Anzahl der Dokumente mit Betrag in dieser Währung.
+        let count: Int
+    }
+
+    struct Page: Content, Sendable {
+        let items: [DMSDocumentOut]
+        let next_cursor: String?
+        let total: Int?
+        /// WP-D9: nur mit `totals=true`; Summe der Beträge der gefilterten Menge je Währung (ohne Cursor, über alle Seiten).
+        let totals: [Totals]?
+    }
+
+    static func list(tenant: UUID, page: HubPageRequest, filter f: Filter, withTotals: Bool = false, on db: any Database) async throws -> Page {
+        let s = try sql(db)
+        let cur = page.cursor
+        let spec = sortSpec(f.sort, descending: f.descending)
+        let op = f.descending ? "<" : ">", dir = f.descending ? "DESC" : "ASC"
+        let cursorClause: SQLQueryString = cur == nil ? "TRUE"
+            : "(\(unsafeRaw: spec.expr), d.id) \(unsafeRaw: op) (\(bind: cur!.createdAt)::\(unsafeRaw: spec.cast), \(bind: cur!.id)::uuid)"
+        let conditions = listConditions(tenant: tenant, f)
+        let rows = try await s.raw("""
+            SELECT \(unsafeRaw: columns), \(unsafeRaw: extractionColumns), \(unsafeRaw: spec.text) AS created_text FROM dms_documents d \(unsafeRaw: extractionJoin)
+            WHERE \(conditions)
               AND \(cursorClause)
             ORDER BY \(unsafeRaw: spec.expr) \(unsafeRaw: dir), d.id \(unsafeRaw: dir) LIMIT \(bind: page.limit + 1)
             """).all()
@@ -155,8 +195,18 @@ enum DMSDocuments {
             total = Int(try await s.raw("SELECT count(*)::bigint AS n FROM dms_documents WHERE tenant_id = \(bind: tenant) AND (trashed_at IS NOT NULL) = \(bind: f.trashed)")
                 .first()?.decode(column: "n", as: Int64.self) ?? 0)
         }
+        var totals: [Totals]?
+        if withTotals {
+            totals = try await s.raw("""
+                SELECT x.currency, sum(x.amount)::text AS sum, count(*)::bigint AS n FROM dms_documents d \(unsafeRaw: extractionJoin)
+                WHERE \(conditions) AND x.amount IS NOT NULL GROUP BY x.currency ORDER BY x.currency NULLS LAST
+                """).all().map {
+                Totals(currency: try $0.decode(column: "currency", as: String?.self), sum: try $0.decode(column: "sum", as: String.self), count: Int(try $0.decode(column: "n", as: Int64.self)))
+            }
+        }
         let created = Dictionary(uniqueKeysWithValues: items.map { ($0.0.id, $0.1) })
-        return HubPage(fetched: items.map(\.0), limit: page.limit, cursorOf: { PageCursor(createdAt: created[$0.id] ?? "", id: $0.id) }, total: total)
+        let p = HubPage(fetched: items.map(\.0), limit: page.limit, cursorOf: { PageCursor(createdAt: created[$0.id] ?? "", id: $0.id) }, total: total)
+        return Page(items: p.items, next_cursor: p.next_cursor, total: p.total, totals: totals)
     }
 
     // MARK: Anlegen aus Upload
@@ -180,6 +230,8 @@ enum DMSDocuments {
         var ingestSource: DMSIngest.Source = .upload
         var originRef: String? = nil
         var sender: String? = nil
+        /// WP-D9: Quelle des Dokuments; nil = aus `ingestSource` abgeleitet (der Paperless-Import setzt `.import`).
+        var documentSource: DMSDocumentSource? = nil
     }
 
     /// Dokument mit Original in einer Transaktion. Gleiches Original im Mandanten: Hinweis `duplicates`, kein Abbruch.
@@ -199,8 +251,8 @@ enum DMSDocuments {
                 ORDER BY created_at, id LIMIT 20
                 """).all().map { try $0.decode(column: "document_id", as: UUID.self) }
             guard let row = try await s.raw("""
-                INSERT INTO dms_documents (tenant_id, title, doc_date, document_type_id, created_by)
-                VALUES (\(bind: tenant), \(bind: n.title), \(bind: n.docDate)::text::date, \(bind: n.typeID), \(bind: actor)) RETURNING id
+                INSERT INTO dms_documents (tenant_id, title, doc_date, document_type_id, created_by, source)
+                VALUES (\(bind: tenant), \(bind: n.title), \(bind: n.docDate)::text::date, \(bind: n.typeID), \(bind: actor), \(bind: (n.documentSource ?? DMSDocumentSource(ingest: n.ingestSource)).rawValue)) RETURNING id
                 """).first() else { throw Abort(.internalServerError) }
             let id = try row.decode(column: "id", as: UUID.self)
             try await s.raw("""

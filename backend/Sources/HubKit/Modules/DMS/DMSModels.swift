@@ -36,6 +36,10 @@ struct DMSDocumentOut: Content, Sendable {
     let created_at: String
     let updated_at: String
     let rev: Int
+    /// WP-D9: Eingangsquelle (upload, mail, folder, share, import, api, unknown).
+    let source: String
+    /// WP-D9: Anzahl offener Vorschläge (Regeln, Kontakt-Abgleich, Extraktion).
+    let open_suggestions: Int
     var tag_ids: [UUID]?
     var fields: [String: DMSFieldValue]?
     var files: [DMSFileOut]?

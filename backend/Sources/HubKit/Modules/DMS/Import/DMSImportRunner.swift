@@ -377,7 +377,7 @@ final class DMSImportRunner: @unchecked Sendable {
                     tenant: tenant, actor: run.requestedBy, requestID: requestID,
                     doc: .init(title: title, docDate: docDate, typeID: typeID, originalName: name, archive: false, kind: kind, stored: stored, backend: store.kind,
                                quotaBytes: self.limits.quotaBytes, verifyBlob: { t in try await config.makeStore(db: t).exists(stored.key) },
-                               ocrPriority: ocrPriority, ingestSource: .api, originRef: "paperless:\(doc.id)", sender: nil), on: tx)
+                               ocrPriority: ocrPriority, ingestSource: .api, originRef: "paperless:\(doc.id)", sender: nil, documentSource: .import), on: tx)
                 let id = out.id
                 try await t.raw("UPDATE dms_import_items SET target_id = \(bind: id) WHERE tenant_id = \(bind: tenant) AND source_key = \(bind: self.key) AND kind = 'document' AND ext_id = \(bind: doc.id)").run()
                 // Archivnummer (Kollision zwischen Prüfung und Schreiben: ohne Nummer weiter), Eingangsdatum, Speicherpfad

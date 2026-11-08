@@ -22,6 +22,10 @@ struct DMSSearchHit: Content, Sendable {
     let score: Double
     /// Textauszug (Text, sonst Titel); Treffer stehen zwischen U+E000 und U+E001 (private Zeichen, kein HTML, der Client escaped selbst).
     let snippet: String?
+    /// WP-D9: Quelle, offene Vorschläge und Übersichtswerte der Extraktion (wie in der Dokumentliste).
+    let source: String
+    let open_suggestions: Int
+    let extraction: DMSExtractionOut?
 }
 
 struct DMSFacetEntry: Content, Sendable, Equatable {
@@ -61,6 +65,10 @@ enum DMSSearch {
         var dateFrom: String?
         var dateTo: String?
         var facets = false
+        /// WP-D9: Extraktions-, Quellen- und Vorschlagsfilter sowie Sortierung wie `GET documents` (nur die entsprechenden Felder des Filters sind belegt).
+        var ext = DMSDocuments.Filter()
+        /// `sort` angegeben und nicht `relevance`: Sortierung nach Dokumentwert statt Relevanz.
+        var sorted = false
         var page: HubPageRequest
 
         /// Operatoren der Websuche (Phrase, `-`, `or`) bedeuten exakte Treffer: der Tippfehler-Fallback bleibt dann aus.
@@ -100,6 +108,8 @@ enum DMSSearch {
         }
         if let s: String = req.query["date_from"] { p.dateFrom = try DMSError.date(s, "date_from") }
         if let s: String = req.query["date_to"] { p.dateTo = try DMSError.date(s, "date_to") }
+        try DMSExtractionQuery.apply(req, to: &p.ext, allowRelevance: true)
+        if let sort: String = req.query["sort"] { p.sorted = sort != "relevance" }
         return p
     }
 
@@ -114,14 +124,14 @@ enum DMSSearch {
             // Durchsuchen ohne Suchbegriff: Score = Eingangszeit (Sekunden seit Epoche), damit Sortierung und Cursor (Score absteigend, id) unverändert greifen
             s = """
                 SELECT d.id, extract(epoch FROM d.created_at)::float8 AS score
-                FROM dms_documents d
+                FROM dms_documents d LEFT JOIN dms_extractions x ON x.document_id = d.id AND x.tenant_id = d.tenant_id
                 WHERE d.tenant_id = \(bind: p.tenant) AND d.trashed_at IS NULL
                 """
         } else {
             s = """
                 SELECT d.id, (CASE WHEN d.search_tsv @@ \(tsq) THEN 1 + ts_rank_cd('{0.1, 0.2, 0.4, 1.0}', d.search_tsv, \(tsq), 32)
                                    ELSE word_similarity(\(bind: plain)::text, d.trgm_src) END)::float8 AS score
-                FROM dms_documents d
+                FROM dms_documents d LEFT JOIN dms_extractions x ON x.document_id = d.id AND x.tenant_id = d.tenant_id
                 WHERE d.tenant_id = \(bind: p.tenant) AND d.trashed_at IS NULL
                   AND (d.search_tsv @@ \(tsq) OR (\(bind: p.trigramActive)::boolean AND \(bind: plain)::text <% d.trgm_src))
                 """
@@ -139,6 +149,7 @@ enum DMSSearch {
         }
         if let d = p.dateFrom { s += " AND d.doc_date >= \(bind: d)::text::date" }
         if let d = p.dateTo { s += " AND d.doc_date <= \(bind: d)::text::date" }
+        s += " \(DMSDocuments.extractionConditions(p.ext))"
         return s
     }
 
@@ -157,24 +168,47 @@ enum DMSSearch {
                     CASE WHEN t.text IS NOT NULL THEN ts_headline((CASE t.lang WHEN 'en' THEN 'dms_english' ELSE 'dms_german' END)::regconfig, left(t.text, 100000), \(tsq), \(bind: options)::text) END,
                     ts_headline('dms_german'::regconfig, d.title, \(tsq), \(bind: options)::text))
                 """
+            // Relevanz (Standard): Cursor = (Score, id). Mit `sort`: Cursor = (Sortschlüssel als Text, id) wie `GET documents`.
+            let spec = DMSDocuments.sortSpec(p.ext.sort, descending: p.ext.descending)
+            let op = p.ext.descending ? "<" : ">", dir = p.ext.descending ? "DESC" : "ASC"
             var curScore: String?, curID: UUID?
-            if let c = p.page.cursor {
-                guard Double(c.createdAt) != nil else { throw HubError(.badRequest, "invalid_cursor") }
-                curScore = c.createdAt; curID = c.id
+            var pageSQL: SQLQueryString, orderSQL: SQLQueryString
+            if p.sorted {
+                let cursorClause: SQLQueryString = p.page.cursor == nil ? "TRUE"
+                    : "(\(unsafeRaw: spec.expr), d.id) \(unsafeRaw: op) (\(bind: p.page.cursor!.createdAt)::\(unsafeRaw: spec.cast), \(bind: p.page.cursor!.id)::uuid)"
+                pageSQL = """
+                    page AS (SELECT h.id, h.score, \(unsafeRaw: spec.text) AS sort_text FROM hits h JOIN dms_documents d ON d.id = h.id
+                             LEFT JOIN dms_extractions x ON x.document_id = d.id AND x.tenant_id = d.tenant_id
+                             WHERE \(cursorClause)
+                             ORDER BY \(unsafeRaw: spec.expr) \(unsafeRaw: dir), d.id \(unsafeRaw: dir) LIMIT \(bind: p.page.limit + 1))
+                    """
+                orderSQL = "ORDER BY \(unsafeRaw: spec.expr) \(unsafeRaw: dir), d.id \(unsafeRaw: dir)"
+            } else {
+                if let c = p.page.cursor {
+                    guard Double(c.createdAt) != nil else { throw HubError(.badRequest, "invalid_cursor") }
+                    curScore = c.createdAt; curID = c.id
+                }
+                pageSQL = """
+                    page AS (SELECT h.id, h.score, h.score::text AS sort_text FROM hits h
+                             WHERE \(bind: curScore)::text IS NULL OR h.score < \(bind: curScore)::float8 OR (h.score = \(bind: curScore)::float8 AND h.id > \(bind: curID)::uuid)
+                             ORDER BY h.score DESC, h.id LIMIT \(bind: p.page.limit + 1))
+                    """
+                orderSQL = "ORDER BY p.score DESC, d.id"
             }
             let rows = try await s.raw("""
                 WITH hits AS (\(hits)),
-                page AS (SELECT h.id, h.score FROM hits h
-                         WHERE \(bind: curScore)::text IS NULL OR h.score < \(bind: curScore)::float8 OR (h.score = \(bind: curScore)::float8 AND h.id > \(bind: curID)::uuid)
-                         ORDER BY h.score DESC, h.id LIMIT \(bind: p.page.limit + 1))
+                \(pageSQL)
                 SELECT d.id, d.title, d.doc_date::text AS doc_date, d.document_type_id, d.storage_path_id,
                   (SELECT l.to_id FROM links l WHERE l.tenant_id = d.tenant_id AND l.from_type = 'dms.document' AND l.from_id = d.id AND l.to_type = 'contact'
                      AND l.kind = 'correspondent' AND l.removed_at IS NULL ORDER BY l.created_at, l.id LIMIT 1) AS correspondent_id,
-                  d.asn, d.status, d.created_at, p.score, p.score::text AS score_text,
+                  d.asn, d.status, d.created_at, d.source,
+                  (SELECT count(*) FROM dms_suggestions g WHERE g.tenant_id = d.tenant_id AND g.document_id = d.id AND g.state = 'open')::int AS open_suggestions,
+                  p.score, p.sort_text AS score_text, \(unsafeRaw: DMSDocuments.extractionColumns),
                   \(snippetSQL) AS snippet
                 FROM page p JOIN dms_documents d ON d.id = p.id
+                \(unsafeRaw: DMSDocuments.extractionJoin)
                 LEFT JOIN LATERAL (SELECT x.lang, x.text FROM dms_document_texts x WHERE x.document_id = d.id ORDER BY x.version DESC LIMIT 1) t ON true
-                ORDER BY p.score DESC, d.id
+                \(orderSQL)
                 """).all()
             var scoreText: [UUID: String] = [:]
             let hitsOut = try rows.map { r -> DMSSearchHit in
@@ -185,7 +219,9 @@ enum DMSSearch {
                     document_type_id: try r.decode(column: "document_type_id", as: UUID?.self), storage_path_id: try r.decode(column: "storage_path_id", as: UUID?.self),
                     correspondent_id: try r.decode(column: "correspondent_id", as: UUID?.self), asn: try r.decode(column: "asn", as: Int64?.self),
                     status: try r.decode(column: "status", as: String.self), created_at: iso(try r.decode(column: "created_at", as: Date.self)),
-                    score: try r.decode(column: "score", as: Double.self), snippet: try r.decode(column: "snippet", as: String?.self))
+                    score: try r.decode(column: "score", as: Double.self), snippet: try r.decode(column: "snippet", as: String?.self),
+                    source: try r.decode(column: "source", as: String.self), open_suggestions: Int(try r.decode(column: "open_suggestions", as: Int32.self)),
+                    extraction: try DMSDocuments.extractionSummary(r))
             }
             let page = HubPage(fetched: hitsOut, limit: p.page.limit, cursorOf: { PageCursor(createdAt: scoreText[$0.id] ?? "0", id: $0.id) })
 

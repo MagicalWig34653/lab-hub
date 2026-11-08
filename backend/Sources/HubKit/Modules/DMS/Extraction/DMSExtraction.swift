@@ -316,7 +316,8 @@ enum DMSTextStep {
 
 /// Abfrageparameter der Dokumentliste für die Extraktion (strikt geprüft, 422 mit Feldnamen).
 enum DMSExtractionQuery {
-    static func apply(_ req: Request, to f: inout DMSDocuments.Filter) throws {
+    /// `allowRelevance`: die Suche kennt zusätzlich `sort=relevance` (Standard); das lässt `apply` unberührt.
+    static func apply(_ req: Request, to f: inout DMSDocuments.Filter, allowRelevance: Bool = false) throws {
         if let kind: String = req.query["kind"] {
             guard DocumentKind(rawValue: kind) != nil else { throw DMSError.invalid("kind") }
             f.kind = kind
@@ -342,7 +343,16 @@ enum DMSExtractionQuery {
             guard !r.isEmpty, r.count <= 100 else { throw DMSError.invalid("reference") }
             f.reference = r
         }
-        if let sort: String = req.query["sort"] {
+        // WP-D9: Quelle und offene Vorschläge (Liste und Suche gleich)
+        if let raw: String = req.query["source"] {
+            guard DMSDocumentSource(rawValue: raw) != nil else { throw DMSError.invalid("source") }
+            f.source = raw
+        }
+        if let raw: String = req.query["has_open_suggestions"] {
+            guard raw == "true" || raw == "false" else { throw DMSError.invalid("has_open_suggestions") }
+            f.hasOpenSuggestions = raw == "true"
+        }
+        if let sort: String = req.query["sort"], !(allowRelevance && sort == "relevance") {
             guard ["created_at", "amount", "extracted_date", "due_date"].contains(sort) else { throw DMSError.invalid("sort") }
             f.sort = sort
         }

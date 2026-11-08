@@ -670,6 +670,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tenants/{tenant}/dms/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Dokumentzaehler fuer das Dashboard (Berechtigung dms.document.read)
+         * @description WP-D9: Anzahl in der Warteschlange, in Quarantaene (failed_permanent), mit offenen Vorschlaegen, ueberfaellig (due_date vor today, Vertraege ausgenommen) und neu in den letzten 7 Tagen.
+         *     Papierkorb zaehlt nie mit; alles mandantengefiltert. today (Datum, Standard: Datenbankdatum) erlaubt dem Client seinen lokalen Tag.
+         */
+        get: operations["getDmsStats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/tenants/{tenant}/dms/documents": {
         parameters: {
             query?: never;
@@ -684,6 +705,9 @@ export interface paths {
          *     extracted_from/extracted_to (Belegdatum aus dem Text), due_from/due_to (Faelligkeit/Frist), reference (genau, Rechnungsnummer oder Aktenzeichen).
          *     sort = created_at (Standard), amount, extracted_date oder due_date; order = asc (Standard) oder desc. Dokumente ohne den sortierten Wert stehen immer am Ende.
          *     Der Cursor gilt nur fuer dieselbe Sortierung. Ungueltige Werte: 422 mit Feldname.
+         *     WP-D9: source (Eingangsquelle), has_open_suggestions (true = mindestens ein offener Vorschlag, false = keiner); jedes Dokument traegt source und open_suggestions.
+         *     totals=true liefert zusaetzlich totals: Summe der Betraege der gesamten gefilterten Menge (nicht nur der Seite, ohne Cursor) je Waehrung als Dezimalzeichenkette;
+         *     Dokumente ohne Betrag zaehlen nicht, Betraege ohne Waehrung bilden eine eigene Gruppe (currency null); der Papierkorb zaehlt nur mit trashed=true.
          */
         get: operations["listDmsDocuments"];
         put?: never;
@@ -1071,6 +1095,9 @@ export interface paths {
          *     Sortierung nach Relevanz (absteigend), Volltexttreffer (score >= 1) vor Tippfehler-Treffern (score < 1). Cursor-Pagination wie ueberall (der Cursor ist an dieselbe Anfrage gebunden).
          *     Treffer im snippet stehen zwischen U+E000 und U+E001 (private Zeichen, kein HTML; der Client escaped den Text selbst).
          *     Facetten (facets=true) zaehlen ueber die gesamte gefilterte Treffermenge, je Facette die haeufigsten 20 Werte.
+         *     WP-D9: dieselben Extraktions-, Quellen- und Vorschlagsfilter und dieselbe Sortierung wie GET documents (kind, kind_certain, currency, amount_min/max, extracted_from/to, due_from/to, reference, source,
+         *     has_open_suggestions, sort, order); ohne q liefert die Suche bei gleichem Filter dieselbe Menge wie GET documents. sort = relevance (Standard) oder created_at, amount, extracted_date, due_date
+         *     (dann gilt order, Standard asc, und der Cursor den Sortierwert wie bei GET documents). Jeder Treffer traegt source, open_suggestions und die Uebersichtswerte der Extraktion (extraction).
          */
         get: operations["searchDmsDocuments"];
         put?: never;
@@ -1945,6 +1972,10 @@ export interface components {
             updated_at: string;
             /** @description Fuer If-Match */
             rev: number;
+            /** @description WP-D9: Eingangsquelle (der Server liefert sie immer; im Schema nicht Pflicht, damit aeltere Clients und Testdaten gueltig bleiben) */
+            source?: components["schemas"]["DmsDocumentSource"];
+            /** @description WP-D9: Anzahl offener Vorschlaege */
+            open_suggestions?: number;
             /** @description Nur in der Einzelansicht */
             tag_ids?: string[];
             /** @description Wert je Feldcode (nur Einzelansicht) */
@@ -1961,6 +1992,31 @@ export interface components {
             ingest_item_id?: string;
             /** @description WP-D7: Dokumentart und wichtigste Fakten; fehlt, solange nichts extrahiert wurde. In der Liste ohne facts/reasons/invoice. */
             extraction?: components["schemas"]["DmsExtraction"];
+        };
+        /**
+         * @description upload = Oberflaeche/Upload-Route, mail = Mail-Postfach, folder = Konsumordner, share = Share-/Scan-API (Api-Token), import = Paperless-Import, api = sonstige API, unknown = Bestand ohne erkennbare Herkunft
+         * @enum {string}
+         */
+        DmsDocumentSource: "upload" | "mail" | "folder" | "share" | "import" | "api" | "unknown";
+        DmsCurrencyTotal: {
+            /** @description null = Betrag ohne erkannte Waehrung (nie mit anderen Waehrungen vermischt) */
+            currency: string | null;
+            /** @description Dezimalzeichenkette, nie Gleitkomma */
+            sum: string;
+            /** @description Dokumente mit Betrag in dieser Waehrung */
+            count: number;
+        };
+        DmsStats: {
+            /** @description Dokumente in Verarbeitung (Eingangsvorgang nicht done und nicht failed_permanent) */
+            queued: number;
+            /** @description Dokumente in Quarantaene (failed_permanent) */
+            failed: number;
+            /** @description Dokumente mit mindestens einem offenen Vorschlag */
+            open_suggestions: number;
+            /** @description Dokumente mit Faelligkeit/Frist vor today; Vertraege zaehlen nicht */
+            overdue: number;
+            /** @description Eingang in den letzten 7 Tagen (Datenbankzeit) */
+            new_last_7_days: number;
         };
         /** @enum {string} */
         DmsDocumentKind: "invoice" | "receipt" | "contract" | "letter" | "bank_statement" | "insurance" | "tax_notice" | "reminder" | "other";
@@ -2060,6 +2116,10 @@ export interface components {
             score: number;
             /** @description Textauszug; Treffer zwischen U+E000 und U+E001, kein HTML */
             snippet?: string | null;
+            source?: components["schemas"]["DmsDocumentSource"];
+            open_suggestions?: number;
+            /** @description WP-D9: Dokumentart und Uebersichtswerte (Betrag, Waehrung, Datum, Faelligkeit, Referenz); fehlt ohne Extraktion */
+            extraction?: components["schemas"]["DmsExtraction"];
         };
         DmsFacetEntry: {
             /** @description ID (document_type, tag, correspondent, storage_path) bzw. Jahr (year) */
@@ -3859,6 +3919,35 @@ export interface operations {
             422: components["responses"]["Problem"];
         };
     };
+    getDmsStats: {
+        parameters: {
+            query?: {
+                today?: string;
+            };
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Zaehler */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmsStats"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
     listDmsDocuments: {
         parameters: {
             query?: {
@@ -3886,6 +3975,10 @@ export interface operations {
                 reference?: string;
                 sort?: "created_at" | "amount" | "extracted_date" | "due_date";
                 order?: "asc" | "desc";
+                source?: components["schemas"]["DmsDocumentSource"];
+                has_open_suggestions?: boolean;
+                /** @description Summe je Waehrung der gefilterten Menge mitliefern */
+                totals?: boolean;
             };
             header?: never;
             path: {
@@ -3906,6 +3999,8 @@ export interface operations {
                         items: components["schemas"]["DmsDocument"][];
                         next_cursor?: string | null;
                         total?: number | null;
+                        /** @description Nur mit totals=true */
+                        totals?: components["schemas"]["DmsCurrencyTotal"][];
                     };
                 };
             };
@@ -4842,6 +4937,20 @@ export interface operations {
                 date_from?: string;
                 /** @description doc_date <= (inklusive) */
                 date_to?: string;
+                kind?: components["schemas"]["DmsDocumentKind"];
+                kind_certain?: boolean;
+                currency?: string;
+                amount_min?: string;
+                amount_max?: string;
+                extracted_from?: string;
+                extracted_to?: string;
+                due_from?: string;
+                due_to?: string;
+                reference?: string;
+                source?: components["schemas"]["DmsDocumentSource"];
+                has_open_suggestions?: boolean;
+                sort?: "relevance" | "created_at" | "amount" | "extracted_date" | "due_date";
+                order?: "asc" | "desc";
             };
             header?: never;
             path: {

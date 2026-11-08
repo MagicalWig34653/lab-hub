@@ -900,6 +900,23 @@ paths:
         "413": { $ref: "#/components/responses/Problem" }
         "415": { $ref: "#/components/responses/Problem" }
         "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/dms/stats:
+    get:
+      operationId: getDmsStats
+      summary: Dokumentzaehler fuer das Dashboard (Berechtigung dms.document.read)
+      description: |
+        WP-D9: Anzahl in der Warteschlange, in Quarantaene (failed_permanent), mit offenen Vorschlaegen, ueberfaellig (due_date vor today, Vertraege ausgenommen) und neu in den letzten 7 Tagen.
+        Papierkorb zaehlt nie mit; alles mandantengefiltert. today (Datum, Standard: Datenbankdatum) erlaubt dem Client seinen lokalen Tag.
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { name: today, in: query, schema: { type: string, format: date } }
+      responses:
+        "200": { description: Zaehler, content: { application/json: { schema: { $ref: "#/components/schemas/DmsStats" } } } }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
   /api/v1/tenants/{tenant}/dms/documents:
     get:
       operationId: listDmsDocuments
@@ -910,6 +927,9 @@ paths:
         extracted_from/extracted_to (Belegdatum aus dem Text), due_from/due_to (Faelligkeit/Frist), reference (genau, Rechnungsnummer oder Aktenzeichen).
         sort = created_at (Standard), amount, extracted_date oder due_date; order = asc (Standard) oder desc. Dokumente ohne den sortierten Wert stehen immer am Ende.
         Der Cursor gilt nur fuer dieselbe Sortierung. Ungueltige Werte: 422 mit Feldname.
+        WP-D9: source (Eingangsquelle), has_open_suggestions (true = mindestens ein offener Vorschlag, false = keiner); jedes Dokument traegt source und open_suggestions.
+        totals=true liefert zusaetzlich totals: Summe der Betraege der gesamten gefilterten Menge (nicht nur der Seite, ohne Cursor) je Waehrung als Dezimalzeichenkette;
+        Dokumente ohne Betrag zaehlen nicht, Betraege ohne Waehrung bilden eine eigene Gruppe (currency null); der Papierkorb zaehlt nur mit trashed=true.
       security: [{ bearer: [] }, { cookie: [] }]
       parameters:
         - { $ref: "#/components/parameters/Tenant" }
@@ -935,6 +955,9 @@ paths:
         - { name: reference, in: query, schema: { type: string, maxLength: 100 } }
         - { name: sort, in: query, schema: { type: string, enum: [created_at, amount, extracted_date, due_date], default: created_at } }
         - { name: order, in: query, schema: { type: string, enum: [asc, desc], default: asc } }
+        - { name: source, in: query, schema: { $ref: "#/components/schemas/DmsDocumentSource" } }
+        - { name: has_open_suggestions, in: query, schema: { type: boolean } }
+        - { name: totals, in: query, schema: { type: boolean, default: false }, description: "Summe je Waehrung der gefilterten Menge mitliefern" }
       responses:
         "200":
           description: Seite
@@ -947,6 +970,7 @@ paths:
                   items: { type: array, items: { $ref: "#/components/schemas/DmsDocument" } }
                   next_cursor: { type: [string, "null"] }
                   total: { type: [integer, "null"] }
+                  totals: { type: array, items: { $ref: "#/components/schemas/DmsCurrencyTotal" }, description: "Nur mit totals=true" }
         "400": { $ref: "#/components/responses/Problem" }
         "401": { $ref: "#/components/responses/Problem" }
         "403": { $ref: "#/components/responses/Problem" }
@@ -1585,6 +1609,9 @@ paths:
         Sortierung nach Relevanz (absteigend), Volltexttreffer (score >= 1) vor Tippfehler-Treffern (score < 1). Cursor-Pagination wie ueberall (der Cursor ist an dieselbe Anfrage gebunden).
         Treffer im snippet stehen zwischen U+E000 und U+E001 (private Zeichen, kein HTML; der Client escaped den Text selbst).
         Facetten (facets=true) zaehlen ueber die gesamte gefilterte Treffermenge, je Facette die haeufigsten 20 Werte.
+        WP-D9: dieselben Extraktions-, Quellen- und Vorschlagsfilter und dieselbe Sortierung wie GET documents (kind, kind_certain, currency, amount_min/max, extracted_from/to, due_from/to, reference, source,
+        has_open_suggestions, sort, order); ohne q liefert die Suche bei gleichem Filter dieselbe Menge wie GET documents. sort = relevance (Standard) oder created_at, amount, extracted_date, due_date
+        (dann gilt order, Standard asc, und der Cursor den Sortierwert wie bei GET documents). Jeder Treffer traegt source, open_suggestions und die Uebersichtswerte der Extraktion (extraction).
       security: [{ bearer: [] }, { cookie: [] }]
       parameters:
         - { $ref: "#/components/parameters/Tenant" }
@@ -1600,6 +1627,20 @@ paths:
         - { name: tag_id, in: query, schema: { type: string }, description: "Eine oder mehrere Tag-IDs, durch Komma getrennt (hoechstens 10); alle muessen zutreffen" }
         - { name: date_from, in: query, schema: { type: string, format: date }, description: "doc_date >= (inklusive)" }
         - { name: date_to, in: query, schema: { type: string, format: date }, description: "doc_date <= (inklusive)" }
+        - { name: kind, in: query, schema: { $ref: "#/components/schemas/DmsDocumentKind" } }
+        - { name: kind_certain, in: query, schema: { type: boolean } }
+        - { name: currency, in: query, schema: { type: string, pattern: "^[A-Z]{3}$" } }
+        - { name: amount_min, in: query, schema: { type: string, pattern: "^-?[0-9]{1,13}(\\.[0-9]{1,2})?$" } }
+        - { name: amount_max, in: query, schema: { type: string, pattern: "^-?[0-9]{1,13}(\\.[0-9]{1,2})?$" } }
+        - { name: extracted_from, in: query, schema: { type: string, format: date } }
+        - { name: extracted_to, in: query, schema: { type: string, format: date } }
+        - { name: due_from, in: query, schema: { type: string, format: date } }
+        - { name: due_to, in: query, schema: { type: string, format: date } }
+        - { name: reference, in: query, schema: { type: string, maxLength: 100 } }
+        - { name: source, in: query, schema: { $ref: "#/components/schemas/DmsDocumentSource" } }
+        - { name: has_open_suggestions, in: query, schema: { type: boolean } }
+        - { name: sort, in: query, schema: { type: string, enum: [relevance, created_at, amount, extracted_date, due_date], default: relevance } }
+        - { name: order, in: query, schema: { type: string, enum: [asc, desc], default: asc } }
       responses:
         "200":
           description: Trefferseite
@@ -2853,12 +2894,35 @@ components:
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
         rev: { type: integer, description: "Fuer If-Match" }
+        source: { $ref: "#/components/schemas/DmsDocumentSource", description: "WP-D9: Eingangsquelle (der Server liefert sie immer; im Schema nicht Pflicht, damit aeltere Clients und Testdaten gueltig bleiben)" }
+        open_suggestions: { type: integer, minimum: 0, description: "WP-D9: Anzahl offener Vorschlaege" }
         tag_ids: { type: array, items: { type: string, format: uuid }, description: Nur in der Einzelansicht }
         fields: { type: object, additionalProperties: true, description: "Wert je Feldcode (nur Einzelansicht)" }
         files: { type: array, items: { $ref: "#/components/schemas/DmsFile" } }
         duplicates: { type: array, items: { type: string, format: uuid }, description: "Nur beim Upload: Dokumente mit gleichem Original" }
         ingest_item_id: { type: string, format: uuid, description: "Nur beim Upload: Eingangsvorgang; Fortschritt ueber GET .../documents/{document}/processing" }
         extraction: { $ref: "#/components/schemas/DmsExtraction", description: "WP-D7: Dokumentart und wichtigste Fakten; fehlt, solange nichts extrahiert wurde. In der Liste ohne facts/reasons/invoice." }
+    # --- WP-D9 ---
+    DmsDocumentSource:
+      type: string
+      enum: [upload, mail, folder, share, import, api, unknown]
+      description: "upload = Oberflaeche/Upload-Route, mail = Mail-Postfach, folder = Konsumordner, share = Share-/Scan-API (Api-Token), import = Paperless-Import, api = sonstige API, unknown = Bestand ohne erkennbare Herkunft"
+    DmsCurrencyTotal:
+      type: object
+      required: [currency, sum, count]
+      properties:
+        currency: { type: [string, "null"], pattern: "^[A-Z]{3}$", description: "null = Betrag ohne erkannte Waehrung (nie mit anderen Waehrungen vermischt)" }
+        sum: { type: string, pattern: "^-?[0-9]+\\.[0-9]{2}$", description: "Dezimalzeichenkette, nie Gleitkomma" }
+        count: { type: integer, minimum: 1, description: "Dokumente mit Betrag in dieser Waehrung" }
+    DmsStats:
+      type: object
+      required: [queued, failed, open_suggestions, overdue, new_last_7_days]
+      properties:
+        queued: { type: integer, minimum: 0, description: "Dokumente in Verarbeitung (Eingangsvorgang nicht done und nicht failed_permanent)" }
+        failed: { type: integer, minimum: 0, description: "Dokumente in Quarantaene (failed_permanent)" }
+        open_suggestions: { type: integer, minimum: 0, description: "Dokumente mit mindestens einem offenen Vorschlag" }
+        overdue: { type: integer, minimum: 0, description: "Dokumente mit Faelligkeit/Frist vor today; Vertraege zaehlen nicht" }
+        new_last_7_days: { type: integer, minimum: 0, description: "Eingang in den letzten 7 Tagen (Datenbankzeit)" }
     # --- WP-D7 ---
     DmsDocumentKind:
       type: string
@@ -2943,6 +3007,9 @@ components:
         created_at: { type: string, format: date-time }
         score: { type: number, format: double, description: "Relevanz; Volltexttreffer >= 1, reine Tippfehler-Treffer < 1" }
         snippet: { type: [string, "null"], description: "Textauszug; Treffer zwischen U+E000 und U+E001, kein HTML" }
+        source: { $ref: "#/components/schemas/DmsDocumentSource" }
+        open_suggestions: { type: integer, minimum: 0 }
+        extraction: { $ref: "#/components/schemas/DmsExtraction", description: "WP-D9: Dokumentart und Uebersichtswerte (Betrag, Waehrung, Datum, Faelligkeit, Referenz); fehlt ohne Extraktion" }
     DmsFacetEntry:
       type: object
       required: [value, count]

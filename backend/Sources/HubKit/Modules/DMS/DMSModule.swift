@@ -59,7 +59,7 @@ public struct DMSModule: HubModule {
          PermissionDefinition("dms.import.manage", roles: [.accountant])] + Self.rulePermissions   // WP-D3: dms.rule.*, dms.suggestion.*
     }
 
-    public var migrations: [any Migration] { [CreateDMSCore(), CreateDMSIngest(), CreateDMSSearch(), CreateDMSOCR(), CreateDMSRules(), CreateDMSRevision(), CreateDMSSources(), CreateDMSImport(), CreateDMSExtraction()] }
+    public var migrations: [any Migration] { [CreateDMSCore(), CreateDMSIngest(), CreateDMSSearch(), CreateDMSOCR(), CreateDMSRules(), CreateDMSRevision(), CreateDMSSources(), CreateDMSImport(), CreateDMSExtraction(), CreateDMSDocumentSource()] }
     public var navigation: [NavigationItem] { [NavigationItem(key: "dms", labelKey: "nav.dms", path: "/dms", permission: "dms.document.read")] }
 
     func makeStore(_ req: Request) throws -> any ObjectStore {
@@ -91,7 +91,18 @@ public struct DMSModule: HubModule {
             }
             filter.q = req.query["q"]
             try DMSExtractionQuery.apply(req, to: &filter)
-            return try dmsJSON(try await DMSDocuments.list(tenant: try req.requireTenant().tenantID, page: try HubPageRequest(req), filter: filter, on: req.db))
+            var withTotals = false
+            if let raw: String = req.query["totals"] {
+                guard raw == "true" || raw == "false" else { throw DMSError.invalid("totals") }
+                withTotals = raw == "true"
+            }
+            return try dmsJSON(try await DMSDocuments.list(tenant: try req.requireTenant().tenantID, page: try HubPageRequest(req), filter: filter, withTotals: withTotals, on: req.db))
+        }
+        // WP-D9: Zähler für das Dashboard
+        routes.on(.GET, "stats", permission: "dms.document.read") { req in
+            var today: String?
+            if let raw: String = req.query["today"] { today = try DMSError.date(raw, "today") }
+            return try dmsJSON(try await DMSStats.load(tenant: try req.requireTenant().tenantID, today: today, on: try sql(req.db)))
         }
         routes.on(.GET, "documents", ":document", permission: "dms.document.read") { req in
             guard let doc = try await DMSDocuments.load(try dmsDocumentID(req), tenant: try req.requireTenant().tenantID, on: try sql(req.db)) else { throw DMSError.notFound }

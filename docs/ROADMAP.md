@@ -34,6 +34,7 @@ Ausgangsstand (vorhanden, getestet laut `deploy/README.md`/Tests): `migrate`, `s
 | | D4 | Quellen: Mail-Ingest, Konsumordner, Share-API | O1 | L | P D3 | offen |
 | | D7 | Dokumenterkennung (alle Arten, voll: Rechnung) im Mail-Eingang und OCR-Text; Mail als Original, HTML-Text | D3, D4 | L | | umgesetzt (Branch wp-D7, `docs/handoff/WP-D7.md`) |
 | | D8 | Weitere Dokumentarten im Extraktor: Vertrag, Versicherung, Behörde/Steuer, Kontoauszug, Kassenbon mit eigenen Fakten | D7 | M | | umgesetzt (Branch wp-D8, `docs/handoff/WP-D8.md`) |
+| | D9 | Backend-Lücken der Dokumentübersicht: Summe je Währung, Quelle am Dokument, Suche mit Extraktionswerten/-filtern/Sortierung, `has_open_suggestions`, Dashboard-Zähler | D7, D4, D6, F4c | M | | umgesetzt (Branch wp-D9, `docs/handoff/WP-D9.md`) |
 | | D5 | Revisionssicherheit: Löschkonzept, Prüf-Job, Export | D2 | M | P D3, D4 | offen |
 | | D6 | Paperless-Import | D2, D3 | M | P D5 | offen |
 | | F5 | DMS-UI: Prüfen, Regeln, Stammdaten, Papierkorb | F4, D3, D5 | M | | offen |

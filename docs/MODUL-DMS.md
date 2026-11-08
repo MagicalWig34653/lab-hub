@@ -147,6 +147,15 @@ Akzeptanz: gleiche Eingabe + gleiche Regelversion = gleiche Vorschläge (determi
 - Qualitätsprüfung (ADR 0001 „Offen“): 200 synthetische deutsche OCR-Texte mit Rauschen (Zahlendreher, Trennungen), Soll-Treffer pro Anfrage; Recall@10 ≥ 0,9 für Wortstamm-Anfragen **[Annahme Schwelle]**.
 - Akzeptanz: „Rechnung“ findet „Rechnungen“ und „Rechnungsnummer“ nicht (Komposita!) – bekannte Grenze der deutschen Wortstämme; Gegenmaßnahme `pg_trgm`-Fallback, im Test dokumentiert.
 
+### 6.1 Übersicht, Summen, Quelle und Zähler (WP-D9)
+
+- **Gemeinsamer Filtersatz:** `GET dms/documents` und `GET dms/search` verwenden dieselben Bedingungen (`DMSDocuments.extractionConditions`): Art, Sicherheit, Währung, Betrag von/bis, Belegdatum, Fälligkeit, Referenz, `source`, `has_open_suggestions`. Ohne `q` liefert die Suche bei gleichem Filter dieselbe Menge wie die Liste. `sort`/`order` gelten an beiden Routen; die Suche kennt zusätzlich `sort=relevance` (Standard, Cursor = Score).
+- **Suchtreffer** tragen `source`, `open_suggestions` und `extraction` (Übersichtswerte: Art, Betrag, Währung, Belegdatum, Fälligkeit, Referenz), damit die Oberfläche keine Einzelabrufe je Zeile braucht.
+- **Summe je Währung:** `GET dms/documents?totals=true` liefert `totals` (`currency`, `sum` als Dezimalzeichenkette aus `numeric`, `count`) über die gesamte gefilterte Menge, ohne Cursor; Papierkorb nur mit `trashed=true`; Beträge ohne Währung bilden die Gruppe `currency: null`. Das Feld `total` (mit `count=true`) zählt weiterhin nur nach Papierkorb, nicht nach den übrigen Filtern.
+- **Quelle:** `dms_documents.source` = `upload` | `mail` | `folder` | `share` (Share-/Scan-API mit Api-Token) | `import` (Paperless) | `api` | `unknown`. Setzt der Anlegepfad (`DMSDocuments.create`, Standard aus dem Eingangsvorgang, Import überschreibt); Migration `dms_025_document_source` füllt den Bestand aus dem frühesten Eingangsvorgang (`api` mit Herkunft `paperless:` = `import`), dann aus `mail_attachment`-Verknüpfungen, sonst `unknown`.
+- **Offene Vorschläge:** `open_suggestions` je Dokument (Zählung nur für die Seite, Index `dms_suggestions_open_document`), Filter `has_open_suggestions`.
+- **Zähler:** `GET dms/stats` (Recht `dms.document.read`): `queued`, `failed` (Quarantäne), `open_suggestions`, `overdue` (Fälligkeit vor `today`, Standard Datenbankdatum; Verträge zählen nicht), `new_last_7_days`; je Dokument einmal gezählt, Papierkorb nie.
+
 ## 7. Speicherpfade und Dateinamen
 
 - **Physisch** immer inhaltsadressiert (ARCHITEKTUR 4.5), nie vom Titel abhängig.
