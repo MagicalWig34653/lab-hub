@@ -8,10 +8,20 @@ import Crypto
 // das Präfix erlaubt später einen Schlüsselwechsel (Neuverschlüsseln pro Version). Wer SECRET_KEY verliert, muss die Passwörter neu eintragen.
 
 struct SecretBox: Sendable {
-    static let minimumKeyLength = 16
+    /// WP-H10 (Befund 7): mindestens 32 Byte (z. B. liefert `openssl rand -base64 32` 44 Zeichen). Kürzere Schlüssel werden nicht verwendet.
+    static let minimumKeyLength = 32
     private let key: SymmetricKey
 
     enum Failure: Error, Equatable { case keyMissing, invalidFormat, authenticationFailed }
+
+    /// Meldung für Start/Anlegen, wenn ein Schlüssel gesetzt, aber zu kurz ist.
+    static let tooShortMessage = "SECRET_KEY ist zu kurz: mindestens 32 Byte erforderlich (Erzeugung: openssl rand -base64 32)."
+
+    /// Ein gesetzter, aber zu kurzer Schlüssel ist ein Konfigurationsfehler (nicht „kein Schlüssel“).
+    static func isTooShort(_ secretKey: String?) -> Bool {
+        guard let secretKey, !secretKey.isEmpty else { return false }
+        return secretKey.utf8.count < minimumKeyLength
+    }
 
     /// `nil`, wenn der Schlüssel fehlt oder zu kurz ist (kein stiller Rückfall auf einen schwachen Schlüssel).
     init?(secretKey: String?) {

@@ -5,11 +5,11 @@ import NIOSSL
 
 // WP-D6: Quelle `api`: REST-API einer Paperless-ngx-Instanz, nur lesend (GET), Token im Header `Authorization`. Schutzmaßnahmen (SSRF, Geheimnis):
 // - nur https (TLS ab 1.2 mit voller Zertifikatsprüfung); `http` und Loopback nur mit `DMS_IMPORT_INSECURE_DEV=true` (Entwicklung/Test),
-// - Host-Allowlist `DMS_IMPORT_HOST_ALLOWLIST` (Komma, `host` oder `host:port`; Standard keine Einschränkung, wie bei der Mail-Quelle D4), Loopback, Link-Local
-//   (Metadaten-Adressen) und `localhost` sind ohne den Entwicklungsschalter immer gesperrt,
+// - Host-Allowlist `DMS_IMPORT_HOST_ALLOWLIST` (Komma, `host` oder `host:port`; Standard keine Einschränkung, wie bei der Mail-Quelle D4). WP-H10: interne Ziele (Loopback, private Netze,
+//   Link-Local inkl. Metadaten, ULA, IPv4-in-IPv6, alle IP-Schreibweisen) sind ohne `DMS_ALLOW_INTERNAL_TARGETS=true` (oder den Entwicklungsschalter) gesperrt; vor jedem Lauf wird der Host
+//   aufgelöst, ALLE Adressen werden geprüft und die geprüfte IP wird für den Connect festgelegt (`dnsOverride`, TLS-Servername bleibt der Host: Schutz vor DNS-Rebinding),
 // - keine Weiterleitungen (das Token geht nur an den eingetragenen Host), keine URL mit Zugangsdaten, Query oder Fragment,
 // - Antworten und Fehler tragen nie URL, Token oder Servertext, nur Fehlercodes.
-// Nicht geprüft: DNS-Auflösung auf interne Adressen (DNS-Rebinding); Gegenmittel nur per Netzwerkregel des Betreibers.
 
 struct PaperlessEndpoint: Sendable, Equatable {
     let base: String        // z. B. https://paperless.example.org (ohne Schrägstrich am Ende)
@@ -20,9 +20,14 @@ struct PaperlessEndpoint: Sendable, Equatable {
     struct Policy: Sendable {
         var insecureDev = false
         var allowlist: [String]?
+        /// Interne Ziele ausdrücklich erlaubt (`DMS_ALLOW_INTERNAL_TARGETS=true`, Test/Heim-Setups) oder Entwicklungsschalter.
+        var allowInternalTargets = false
+        var allowInternal: Bool { insecureDev || allowInternalTargets }
+        var resolver: NetworkTarget.Resolver = NetworkTarget.systemResolver
         static func fromEnvironment(_ env: [String: String] = ProcessInfo.processInfo.environment) -> Policy {
             var p = Policy()
             p.insecureDev = env["DMS_IMPORT_INSECURE_DEV"] == "true"
+            p.allowInternalTargets = NetworkTargetPolicy.fromEnvironment(env).allowInternal
             if let l = env["DMS_IMPORT_HOST_ALLOWLIST"], !l.isEmpty { p.allowlist = l.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces).lowercased() } }
             return p
         }
@@ -39,17 +44,26 @@ struct PaperlessEndpoint: Sendable, Equatable {
         var path = c.path
         while path.hasSuffix("/") { path.removeLast() }
         guard path.isEmpty || (path.hasPrefix("/") && !path.contains("..") && path.count <= 100) else { throw ImportError("invalid_url") }
-        if !policy.insecureDev, isInternal(host) { throw ImportError("host_not_allowed") }
+        if !policy.allowInternal, isInternal(host) { throw ImportError("host_not_allowed") }
         if let list = policy.allowlist, !list.contains(host), !list.contains("\(host):\(port)") { throw ImportError("host_not_allowed") }
         return PaperlessEndpoint(base: "\(scheme)://\(host)\(c.port.map { ":\($0)" } ?? "")\(path)", host: host, port: port)
     }
 
+    /// Interner Host nach der gemeinsamen Sperrliste (`NetworkTarget`): jedes IP-Literal (auch `127.1`, Dezimal, Hex, `::ffff:127.0.0.1`) und interne Namen.
     static func isInternal(_ host: String) -> Bool {
-        let h = host.trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
-        if h == "localhost" || h.hasSuffix(".localhost") || h == "metadata.google.internal" || h == "::1" || h == "::" || h.hasPrefix("fe80:") { return true }
-        let o = h.split(separator: ".").compactMap { Int($0) }
-        if o.count == 4 { return o[0] == 127 || o[0] == 0 || (o[0] == 169 && o[1] == 254) }
-        return false
+        if let ip = NetworkTarget.parseLiteral(host) { return NetworkTarget.isInternal(ip) }
+        return NetworkTarget.isInternalName(host)
+    }
+
+    /// Auflösung und Prüfung vor dem Lauf. Rückgabe: IP, auf die der Connect festgelegt wird (`nil` bei IP-Literal: dort gibt es nichts umzulenken).
+    /// Fehler: `host_not_allowed` (eine aufgelöste Adresse ist intern), `source_unreachable` (nicht auflösbar).
+    static func vetTarget(_ endpoint: PaperlessEndpoint, policy: Policy) async throws -> String? {
+        let ips: [NetworkTarget.IP]
+        do { ips = try await NetworkTarget.resolve(host: endpoint.host, policy: NetworkTargetPolicy(allowInternal: policy.allowInternal), resolver: policy.resolver) }
+        catch let e as NetworkTargetError { throw ImportError(e == .notAllowed ? "host_not_allowed" : "source_unreachable") }
+        if NetworkTarget.parseLiteral(endpoint.host) != nil { return nil }
+        let preferred = ips.first { if case .v4 = $0 { true } else { false } } ?? ips[0]
+        return preferred.text
     }
 }
 
@@ -60,12 +74,14 @@ struct PaperlessAPISource: PaperlessSource {
     let client: HTTPClient
     var key: String { endpoint.key }
 
-    static func makeClient() -> HTTPClient {
+    /// `pinnedIP`: Ergebnis von `PaperlessEndpoint.vetTarget`; der Connect geht an genau diese IP, der TLS-Servername bleibt der Host (kein zweiter DNS-Lookup).
+    static func makeClient(host: String? = nil, pinnedIP: String? = nil) -> HTTPClient {
         var tls = TLSConfiguration.makeClientConfiguration()
         tls.minimumTLSVersion = .tlsv12
         tls.certificateVerification = .fullVerification
         var config = HTTPClient.Configuration(tlsConfiguration: tls, redirectConfiguration: .disallow)
         config.timeout = .init(connect: .seconds(15), read: .seconds(60))
+        if let host, let pinnedIP { config.dnsOverride = [host: pinnedIP] }
         return HTTPClient(eventLoopGroupProvider: .singleton, configuration: config)
     }
 

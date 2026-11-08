@@ -43,6 +43,8 @@ enum DMSMailPoll {
             let password: String
             do { password = try box.open(sealed, tenant: tenant, source: source.id) } catch { throw IMAPError(code: "secret_unreadable") }
             let objectStore = try storeConfig()
+            // WP-H10: die Betreiber-Allowlist gilt auch im Worker (nicht nur beim Speichern); Port- und Zielprüfung macht `IMAPClient.withSession` vor dem Connect.
+            guard DMSSources.hostAllowed(config.host) else { throw IMAPError.targetNotAllowed }
             try await IMAPClient.withSession(host: config.host, port: config.port, user: config.username, password: password, options: imap) { session in
                 try await session.select(config.mailbox)
                 let uids = try await session.searchUnseen(from: config.sender_contains, subject: config.subject_contains)

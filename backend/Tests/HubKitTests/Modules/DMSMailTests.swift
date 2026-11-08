@@ -56,6 +56,7 @@ final class GreenMail: @unchecked Sendable {
 
     func waitUntilReady() async throws {
         var options = IMAPOptions(); options.verifyCertificate = false; options.sessionTimeout = .seconds(10)
+        options.targetPolicy = NetworkTargetPolicy(allowInternal: true); options.allowedPorts = [port]   // WP-H10: GreenMail läuft auf localhost, ausdrücklich erlaubt
         let end = Date().addingTimeInterval(90)
         while Date() < end {
             do { try await IMAPClient.withSession(host: "127.0.0.1", port: port, user: "mail6", password: d4Canary, options: options) { _ in () }; return }
@@ -67,16 +68,22 @@ final class GreenMail: @unchecked Sendable {
 
 final class DMSMailTests: DMSSourceTestBase {
     var mail: GreenMail!
-    var insecure: IMAPOptions { var o = IMAPOptions(); o.verifyCertificate = false; o.sessionTimeout = .seconds(30); return o }
+    var insecure: IMAPOptions {
+        var o = IMAPOptions(); o.verifyCertificate = false; o.sessionTimeout = .seconds(30)
+        o.targetPolicy = NetworkTargetPolicy(allowInternal: true); o.allowedPorts = [mail.port]   // WP-H10: Testserver auf localhost ausdrücklich erlaubt
+        return o
+    }
 
     override func setUp() async throws {
         try await super.setUp()
         mail = try GreenMail.acquire()
         try await mail.waitUntilReady()
         setenv("DMS_MAIL_TLS_VERIFY", "false", 1)   // Verbindungstest-Route liest die Betreiber-Umgebung
+        setenv("DMS_ALLOW_INTERNAL_TARGETS", "true", 1)          // WP-H10: GreenMail auf localhost ausdrücklich erlauben
+        setenv("DMS_MAIL_PORT_ALLOWLIST", String(mail.port), 1)
     }
     override func tearDown() async throws {
-        unsetenv("DMS_MAIL_TLS_VERIFY")
+        unsetenv("DMS_MAIL_TLS_VERIFY"); unsetenv("DMS_ALLOW_INTERNAL_TARGETS"); unsetenv("DMS_MAIL_PORT_ALLOWLIST")
         try await super.tearDown()
     }
 
@@ -111,7 +118,7 @@ final class DMSMailTests: DMSSourceTestBase {
     }
 
     func createMailSource(_ w: World, user: String, password: String = d4Canary, extra: [String: Any] = [:]) async throws -> String {
-        var config: [String: Any] = ["host": "127.0.0.1", "port": mail.port, "username": user, "processed_mailbox": "Verarbeitet", "include_body": true, "interval_seconds": 30]
+        var config: [String: Any] = ["host": "localhost", "port": mail.port, "username": user, "processed_mailbox": "Verarbeitet", "include_body": true, "interval_seconds": 30]
         for (k, v) in extra { config[k] = v }
         let r = try await call(app1, .POST, src(w.tenantA), json: ["kind": "mail", "name": "Postfach \(user) \(UUID().uuidString.prefix(5))", "password": password, "config": config], token: w.alice.token)
         XCTAssertEqual(r.status, .created, "\(r.json)")
@@ -198,7 +205,7 @@ final class DMSMailTests: DMSSourceTestBase {
         try await seed("mail2", [message(subject: "Gehört dazu", id: "f1", attachments: [("a.pdf", "application/pdf", pdf("f1"))]),
                                  message(from: "Werbung <spam@example.net>", subject: "Angebot", id: "f2", attachments: [("b.pdf", "application/pdf", pdf("f2"))])])
         let id = try await createMailSource(w, user: "mail2", extra: ["sender_contains": "billing@example.org", "include_body": false, "processed_mailbox": NSNull()])
-        let cfg = try await call(app1, .PATCH, src(w.tenantA) + "/\(id)", json: ["config": ["host": "127.0.0.1", "port": mail.port, "username": "mail2", "sender_contains": "billing@example.org", "include_body": false]], token: w.alice.token)
+        let cfg = try await call(app1, .PATCH, src(w.tenantA) + "/\(id)", json: ["config": ["host": "localhost", "port": mail.port, "username": "mail2", "sender_contains": "billing@example.org", "include_body": false]], token: w.alice.token)
         XCTAssertEqual(cfg.status, .ok, "\(cfg.json)")
         let run = worker(db, log: log)
         try await runWorker(run, until: "Lauf") { try await self.runs(id) >= 1 }
@@ -368,5 +375,134 @@ final class DMSMailTests: DMSSourceTestBase {
         let stats = try await call(app1, .GET, src(w.tenantA) + "/\(id)", token: w.alice.token)
         XCTAssertEqual((stats.json["last_stats"] as? [String: Any])?["messages"] as? Int, 0, "keine erneute Verarbeitung: \(stats.json)")
         try await aEq(try await count("dms_documents"), 1)
+    }
+}
+
+
+/// WP-H10: Befunde 2, 3 und 8 ohne Docker (Validierung, Zielprüfung, feindlicher IMAP-Testserver).
+final class NetworkTargetTests: XCTestCase {
+    private func resolver(_ map: [String: [NetworkTarget.IP]]) -> NetworkTarget.Resolver { { host in map[host] ?? [] } }
+    private func v4(_ a: UInt8, _ b: UInt8, _ c: UInt8, _ d: UInt8) -> NetworkTarget.IP { .v4([a, b, c, d]) }
+
+    /// AK-H10-3: alle Schreibweisen interner Adressen sind gesperrt, öffentliche nicht.
+    func testAKH10_3_internalAddressesInEveryNotation() {
+        let internalHosts = ["127.0.0.1", "127.1", "2130706433", "0x7f000001", "0x7f.0.0.1", "017700000001", "0", "0.0.0.0", "10.0.0.5", "10.255.255.255", "172.16.0.1", "172.31.255.255",
+                             "192.168.1.1", "169.254.169.254", "100.64.0.1", "224.0.0.1", "255.255.255.255", "[::1]", "::1", "::", "[::ffff:127.0.0.1]", "::ffff:7f00:1", "::ffff:10.0.0.1",
+                             "::ffff:169.254.169.254", "fc00::1", "fd12:3456::1", "fe80::1", "fe80::1%en0", "64:ff9b::7f00:1", "2002:7f00:1::1", "ff02::1", "::127.0.0.1"]
+        for h in internalHosts {
+            let ip = NetworkTarget.parseLiteral(h)
+            XCTAssertNotNil(ip, "\(h) muss als Literal erkannt werden")
+            XCTAssertTrue(ip.map(NetworkTarget.isInternal) ?? false, "\(h) muss intern sein")
+        }
+        for h in ["8.8.8.8", "93.184.216.34", "172.32.0.1", "172.15.255.255", "192.169.0.1", "100.63.255.255", "100.128.0.1", "2606:4700:4700::1111", "::ffff:8.8.8.8"] {
+            let ip = NetworkTarget.parseLiteral(h)
+            XCTAssertNotNil(ip, h)
+            XCTAssertFalse(ip.map(NetworkTarget.isInternal) ?? true, "\(h) ist öffentlich")
+        }
+        XCTAssertNil(NetworkTarget.parseLiteral("imap.example.org"))
+        for n in ["localhost", "LOCALHOST.", "x.localhost", "metadata.google.internal", "printer.local", "db.internal", "nas.lan"] { XCTAssertTrue(NetworkTarget.isInternalName(n), n) }
+        XCTAssertFalse(NetworkTarget.isInternalName("imap.example.org"))
+        XCTAssertTrue(PaperlessEndpoint.isInternal("127.1")); XCTAssertTrue(PaperlessEndpoint.isInternal("2130706433")); XCTAssertTrue(PaperlessEndpoint.isInternal("::ffff:127.0.0.1"))
+        XCTAssertTrue(PaperlessEndpoint.isInternal("10.1.2.3")); XCTAssertTrue(PaperlessEndpoint.isInternal("fc00::1")); XCTAssertFalse(PaperlessEndpoint.isInternal("paperless.example.org"))
+    }
+
+    /// AK-H10-3: Auflösung — jede interne Adresse genügt zur Ablehnung (auch gemischt), DNS-Rebinding-Fall; mit Betreiber-Erlaubnis geht es durch; einheitlicher Code.
+    func testAKH10_3_resolveChecksAllAddressesAndAllowsOperatorOverride() async throws {
+        let r = resolver(["ok.example.org": [v4(93, 184, 216, 34)], "evil.example.org": [v4(93, 184, 216, 34), v4(127, 0, 0, 1)], "rebind.example.org": [v4(169, 254, 169, 254)],
+                          "v6.example.org": [.v6([0x26, 0x06, 0x47, 0, 0x47, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x11, 0x11])], "gone.example.org": []])
+        let strict = NetworkTargetPolicy()
+        let ok = try await NetworkTarget.resolve(host: "ok.example.org", policy: strict, resolver: r)
+        XCTAssertEqual(ok, [v4(93, 184, 216, 34)])
+        _ = try await NetworkTarget.resolve(host: "v6.example.org", policy: strict, resolver: r)
+        for h in ["evil.example.org", "rebind.example.org", "127.0.0.1", "localhost", "10.1.1.1", "[::1]"] {
+            do { _ = try await NetworkTarget.resolve(host: h, policy: strict, resolver: r); XCTFail("\(h) muss gesperrt sein") } catch let e as NetworkTargetError { XCTAssertEqual(e, .notAllowed, h) }
+        }
+        do { _ = try await NetworkTarget.resolve(host: "gone.example.org", policy: strict, resolver: r); XCTFail() } catch let e as NetworkTargetError { XCTAssertEqual(e, .unresolvable) }
+        let open = NetworkTargetPolicy(allowInternal: true)
+        let evil = try await NetworkTarget.resolve(host: "evil.example.org", policy: open, resolver: r)
+        XCTAssertEqual(evil.count, 2)
+        _ = try await NetworkTarget.resolve(host: "127.0.0.1", policy: open, resolver: r)
+        XCTAssertFalse(NetworkTargetPolicy.fromEnvironment([:]).allowInternal)
+        XCTAssertTrue(NetworkTargetPolicy.fromEnvironment(["DMS_ALLOW_INTERNAL_TARGETS": "true"]).allowInternal)
+        XCTAssertFalse(NetworkTargetPolicy.fromEnvironment(["DMS_ALLOW_INTERNAL_TARGETS": "1"]).allowInternal, "nur ausdrücklich \"true\"")
+    }
+
+    /// AK-H10-3: Der IMAP-Client prüft Ziel und Port vor dem Connect — auch interne Ziele mit offenem und geschlossenem Port liefern denselben Code (kein Port-Orakel).
+    func testAKH10_3_imapClientRefusesInternalTargetsAndPortsWithOneCode() async throws {
+        let closed = try {   // ein sicher geschlossener lokaler Port
+            let l = try ServerSocketProbe(); return l.closedPort
+        }()
+        let options = IMAPOptions()   // Standard: intern gesperrt, nur 993
+        for (host, port) in [("127.0.0.1", 993), ("127.0.0.1", closed), ("127.0.0.1", 22), ("localhost", 993), ("10.0.0.1", 993), ("169.254.169.254", 80), ("[::1]", 993), ("2130706433", 993)] {
+            do { try await IMAPClient.withSession(host: host, port: port, user: "u", password: "p", options: options) { _ in () }; XCTFail("\(host):\(port)") }
+            catch let e as IMAPError { XCTAssertEqual(e.code, "target_not_allowed", "\(host):\(port)") }
+        }
+        // öffentliches Ziel, aber Port nicht in der Liste: ebenfalls derselbe Code, ohne dass verbunden wird
+        var pub = IMAPOptions(); pub.resolver = { _ in [.v4([93, 184, 216, 34])] }
+        do { try await IMAPClient.withSession(host: "imap.example.org", port: 25, user: "u", password: "p", options: pub) { _ in () }; XCTFail() }
+        catch let e as IMAPError { XCTAssertEqual(e.code, "target_not_allowed") }
+        XCTAssertEqual(IMAPOptions.allowedPorts([:]), [993])
+        XCTAssertEqual(IMAPOptions.allowedPorts(["DMS_MAIL_PORT_ALLOWLIST": "143, 1993,abc,0,70000"]), [993, 143, 1993])
+    }
+
+    /// AK-H10-2/3: Validierung beim Speichern: IP-Literale (auch exotische Schreibweisen) abgelehnt, interne Namen und Ports außerhalb der Liste abgelehnt, Betreiber-Env erlaubt.
+    func testAKH10_2_3_validateRejectsIPLiteralsInternalNamesAndPorts() throws {
+        func code(_ config: [String: Any], env: [String: String] = [:]) -> (String, String)? {
+            do { _ = try DMSSources.validate(kind: .mail, config: config, env: env); return nil }
+            catch let e as HubError { return (e.errors.first?.field ?? "", e.errors.first?.code ?? e.code) } catch { return ("?", "\(error)") }
+        }
+        let base: [String: Any] = ["host": "imap.example.org", "username": "u"]
+        XCTAssertNil(code(base))
+        for h in ["93.184.216.34", "127.0.0.1", "127.1", "2130706433", "0x7f000001", "::1", "fe80::1", "::ffff:127.0.0.1"] {
+            var c = base; c["host"] = h
+            let r = code(c)
+            XCTAssertEqual(r?.0, "config.host", h)
+            XCTAssertTrue(["ip_literal_not_allowed", "invalid"].contains(r?.1 ?? ""), "\(h): \(r?.1 ?? "-")")
+        }
+        var lit = base; lit["host"] = "93.184.216.34"
+        XCTAssertEqual(code(lit)?.1, "ip_literal_not_allowed", "Entscheidung: IP-Literale werden abgelehnt (auch öffentliche)")
+        XCTAssertEqual(code(lit, env: ["DMS_ALLOW_INTERNAL_TARGETS": "true"])?.1, "ip_literal_not_allowed", "auch mit Betreiber-Erlaubnis: nur DNS-Namen")
+        for h in ["localhost", "foo.localhost", "nas.local", "metadata.google.internal"] {
+            var c = base; c["host"] = h
+            XCTAssertEqual(code(c)?.1, "target_not_allowed", h)
+            XCTAssertNil(code(c, env: ["DMS_ALLOW_INTERNAL_TARGETS": "true"]), "\(h) mit Betreiber-Erlaubnis")
+        }
+        var p = base; p["port"] = 25
+        XCTAssertEqual(code(p)?.0, "config.port"); XCTAssertEqual(code(p)?.1, "port_not_allowed")
+        XCTAssertNil(code(p, env: ["DMS_MAIL_PORT_ALLOWLIST": "25,143"]))
+        p["port"] = 993; XCTAssertNil(code(p))
+        var hostList = base; hostList["host"] = "other.example.org"
+        XCTAssertEqual(code(hostList, env: ["DMS_MAIL_HOST_ALLOWLIST": "imap.example.org"])?.0, "config.host")
+    }
+
+    /// AK-H10-8: Feindlicher IMAP-Server (TLS, selbstsigniert) schickt endlos untagged-Zeilen bzw. riesige Literale: Abbruch mit `imap_response_too_large`, Speicher bleibt begrenzt.
+    func testAKH10_8_hostileServerResponsesAreBounded() async throws {
+        guard let server = try await HostileIMAPServer.make() else { throw XCTSkip("openssl nicht verfügbar: Test des feindlichen IMAP-Servers übersprungen") }
+        defer { Task { await server.stop() } }
+        var o = IMAPOptions(); o.verifyCertificate = false; o.sessionTimeout = .seconds(20)
+        o.targetPolicy = NetworkTargetPolicy(allowInternal: true); o.allowedPorts = [server.port]
+        o.maxResponseLines = 500; o.maxMessageBytes = 1024 * 1024; o.maxResponseBytes = 4 * 1024 * 1024
+        for mode in ["lines", "literals", "longline"] {
+            server.mode = mode
+            do { try await IMAPClient.withSession(host: "127.0.0.1", port: server.port, user: "u", password: "p", options: o) { s in try await s.select("INBOX") }; XCTFail(mode) }
+            catch let e as IMAPError { XCTAssertEqual(e.code, mode == "longline" ? "imap_protocol_error" : "imap_response_too_large", mode) }
+        }
+        server.mode = "normal"
+        try await IMAPClient.withSession(host: "127.0.0.1", port: server.port, user: "u", password: "p", options: o) { s in try await s.select("INBOX") }
+    }
+}
+
+/// Liefert einen sicher geschlossenen lokalen Port (gebunden, ermittelt, wieder freigegeben).
+struct ServerSocketProbe {
+    let closedPort: Int
+    init() throws {
+        let fd = socket(AF_INET, SOCK_STREAM, 0)
+        defer { close(fd) }
+        var addr = sockaddr_in(); addr.sin_family = sa_family_t(AF_INET); addr.sin_addr.s_addr = UInt32(0x7f000001).bigEndian; addr.sin_port = 0
+        var len = socklen_t(MemoryLayout<sockaddr_in>.size)
+        let bound = withUnsafePointer(to: &addr) { $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { bind(fd, $0, len) } }
+        guard bound == 0 else { throw XCTSkip("kein lokaler Port") }
+        _ = withUnsafeMutablePointer(to: &addr) { $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { getsockname(fd, $0, &len) } }
+        closedPort = Int(UInt16(bigEndian: addr.sin_port))
     }
 }

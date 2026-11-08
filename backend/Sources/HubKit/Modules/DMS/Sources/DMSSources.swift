@@ -131,7 +131,7 @@ enum DMSSources {
     }
 
     /// Prüft und normalisiert die Konfiguration (unbekannte Schlüssel = 422, Feld im Fehler). Geheimnisse gehören nie hierher (`password` steht außerhalb).
-    static func validate(kind: DMSSourceKind, config raw: [String: Any]) throws -> Data {
+    static func validate(kind: DMSSourceKind, config raw: [String: Any], env: [String: String] = ProcessInfo.processInfo.environment) throws -> Data {
         let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
         switch kind {
         case .mail:
@@ -139,10 +139,17 @@ enum DMSSources {
                 throw DMSError.invalid("config.\(k)", "unknown")
             }
             let host = try str(raw["host"], "config.host", max: 253)!.lowercased()
-            guard host.range(of: "^[a-z0-9]([a-z0-9.:-]*[a-z0-9])?$", options: .regularExpression) != nil, hostAllowed(host) else { throw DMSError.invalid("config.host") }
+            guard host.range(of: "^[a-z0-9]([a-z0-9.:-]*[a-z0-9])?$", options: .regularExpression) != nil, hostAllowed(host, env: env) else { throw DMSError.invalid("config.host") }
+            // WP-H10 (Befund 2): nur DNS-Namen. Bei IP-Literalen entfällt die Hostprüfung des Zertifikats (kein SNI, kein Namensabgleich); Zertifikate mit IP-SAN sind bei IMAP-Anbietern unüblich,
+            // und der Connect läuft ohnehin über eine vorab geprüfte IP mit dem DNS-Namen als TLS-Servernamen (Befund 3). Entscheidung: ablehnen statt SAN-IP prüfen.
+            guard NetworkTarget.parseLiteral(host) == nil else { throw DMSError.invalid("config.host", "ip_literal_not_allowed") }
+            // WP-H10 (Befund 3): interne Namen sind ohne `DMS_ALLOW_INTERNAL_TARGETS=true` gesperrt (die maßgebliche Prüfung folgt per Auflösung vor jedem Connect).
+            guard NetworkTargetPolicy.fromEnvironment(env).allowInternal || !NetworkTarget.isInternalName(host) else { throw DMSError.invalid("config.host", "target_not_allowed") }
             if let flag = raw["include_body"], !(flag is Bool) { throw DMSError.invalid("config.include_body") }
+            let port = try int(raw["port"], "config.port", range: 1...65535, default: 993)
+            guard IMAPOptions.allowedPorts(env).contains(port) else { throw DMSError.invalid("config.port", "port_not_allowed") }   // WP-H10: nur 993 oder `DMS_MAIL_PORT_ALLOWLIST`
             let config = MailSourceConfig(
-                host: host, port: try int(raw["port"], "config.port", range: 1...65535, default: 993),
+                host: host, port: port,
                 username: try str(raw["username"], "config.username", max: 256)!,
                 mailbox: try ascii(try str(raw["mailbox"], "config.mailbox", max: 200, required: false), "config.mailbox") ?? "INBOX",
                 processed_mailbox: try ascii(try str(raw["processed_mailbox"], "config.processed_mailbox", max: 200, required: false), "config.processed_mailbox"),

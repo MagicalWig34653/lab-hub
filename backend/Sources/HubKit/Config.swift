@@ -50,6 +50,8 @@ public struct HubConfig: Sendable {
         default: throw ConfigError(description: "DB_TLS muss disable oder require sein")
         }
         let auto = (try value("AUTO_MIGRATE", env) ?? "false").lowercased()
+        // WP-H10 (Befund 7): ein gesetzter, aber zu kurzer Schlüssel verhindert den Start (kein stiller Betrieb ohne Mail-/Import-Zugangsdaten, kein schwacher Schlüssel)
+        if SecretBox.isTooShort(try value("SECRET_KEY", env)) { throw ConfigError(description: SecretBox.tooShortMessage) }
         var config = HubConfig(
             dbHost: host, dbPort: port,
             dbName: try value("DB_NAME", env) ?? "labhub",

@@ -88,6 +88,9 @@ export const sourcesDe: Record<string, string> = {
 	'dms.sources.problem.stableInvalid': 'Die Wartezeit muss zwischen 0 und 3600 Sekunden liegen.',
 
 	'dms.sources.fieldError.host': 'Der Server ist ungültig oder wurde vom Betreiber nicht erlaubt.',
+	'dms.sources.fieldError.hostIp': 'Bitte den Servernamen verwenden (zum Beispiel imap.example.org), keine IP-Adresse. Nur so kann das Zertifikat des Servers geprüft werden.',
+	'dms.sources.fieldError.hostInternal': 'Dieser Server liegt im internen Netz und ist vom Betreiber nicht freigegeben.',
+	'dms.sources.fieldError.portNotAllowed': 'Dieser Port ist nicht erlaubt. Standard ist 993 (verschlüsseltes IMAP); weitere Ports gibt der Betreiber frei.',
 	'dms.sources.fieldError.unknown': 'Die Einstellung „{field}“ kennt der Hub nicht.',
 	'dms.sources.fieldError.generic': 'Die Eingabe „{field}“ ist ungültig.',
 
@@ -96,6 +99,8 @@ export const sourcesDe: Record<string, string> = {
 	'dms.sources.error.imap_auth_failed': 'Die Anmeldung wurde abgelehnt. Benutzer und Passwort prüfen (bei Anbietern mit Zwei-Faktor-Anmeldung ein App-Passwort verwenden).',
 	'dms.sources.error.imap_mailbox_not_found': 'Der Postfach-Ordner existiert auf dem Server nicht.',
 	'dms.sources.error.imap_timeout': 'Der Mailserver hat nicht rechtzeitig geantwortet.',
+	'dms.sources.error.imap_response_too_large': 'Der Mailserver hat eine unzulässig große Antwort geschickt. Der Abruf wurde abgebrochen.',
+	'dms.sources.error.target_not_allowed': 'Dieses Ziel ist nicht erlaubt (internes Netz oder nicht freigegebener Port). Bitte den Betreiber fragen.',
 	'dms.sources.error.secret_key_missing': 'Auf dem Server ist kein Geheimnisschlüssel (SECRET_KEY) eingerichtet, daher kann kein Passwort gespeichert werden. Bitte den Betreiber informieren.',
 	'dms.sources.error.secret_unreadable': 'Das gespeicherte Passwort ist nicht lesbar (Schlüssel gewechselt). Bitte das Passwort neu eintragen.',
 	'dms.sources.error.secret_missing': 'Für diese Quelle ist kein Passwort hinterlegt. Bitte eintragen.',
@@ -271,6 +276,9 @@ export const sourcesEn: Record<string, string> = {
 	'dms.sources.problem.stableInvalid': 'The wait must be between 0 and 3600 seconds.',
 
 	'dms.sources.fieldError.host': 'The server is invalid or not allowed by the operator.',
+	'dms.sources.fieldError.hostIp': 'Please use the server name (for example imap.example.org), not an IP address. Only then can the server certificate be checked.',
+	'dms.sources.fieldError.hostInternal': 'This server is on the internal network and has not been released by the operator.',
+	'dms.sources.fieldError.portNotAllowed': 'This port is not allowed. The default is 993 (encrypted IMAP); the operator can release further ports.',
 	'dms.sources.fieldError.unknown': 'The hub does not know the setting “{field}”.',
 	'dms.sources.fieldError.generic': 'The input “{field}” is invalid.',
 
@@ -279,6 +287,8 @@ export const sourcesEn: Record<string, string> = {
 	'dms.sources.error.imap_auth_failed': 'The login was rejected. Check user and password (use an app password with providers that require two-factor login).',
 	'dms.sources.error.imap_mailbox_not_found': 'The mail box folder does not exist on the server.',
 	'dms.sources.error.imap_timeout': 'The mail server did not answer in time.',
+	'dms.sources.error.imap_response_too_large': 'The mail server sent an unreasonably large response. The fetch was aborted.',
+	'dms.sources.error.target_not_allowed': 'This target is not allowed (internal network or port not released). Please ask the operator.',
 	'dms.sources.error.secret_key_missing': 'The server has no secret key (SECRET_KEY) set up, so no password can be stored. Please inform the operator.',
 	'dms.sources.error.secret_unreadable': 'The stored password cannot be read (key changed). Please enter the password again.',
 	'dms.sources.error.secret_missing': 'No password is stored for this source. Please enter one.',

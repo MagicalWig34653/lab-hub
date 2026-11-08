@@ -183,7 +183,8 @@ enum DMSImport {
                 let token: String
                 do { token = try box.open(sealed, tenant: tenant, source: run.id) } catch { throw ImportError("secret_unreadable") }
                 let endpoint = try PaperlessEndpoint.parse(run.config["base_url"] ?? "", policy: policy)   // Allowlist gilt auch im Worker (Konfiguration kann sich geändert haben)
-                let c = PaperlessAPISource.makeClient()
+                let pinned = try await PaperlessEndpoint.vetTarget(endpoint, policy: policy)   // WP-H10: auflösen, alle Adressen prüfen, geprüfte IP festlegen
+                let c = PaperlessAPISource.makeClient(host: endpoint.host, pinnedIP: pinned)
                 client = c
                 source = PaperlessAPISource(endpoint: endpoint, token: token, tempRoot: URL(fileURLWithPath: tempRoot, isDirectory: true), client: c)
             }

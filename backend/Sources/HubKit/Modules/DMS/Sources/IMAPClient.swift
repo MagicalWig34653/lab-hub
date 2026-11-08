@@ -18,9 +18,27 @@ struct IMAPOptions: Sendable {
     /// Gesamtzeit einer Sitzung; danach Abbruch (`imap_timeout`).
     var sessionTimeout: Duration = .seconds(300)
     var maxMessageBytes = 100 * 1024 * 1024
+    /// WP-H10 (Befund 3): Zielprüfung vor jedem Connect (Standard: interne Ziele gesperrt; `DMS_ALLOW_INTERNAL_TARGETS=true` erlaubt sie ausdrücklich) und Portliste (Standard nur 993,
+    /// weitere über `DMS_MAIL_PORT_ALLOWLIST`, kommagetrennt). Verstoß: `target_not_allowed`, immer derselbe Code (kein Port-/Host-Orakel).
+    var targetPolicy = NetworkTargetPolicy()
+    var allowedPorts: Set<Int> = [993]
+    var resolver: NetworkTarget.Resolver = NetworkTarget.systemResolver
+    /// WP-H10 (Befund 8): Grenzen je Befehlsantwort (alle Zeilen inkl. Literale). Überschreitung: `imap_response_too_large`. Die wirksame Bytegrenze ist nie kleiner als die größte
+    /// erlaubte Nachricht plus 1 MB Rahmen (`maxMessageBytes`), damit ein erlaubter `FETCH` nie daran scheitert.
+    var maxResponseLines = 10_000
+    var maxResponseBytes = 64 * 1024 * 1024
+
+    /// Erlaubte Ports aus der Betreiber-Umgebung (993 immer, dazu `DMS_MAIL_PORT_ALLOWLIST`).
+    static func allowedPorts(_ env: [String: String] = ProcessInfo.processInfo.environment) -> Set<Int> {
+        var ports: Set<Int> = [993]
+        for part in (env["DMS_MAIL_PORT_ALLOWLIST"] ?? "").split(separator: ",") { if let p = Int(part.trimmingCharacters(in: .whitespaces)), (1...65535).contains(p) { ports.insert(p) } }
+        return ports
+    }
 
     static func fromEnvironment(_ env: [String: String] = ProcessInfo.processInfo.environment) -> IMAPOptions {
         var o = IMAPOptions()
+        o.targetPolicy = NetworkTargetPolicy.fromEnvironment(env)
+        o.allowedPorts = allowedPorts(env)
         if let v = env["DMS_MAIL_TLS_VERIFY"]?.lowercased(), ["false", "0", "no"].contains(v) { o.verifyCertificate = false }
         if let f = env["DMS_MAIL_CA_PATH"], !f.isEmpty { o.caFile = f }
         if let s = env["DMS_MAIL_SESSION_TIMEOUT_SECONDS"].flatMap(Int.init), (10...3600).contains(s) { o.sessionTimeout = .seconds(s) }
@@ -35,6 +53,7 @@ struct IMAPError: Error, Equatable, CustomStringConvertible {
     static let connect = IMAPError(code: "imap_connect_failed"), tls = IMAPError(code: "imap_tls_failed"), auth = IMAPError(code: "imap_auth_failed")
     static let protocolError = IMAPError(code: "imap_protocol_error"), timeout = IMAPError(code: "imap_timeout"), closed = IMAPError(code: "imap_connection_closed")
     static let mailbox = IMAPError(code: "imap_mailbox_not_found"), tooLarge = IMAPError(code: "imap_message_too_large")
+    static let responseTooLarge = IMAPError(code: "imap_response_too_large"), targetNotAllowed = IMAPError(code: "target_not_allowed")
 }
 
 /// Eine Serverzeile; Literale (`{n}` plus Bytes) stehen getrennt, im Text steht an ihrer Stelle `\u{0}`.
@@ -56,11 +75,25 @@ final class IMAPSession: @unchecked Sendable {
     private var buffer: [UInt8] = []
     private var tagCounter = 0
     private let maxLiteral: Int
+    private let maxResponseBytes: Int
+    private let maxResponseLines: Int
+    private var responseBytes = 0
+    private var responseLines = 0
     private(set) var capabilities: Set<String> = []
     private(set) var uidValidity: String?
 
-    init(inbound: NIOAsyncChannelInboundStream<ByteBuffer>, outbound: NIOAsyncChannelOutboundWriter<ByteBuffer>, maxLiteral: Int) {
+    init(inbound: NIOAsyncChannelInboundStream<ByteBuffer>, outbound: NIOAsyncChannelOutboundWriter<ByteBuffer>, maxLiteral: Int,
+         maxResponseBytes: Int = 64 * 1024 * 1024, maxResponseLines: Int = 10_000) {
         iterator = inbound.makeAsyncIterator(); writer = outbound; self.maxLiteral = maxLiteral
+        self.maxResponseBytes = max(maxResponseBytes, maxLiteral + 1024 * 1024); self.maxResponseLines = maxResponseLines
+    }
+
+    /// Beginn einer Befehlsantwort: Zähler für Bytes und Zeilen zurücksetzen (Befund 8).
+    private func beginResponse() { responseBytes = 0; responseLines = 0 }
+
+    private func account(bytes: Int) throws {
+        responseBytes += bytes
+        if responseBytes > maxResponseBytes { throw IMAPError.responseTooLarge }
     }
 
     // MARK: Lesen
@@ -97,15 +130,19 @@ final class IMAPSession: @unchecked Sendable {
         var text = "", literals: [[UInt8]] = []
         while true {
             let raw = try await readRawLine()
+            try account(bytes: raw.count + 2)
             let s = String(decoding: raw, as: UTF8.self)
             if s.hasSuffix("}"), let open = s.lastIndex(of: "{"), let n = Int(s[s.index(after: open)..<s.index(before: s.endIndex)].replacingOccurrences(of: "+", with: "")), n >= 0 {
                 guard n <= maxLiteral else { throw IMAPError.tooLarge }
+                try account(bytes: n)
                 text += s[..<open]
                 text += "\u{0}"
                 literals.append(try await readBytes(n))
                 continue
             }
             text += s
+            responseLines += 1
+            if responseLines > maxResponseLines { throw IMAPError.responseTooLarge }
             return IMAPLine(text: text, literals: literals)
         }
     }
@@ -118,6 +155,7 @@ final class IMAPSession: @unchecked Sendable {
     /// Sendet `command` (ohne Tag). Mit `literal` endet der Befehl auf `{n}`; der Server muss mit `+` fortsetzen (nicht synchronisierend wird nicht genutzt).
     func command(_ command: String, literal: [UInt8]? = nil) async throws -> IMAPResponse {
         tagCounter += 1
+        beginResponse()
         let tag = "A\(String(format: "%03d", tagCounter))"
         guard !command.contains("\r"), !command.contains("\n"), !command.contains("\u{0}") else { throw IMAPError.protocolError }
         if let literal {
@@ -145,6 +183,7 @@ final class IMAPSession: @unchecked Sendable {
     }
 
     func readGreeting() async throws {
+        beginResponse()
         let line = try await readLine()
         guard line.text.uppercased().hasPrefix("* OK") else { throw IMAPError.protocolError }
     }
@@ -152,6 +191,7 @@ final class IMAPSession: @unchecked Sendable {
     /// Befehl mit Fortsetzungszeile (SASL): sendet `command`, wartet auf `+`, sendet `continuation`, liest bis zur getaggten Antwort.
     func commandWithContinuation(_ command: String, continuation: String) async throws -> IMAPResponse {
         tagCounter += 1
+        beginResponse()
         let tag = "A\(String(format: "%03d", tagCounter))"
         try await write("\(tag) \(command)\r\n")
         while true {
@@ -281,6 +321,11 @@ enum IMAPClient {
 
     static func withSession<T: Sendable>(host: String, port: Int, user: String, password: String, options: IMAPOptions,
                                          _ body: @escaping @Sendable (IMAPSession) async throws -> T) async throws -> T {
+        // WP-H10: Port- und Zielprüfung VOR dem Connect; verbunden wird mit einer geprüften IP, der TLS-Servername bleibt der DNS-Name (Rebinding-Schutz).
+        guard options.allowedPorts.contains(port) else { throw IMAPError.targetNotAllowed }
+        let addresses: [NetworkTarget.IP]
+        do { addresses = try await NetworkTarget.resolve(host: host, policy: options.targetPolicy, resolver: options.resolver) }
+        catch let e as NetworkTargetError { throw e == .notAllowed ? IMAPError.targetNotAllowed : IMAPError.connect }
         var tls = TLSConfiguration.makeClientConfiguration()
         tls.minimumTLSVersion = .tlsv12
         tls.certificateVerification = options.verifyCertificate ? .fullVerification : .none
@@ -289,21 +334,26 @@ enum IMAPClient {
         do { context = try NIOSSLContext(configuration: tls) } catch { throw IMAPError.tls }
         let sniHost: String? = isIPLiteral(host) ? nil : host
         let maxLiteral = options.maxMessageBytes
-        let channel: NIOAsyncChannel<ByteBuffer, ByteBuffer>
-        do {
-            channel = try await ClientBootstrap(group: MultiThreadedEventLoopGroup.singleton)
-                .connectTimeout(options.connectTimeout)
-                .connect(host: host, port: port) { ch in
-                    ch.eventLoop.makeCompletedFuture {
-                        try ch.pipeline.syncOperations.addHandler(try NIOSSLClientHandler(context: context, serverHostname: sniHost))
-                        return try NIOAsyncChannel<ByteBuffer, ByteBuffer>(wrappingChannelSynchronously: ch)
+        let maxResponseBytes = options.maxResponseBytes, maxResponseLines = options.maxResponseLines
+        var connected: NIOAsyncChannel<ByteBuffer, ByteBuffer>?
+        for ip in addresses {
+            do {
+                connected = try await ClientBootstrap(group: MultiThreadedEventLoopGroup.singleton)
+                    .connectTimeout(options.connectTimeout)
+                    .connect(to: try ip.socketAddress(port: port)) { ch in
+                        ch.eventLoop.makeCompletedFuture {
+                            try ch.pipeline.syncOperations.addHandler(try NIOSSLClientHandler(context: context, serverHostname: sniHost))
+                            return try NIOAsyncChannel<ByteBuffer, ByteBuffer>(wrappingChannelSynchronously: ch)
+                        }
                     }
-                }
-        } catch { throw IMAPError.connect }
+                break
+            } catch is CancellationError { throw CancellationError() } catch { continue }
+        }
+        guard let channel = connected else { throw IMAPError.connect }
         return try await withThrowingTaskGroup(of: T.self) { group in
             group.addTask {
                 try await channel.executeThenClose { inbound, outbound in
-                    let session = IMAPSession(inbound: inbound, outbound: outbound, maxLiteral: maxLiteral)
+                    let session = IMAPSession(inbound: inbound, outbound: outbound, maxLiteral: maxLiteral, maxResponseBytes: maxResponseBytes, maxResponseLines: maxResponseLines)
                     do {
                         try await session.readGreeting()
                         try await session.loadCapabilities()

@@ -49,5 +49,10 @@ describe('WP-F5b source drafts', () => {
 		expect(sourceErrorKey('something_new')).toBe('dms.sources.error.unknown');
 		expect(fieldErrorKey('password', 'secret_key_missing')).toBe('dms.sources.error.secret_key_missing');
 		expect(fieldErrorKey('config.host', 'invalid')).toBe('dms.sources.fieldError.host');
+		expect(fieldErrorKey('config.host', 'ip_literal_not_allowed')).toBe('dms.sources.fieldError.hostIp');
+		expect(fieldErrorKey('config.host', 'target_not_allowed')).toBe('dms.sources.fieldError.hostInternal');
+		expect(fieldErrorKey('config.port', 'port_not_allowed')).toBe('dms.sources.fieldError.portNotAllowed');
+		expect(sourceErrorKey('target_not_allowed')).toBe('dms.sources.error.target_not_allowed');
+		expect(sourceErrorKey('imap_response_too_large')).toBe('dms.sources.error.imap_response_too_large');
 	});
 });

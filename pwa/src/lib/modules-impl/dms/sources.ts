@@ -134,6 +134,8 @@ export const sourceErrorKeys: Record<string, string> = {
 	imap_auth_failed: 'dms.sources.error.imap_auth_failed',
 	imap_mailbox_not_found: 'dms.sources.error.imap_mailbox_not_found',
 	imap_timeout: 'dms.sources.error.imap_timeout',
+	imap_response_too_large: 'dms.sources.error.imap_response_too_large',
+	target_not_allowed: 'dms.sources.error.target_not_allowed',
 	secret_key_missing: 'dms.sources.error.secret_key_missing',
 	secret_unreadable: 'dms.sources.error.secret_unreadable',
 	secret_missing: 'dms.sources.error.secret_missing',
@@ -150,6 +152,9 @@ export const sourceErrorKey = (code: string): string => sourceErrorKeys[code] ??
 /** Field errors of a 422 on create/update: backend field name (`config.host`, `password`) + code to a text key. */
 export function fieldErrorKey(field: string, code: string): string {
 	if (field === 'password' && code === 'secret_key_missing') return 'dms.sources.error.secret_key_missing';
+	if (field === 'config.host' && code === 'ip_literal_not_allowed') return 'dms.sources.fieldError.hostIp';
+	if (field === 'config.host' && code === 'target_not_allowed') return 'dms.sources.fieldError.hostInternal';
+	if (field === 'config.port' && code === 'port_not_allowed') return 'dms.sources.fieldError.portNotAllowed';
 	if (field === 'config.host') return 'dms.sources.fieldError.host';
 	if (field.startsWith('config.') && code === 'unknown') return 'dms.sources.fieldError.unknown';
 	return 'dms.sources.fieldError.generic';

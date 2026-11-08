@@ -59,6 +59,7 @@ extension DMSModule {
                 guard let sealed = source.secretEnc else { throw IMAPError(code: "secret_missing") }
                 let password: String
                 do { password = try box.open(sealed, tenant: tenant, source: source.id) } catch { throw IMAPError(code: "secret_unreadable") }
+                guard DMSSources.hostAllowed(config.host) else { throw IMAPError.targetNotAllowed }
                 let unseen: Int = try await IMAPClient.withSession(host: config.host, port: config.port, user: config.username, password: password, options: imap) { session in
                     try await session.select(config.mailbox)
                     return try await session.searchUnseen(from: config.sender_contains, subject: config.subject_contains).count

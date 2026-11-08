@@ -80,7 +80,10 @@ final class PaperlessMappingTests: XCTestCase {
         for h in ["https://localhost", "https://127.0.0.1", "https://169.254.169.254/latest", "https://[::1]", "https://0.0.0.0", "https://metadata.google.internal", "https://x.localhost"] {
             XCTAssertEqual(code(h), "host_not_allowed", h)
         }
-        XCTAssertNil(code("https://192.168.1.20:8000"), "interne Heimnetz-Hosts bleiben moeglich (wie Mail-Quelle D4), Einschraenkung per Allowlist")
+        // WP-H10: private Netze sind standardmaessig gesperrt; Heimnetz-Hosts nur mit ausdruecklicher Betreiber-Erlaubnis (DMS_ALLOW_INTERNAL_TARGETS)
+        XCTAssertEqual(code("https://192.168.1.20:8000"), "host_not_allowed")
+        var home = PaperlessEndpoint.Policy(); home.allowInternalTargets = true
+        XCTAssertNil(code("https://192.168.1.20:8000", home))
         var list = PaperlessEndpoint.Policy(); list.allowlist = ["paperless.example.org", "other.example.org:8443"]
         XCTAssertNil(code("https://paperless.example.org", list))
         XCTAssertNil(code("https://other.example.org:8443", list))

@@ -26,10 +26,13 @@ struct PaperlessExportSource: PaperlessSource {
     init(dir: URL, key: String) throws {
         self.dir = dir; self.key = key
         let manifest = dir.appendingPathComponent("manifest.json")
+        // WP-H10: ohne Symlink-Race: erst öffnen (O_NOFOLLOW), dann am Deskriptor prüfen (reguläre Datei, Größe, reale Lage im Verzeichnis) und über denselben Deskriptor lesen.
+        guard let fd = Self.openContained(manifest, within: dir) else { throw ImportError("manifest_missing") }
+        let handle = FileHandle(fileDescriptor: fd, closeOnDealloc: true)
         var st = stat()
-        guard lstat(manifest.path, &st) == 0, (st.st_mode & S_IFMT) == S_IFREG else { throw ImportError("manifest_missing") }
+        guard fstat(fd, &st) == 0 else { throw ImportError("manifest_missing") }
         guard Int64(st.st_size) <= Self.maxManifestBytes else { throw ImportError("manifest_too_large") }
-        guard let data = try? Data(contentsOf: manifest), let tree = try? JSONDecoder().decode(StrictJSON.self, from: data), case .array(let entries) = tree
+        guard let data = try? handle.read(upToCount: Int(Self.maxManifestBytes) + 1), Int64(data.count) <= Self.maxManifestBytes, let tree = try? JSONDecoder().decode(StrictJSON.self, from: data), case .array(let entries) = tree
         else { throw ImportError("manifest_invalid") }
         (refs, docs) = Self.parse(entries.map(\.native))
     }
@@ -114,18 +117,53 @@ struct PaperlessExportSource: PaperlessSource {
 
     func materialize(_ doc: PLDoc, _ role: PLFileRole, maxBytes: Int64) async throws -> LocalFile? {
         guard let rel = role == .original ? doc.originalRef : doc.archiveRef, let url = safeURL(rel) else { return nil }
-        do { return try LocalFile.measure(url, temporary: false, maxBytes: maxBytes) }
+        do { return try LocalFile.measure(url, temporary: false, maxBytes: maxBytes, within: dir) }
+        catch let e as ImportError where e.code == "file_unsafe" { return nil }   // Datei wurde zwischen Prüfung und Öffnen ausgetauscht (Link, fremde Lage)
         catch let e as ImportError { throw e }
         catch { return nil }
     }
 
-    /// Datei im Exportverzeichnis: relativ, ohne `..`, keine Verknüpfung, reguläre Datei, nach Auflösen von Links noch im Verzeichnis.
-    private func safeURL(_ rel: String) -> URL? {
+    /// Datei im Exportverzeichnis: relativ, ohne `..`, keine Verknüpfung, reguläre Datei, nach Auflösen von Links noch im Verzeichnis (WP-H10: Vergleich mit abschließendem „/“,
+    /// ein Geschwisterverzeichnis mit gleichem Präfix wie `exp2` neben `exp` besteht die Prüfung nicht).
+    func safeURL(_ rel: String) -> URL? {
         guard !rel.hasPrefix("/"), !rel.contains("\0"), !rel.split(separator: "/").contains(where: { $0 == ".." || $0 == "." }) else { return nil }
         let url = dir.appendingPathComponent(rel)
-        guard url.deletingLastPathComponent().resolvingSymlinksInPath().path.hasPrefix(dir.path) else { return nil }
+        guard let root = Self.realPath(dir.path), let parent = Self.realPath(url.deletingLastPathComponent().path), Self.isInside(parent, root: root) else { return nil }
         var st = stat()
         guard lstat(url.path, &st) == 0, (st.st_mode & S_IFMT) == S_IFREG else { return nil }
         return url
+    }
+
+    /// `path` liegt im Verzeichnis `root` oder ist es selbst (beides reale Pfade).
+    static func isInside(_ path: String, root: String) -> Bool {
+        path == root || path.hasPrefix(root.hasSuffix("/") ? root : root + "/")
+    }
+
+    static func realPath(_ path: String) -> String? {
+        guard let p = realpath(path, nil) else { return nil }
+        defer { free(p) }
+        return String(cString: p)
+    }
+
+    /// Öffnet ohne Links zu folgen und prüft AM DESKRIPTOR: reguläre Datei und reale Lage innerhalb von `dir`. `nil` bei Verstoß (Deskriptor wird geschlossen).
+    static func openContained(_ url: URL, within dir: URL) -> Int32? {
+        guard let root = realPath(dir.path) else { return nil }
+        let fd = open(url.path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
+        guard fd >= 0 else { return nil }
+        var st = stat()
+        guard fstat(fd, &st) == 0, (st.st_mode & S_IFMT) == S_IFREG, let real = path(of: fd), isInside(real, root: root), real != root else { close(fd); return nil }
+        return fd
+    }
+
+    private static func path(of fd: Int32) -> String? {
+        #if canImport(Darwin)
+        var buffer = [CChar](repeating: 0, count: Int(PATH_MAX) + 1)
+        guard fcntl(fd, F_GETPATH, &buffer) != -1 else { return nil }
+        return String(cString: buffer)
+        #else
+        var buffer = [CChar](repeating: 0, count: Int(PATH_MAX) + 1)
+        guard readlink("/proc/self/fd/\(fd)", &buffer, Int(PATH_MAX)) > 0 else { return nil }
+        return String(cString: buffer)
+        #endif
     }
 }

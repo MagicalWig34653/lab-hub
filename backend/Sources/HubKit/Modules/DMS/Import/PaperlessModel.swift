@@ -98,8 +98,13 @@ struct LocalFile: Sendable {
         return Array((try? h.read(upToCount: n)) ?? Data())
     }
 
-    static func measure(_ url: URL, temporary: Bool, maxBytes: Int64) throws -> LocalFile {
-        let h = try FileHandle(forReadingFrom: url)
+    /// `within`: Datei wird ohne Links zu folgen geöffnet und am Deskriptor geprüft (WP-H10), statt zuerst nach Pfad zu prüfen und dann zu öffnen.
+    static func measure(_ url: URL, temporary: Bool, maxBytes: Int64, within dir: URL? = nil) throws -> LocalFile {
+        let h: FileHandle
+        if let dir {
+            guard let fd = PaperlessExportSource.openContained(url, within: dir) else { throw ImportError("file_unsafe") }
+            h = FileHandle(fileDescriptor: fd, closeOnDealloc: false)
+        } else { h = try FileHandle(forReadingFrom: url) }
         defer { try? h.close() }
         var sha = SHA256(), md5 = Insecure.MD5()
         var size: Int64 = 0
