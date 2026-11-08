@@ -1966,7 +1966,7 @@ export interface components {
         DmsDocumentKind: "invoice" | "receipt" | "contract" | "letter" | "bank_statement" | "insurance" | "tax_notice" | "reminder" | "other";
         DmsFact: {
             /** @enum {string} */
-            type: "invoice_number" | "reference" | "date" | "due_date" | "deadline" | "amount" | "amount_gross" | "amount_net" | "amount_tax" | "iban" | "vat_id" | "seller" | "title";
+            type: "invoice_number" | "reference" | "date" | "due_date" | "deadline" | "amount" | "amount_gross" | "amount_net" | "amount_tax" | "iban" | "vat_id" | "seller" | "title" | "counterparty" | "contract_number" | "period_start" | "period_end" | "term" | "notice_period" | "auto_renewal" | "recurring_amount" | "payment_interval" | "policy_number" | "premium" | "notice_type" | "tax_number" | "tax_id" | "objection_deadline" | "settlement_amount" | "balance_opening" | "balance_closing" | "amount_tax_7" | "amount_tax_19" | "payment_method" | "insurer" | "authority";
             /** @description Betraege als Dezimalzeichenkette (1234.56), Daten yyyy-MM-dd, IBAN/USt-ID kompakt in Grossbuchstaben */
             value: string;
             /** @description ISO 4217 bei Betraegen */

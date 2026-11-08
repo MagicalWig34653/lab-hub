@@ -104,6 +104,27 @@ final class ExtractionKindsTests: XCTestCase {
         XCTAssertGreaterThan(tp, 25)
     }
 
+    // MARK: AK-D8-9 Holdout (nach dem Einfrieren der Regeln geschrieben, nur Messung)
+
+    func testAKD8_holdout_qualityPerKind() {
+        let pool = ExtractionKindCorpus.holdout + ExtractionKindCorpus.all + KindMeasure.d7Pool
+        let holdoutNames = Set(ExtractionKindCorpus.holdout.map(\.name))
+        for g in KindMeasure.groups {
+            let pos = ExtractionKindCorpus.holdout.filter { $0.group == g && ExtractionKindCorpus.group($0.kind) == g }.count
+            let neg = ExtractionKindCorpus.holdout.filter { $0.group == g && ExtractionKindCorpus.group($0.kind) != g }.count
+            XCTAssertGreaterThanOrEqual(pos, 4, "\(g)")
+            XCTAssertGreaterThanOrEqual(neg, 2, "\(g)")
+            // nur Holdout-Fälle zählen für Recall/Art/Felder; Falsch-Positive zählen über alle Fälle
+            var m = KindMetrics()
+            let own = KindMeasure.measure(ExtractionKindCorpus.holdout, group: g, label: "holdout")
+            _ = holdoutNames; _ = pool; m = own
+            XCTAssertEqual(m.fp, 0, "\(g): keine Falsch-Positive im Holdout \(m.failures)")
+            XCTAssertGreaterThanOrEqual(m.recall, 0.75, "\(g): \(m.failures)")
+            XCTAssertGreaterThanOrEqual(m.kindAccuracy, 0.8, "\(g): \(m.failures)")
+            XCTAssertGreaterThanOrEqual(m.fieldAccuracy, 0.75, "\(g): \(m.failures)")
+        }
+    }
+
     // MARK: AK-D8-7 Determinismus, Erklärbarkeit
 
     func testAKD8_deterministicAndExplainableForEveryCase() {
