@@ -240,11 +240,17 @@ test('AK-F4-1 real: bootstrap, invitation, passkey, scan upload, OCR done, searc
 		await expect(page).toHaveURL(new RegExp(created.id));
 		await expect(page.getByTestId('dms-detail-title')).toBeVisible();
 		await expect(page.getByTestId('dms-processing-status')).toHaveCount(0, { timeout: 180_000 });
+		// The status line is also absent while it is still loading: ask the processing route until OCR really is done.
+		const tenantId = endpointPath.split('/')[4];
+		await expect
+			.poll(async () => ((await (await context.request.get(`/api/v1/tenants/${tenantId}/dms/documents/${created.id}/processing`)).json()) as { phase: string }).phase, { timeout: 180_000 })
+			.toBe('done');
 		await page.getByTestId('dms-back').click();
 		await page.getByTestId('dms-search').fill(curlUnique);
 		await page.getByTestId('dms-search-submit').click();
 		await expect(page.getByTestId('dms-row')).toHaveCount(1, { timeout: 30_000 });
-		await expect(page.getByTestId('dms-snippet').locator('mark').first()).toContainText(/heizkostenabrechnung/i);
+		await expect(page).toHaveURL(/q=Heizkostenabrechnung/);
+		await expect(page.getByTestId('dms-snippet').locator('mark').first()).toContainText(/heizkostenabrechnung/i, { timeout: 30_000 });
 
 		// Revoke in the UI: the same token is refused at once.
 		await page.getByTestId('dms-nav-tokens').click();

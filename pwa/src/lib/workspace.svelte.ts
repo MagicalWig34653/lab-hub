@@ -73,8 +73,13 @@ class Workspace {
 		if (!id || session.isRecovery) return;
 		const seq = this.seq;
 		try {
-			const modules = await tenantApi.modules(id);
-			if (seq === this.seq && id === this.activeId) this.modules = modules;
+			// Permissions of modules come with the tenant detail (only for effective modules): reload both, or a module that
+			// was just switched on would stay without its permissions until the next full load (sidebar items need them).
+			const [modules, detail] = await Promise.all([tenantApi.modules(id), tenantApi.get(id)]);
+			if (seq === this.seq && id === this.activeId) {
+				this.modules = modules;
+				this.detail = detail;
+			}
 		} catch {
 			// keep the last known state; the next explicit load reports errors
 		}
