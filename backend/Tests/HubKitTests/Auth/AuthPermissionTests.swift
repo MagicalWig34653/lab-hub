@@ -17,6 +17,8 @@ final class AuthPermissionTests: AuthTestCase {
         ("GET", "/api/v1/auth/sessions", .normalSession), ("DELETE", "/api/v1/auth/sessions/{id}", .normalSession),
         ("GET", "/api/v1/me/passkeys", .normalSession), ("DELETE", "/api/v1/me/passkeys/{id}", .normalSession),
         ("GET", "/api/v1/me/recovery-codes", .normalSession), ("POST", "/api/v1/me/recovery-codes", .normalSession),
+        // WP-D4: persönliche API-Tokens (nur Sitzung, keine Notfall-Sitzung)
+        ("GET", "/api/v1/auth/api-tokens", .normalSession), ("POST", "/api/v1/auth/api-tokens", .normalSession), ("DELETE", "/api/v1/auth/api-tokens/{token}", .normalSession),
         // WP-K2: Betreiber legt Mandanten an; Mandantenrouten prüfen Mitgliedschaft und Berechtigung (Matrix in TenantTests)
         ("GET", "/api/v1/tenants", .normalSession), ("POST", "/api/v1/tenants", .operator),
         ("GET", "/api/v1/tenants/{tenant}", .tenant), ("GET", "/api/v1/tenants/{tenant}/members", .tenant),
@@ -44,7 +46,7 @@ final class AuthPermissionTests: AuthTestCase {
     private func path(_ template: String) -> String {
         String(template.dropFirst()).replacingOccurrences(of: "{id}", with: UUID().uuidString)
             .replacingOccurrences(of: "{tenant}", with: UUID().uuidString).replacingOccurrences(of: "{user}", with: UUID().uuidString)
-            .replacingOccurrences(of: "{module}", with: "ping")
+            .replacingOccurrences(of: "{module}", with: "ping").replacingOccurrences(of: "{token}", with: UUID().uuidString)
             .replacingOccurrences(of: "{contact}", with: UUID().uuidString).replacingOccurrences(of: "{link}", with: UUID().uuidString)
     }
 

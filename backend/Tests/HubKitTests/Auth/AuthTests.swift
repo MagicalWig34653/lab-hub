@@ -460,6 +460,7 @@ final class AuthTests: AuthTestCase {
         XCTAssertEqual(v, 17)  // WP-O1 (017)
         let authMigrations: [any Migration] = [CreateUsers(), CreatePasskeyCredentials(), CreateSessions(), CreateInvitations(), CreateRecoveryCodes(), CreateAuditLog(), CreateAuthSupport()]
         let database = app1.db(.psql)
+        try await CreateApiTokens().revert(on: database)  // WP-D4 (019) zuerst: verweist auf users
         try await CreateJobsPriority().revert(on: database)  // WP-O1 (017) zuerst
         try await CreateContacts().revert(on: database)  // WP-K5 (015) zuerst
         try await CreateModules().revert(on: database)  // WP-K3 hängt an tenants/users
@@ -479,5 +480,6 @@ final class AuthTests: AuthTestCase {
         let again = try await scalar("SELECT max(version)::bigint AS v FROM schema_version", as: Int64.self)
         XCTAssertEqual(again, 15)
         try await CreateJobsPriority().prepare(on: database)
+        try await CreateApiTokens().prepare(on: database)
     }
 }

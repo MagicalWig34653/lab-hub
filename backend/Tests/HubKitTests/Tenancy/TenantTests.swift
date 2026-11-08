@@ -301,6 +301,7 @@ final class TenantTests: AuthTestCase {
         let v = try await scalar("SELECT max(version)::bigint AS v FROM schema_version", as: Int64.self)
         XCTAssertEqual(v, 17)  // WP-O1 (017)
         let database = app1.db(.psql)
+        try await CreateApiTokens().revert(on: database)  // WP-D4 (019) zuerst: verweist auf users
         try await CreateJobsPriority().revert(on: database)  // WP-O1 (017) zuerst
         try await CreateContacts().revert(on: database)  // WP-K5 (015) zuerst
         try await db.raw("DROP TABLE ping_items").run()  // WP-K3: Modul- und Schalter-Tabellen hängen an tenants
@@ -341,6 +342,7 @@ final class TenantTests: AuthTestCase {
         try await CreatePingItems().prepare(on: database)
         try await CreateContacts().prepare(on: database)
         try await CreateJobsPriority().prepare(on: database)
+        try await CreateApiTokens().prepare(on: database)
     }
 
     /// Eine Mitgliedschaft existiert höchstens einmal je (Mandant, Nutzer); ungültige Rollen lehnt die Datenbank ab.

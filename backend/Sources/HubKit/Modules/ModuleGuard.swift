@@ -39,15 +39,27 @@ struct ModuleGuard: AsyncMiddleware {
     }
 }
 
+extension Application {
+    private struct TokenRoutesKey: StorageKey { typealias Value = [ModuleRouteInfo] }
+    /// WP-D4: Modulrouten, die ein API-Token mit Scope statt einer Sitzung verlangen (eigene Tabelle, getrennt von `moduleRoutes`: die Rollenmatrix läuft mit Sitzungen).
+    public var moduleTokenRoutes: [ModuleRouteInfo] {
+        get { storage[TokenRoutesKey.self] ?? [] }
+        set { storage[TokenRoutesKey.self] = newValue }
+    }
+}
+
 /// Routen eines Moduls unter `/api/v1/tenants/:tenant/<key>/...`. Einziger Weg, Modulrouten zu registrieren.
 public struct ModuleRoutes {
     public let key: ModuleKey
     let app: Application
     private let group: any RoutesBuilder
+    private let tokenGroup: any RoutesBuilder
 
     init(_ app: Application, api: any RoutesBuilder, module: any HubModule) {
         self.app = app
         self.key = module.key
+        // Token-Routen laufen ohne `SessionMiddleware`-Pflicht: der Guard prüft das Token selbst (Sitzungstokens werden dort nicht akzeptiert)
+        self.tokenGroup = app.grouped("api", "v1", "tenants", ":tenant", PathComponent(stringLiteral: module.key))
         self.group = api.grouped(RequireSession()).grouped("tenants", ":tenant", PathComponent(stringLiteral: module.key))
     }
 
@@ -60,5 +72,17 @@ public struct ModuleRoutes {
         let rest = path.map { "\($0)" }.map { $0.hasPrefix(":") ? "{\($0.dropFirst())}" : $0 }
         let template = (["api", "v1", "tenants", "{tenant}", key] + rest).joined(separator: "/")
         app.moduleRoutes.append(ModuleRouteInfo(module: key, method: method.rawValue, path: "/" + template, permission: permission))
+    }
+
+    /// WP-D4: Route mit API-Token (`Authorization: Bearer lhp_…`) und Scope statt Sitzung. Mandant, Modulschalter und Modulberechtigung der Rolle des Token-Inhabers
+    /// werden wie bei Sitzungen geprüft; ein Token gilt in allen Mandanten, in denen der Inhaber Mitglied ist.
+    public func onToken(_ method: HTTPMethod, _ path: PathComponent..., scope: String, permission: String, body: HTTPBodyStreamStrategy = .collect,
+                        use handler: @escaping @Sendable (Request) async throws -> Response) {
+        precondition(app.hubModules.module(key)?.permissions.contains { $0.name == permission } == true, "Berechtigung \(permission) nicht von Modul \(key) deklariert")
+        precondition(ApiTokens.scopes.contains(scope), "unbekannter Scope \(scope)")
+        tokenGroup.grouped(ApiTokenModuleGuard(scope: scope, module: key, permission: permission)).on(method, path, body: body, use: handler)
+        let rest = path.map { "\($0)" }.map { $0.hasPrefix(":") ? "{\($0.dropFirst())}" : $0 }
+        let template = (["api", "v1", "tenants", "{tenant}", key] + rest).joined(separator: "/")
+        app.moduleTokenRoutes.append(ModuleRouteInfo(module: key, method: method.rawValue, path: "/" + template, permission: permission))
     }
 }

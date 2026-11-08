@@ -48,10 +48,10 @@ enum DMSIngest {
 
     /// Legt ein Item an und führt es bis `upTo` (jeder Schritt protokolliert). Muss in der Transaktion des Aufrufers laufen.
     @discardableResult
-    static func create(tenant: UUID, document: UUID?, source: Source, originRef: String? = nil, actor: UUID?, upTo: State, on s: any SQLDatabase) async throws -> UUID {
+    static func create(tenant: UUID, document: UUID?, source: Source, originRef: String? = nil, sender: String? = nil, actor: UUID?, upTo: State, on s: any SQLDatabase) async throws -> UUID {
         guard let row = try await s.raw("""
-            INSERT INTO dms_ingest_items (tenant_id, document_id, source, origin_ref, state, created_by)
-            VALUES (\(bind: tenant), \(bind: document), \(bind: source.rawValue), \(bind: originRef), 'received', \(bind: actor)) RETURNING id
+            INSERT INTO dms_ingest_items (tenant_id, document_id, source, origin_ref, sender, state, created_by)
+            VALUES (\(bind: tenant), \(bind: document), \(bind: source.rawValue), \(bind: originRef), \(bind: sender), 'received', \(bind: actor)) RETURNING id
             """).first() else { throw Abort(.internalServerError) }
         let id = try row.decode(column: "id", as: UUID.self)
         try await s.raw("INSERT INTO dms_ingest_transitions (tenant_id, ingest_item_id, state) VALUES (\(bind: tenant), \(bind: id), 'received')").run()

@@ -2038,9 +2038,255 @@ paths:
         "404": { $ref: "#/components/responses/Problem" }
         "409": { $ref: "#/components/responses/Problem" }
         "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/auth/api-tokens:
+    get:
+      operationId: listApiTokens
+      summary: Eigene API-Tokens (WP-D4, Minimalstand F-05); ohne Token-Klartext
+      description: Nur mit Sitzung (kein API-Token, keine Notfall-Sitzung). Zeigt auch widerrufene und abgelaufene Tokens.
+      security: [{ bearer: [] }, { cookie: [] }]
+      responses:
+        "200":
+          description: Tokens des Nutzers
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/ApiToken" } }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+    post:
+      operationId: createApiToken
+      summary: API-Token mit Scope erstellen; der Klartext steht nur in dieser Antwort (Audit auth.api_token.created)
+      description: |
+        Minimalstand: einziger Scope ist dms.upload (Share-/Scan-API). Pflichtablauf (expires_in_days 1..730, Standard 365). Gespeichert wird nur der SHA-256-Hash.
+        Das Token (Praefix lhp_) wird ausschliesslich an Routen mit ausdruecklichem Scope akzeptiert, nie als Sitzung. Unbekannter Scope 422.
+      security: [{ bearer: [] }, { cookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, scopes]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 80 }
+                scopes: { type: array, minItems: 1, items: { type: string, enum: [dms.upload] } }
+                expires_in_days: { type: integer, minimum: 1, maximum: 730 }
+      responses:
+        "201":
+          description: Token inklusive Klartext (nur jetzt sichtbar)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiToken" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/auth/api-tokens/{token}:
+    delete:
+      operationId: revokeApiToken
+      summary: Eigenes API-Token widerrufen (wirkt sofort auf allen Instanzen; wiederholbar; fremde ID 404; Audit auth.api_token.revoked)
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { name: token, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204": { description: Widerrufen }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/dms/share:
+    post:
+      operationId: dmsShare
+      summary: Share-/Scan-API (WP-D4). Datei hochladen mit persoenlichem API-Token (Scope dms.upload); Berechtigung dms.document.create der Rolle des Token-Inhabers
+      description: |
+        Wie dmsUpload (Body = Dateiinhalt, Magic Bytes, Limits, Quota, gleiche Query-Parameter), aber Authorization: Bearer lhp_... statt Sitzung; Cookies und Sitzungstokens werden hier nicht akzeptiert.
+        Der Idempotency-Key ist optional (Scanner kennen ihn nicht): ohne ihn gilt ein aus Inhalt und Parametern abgeleiteter Schluessel, dieselbe Datei erzeugt dann kein zweites Dokument,
+        sondern liefert die Antwort des ersten Aufrufs. Quelle des Eingangsvorgangs ist share_ext, Herkunft api_token:<id>.
+        Ungueltiges, widerrufenes, abgelaufenes Token oder falscher Scope 401; Token-Inhaber kein Mitglied des Mandanten 404; Modul aus 404 module_disabled; Rolle ohne Recht 403.
+      security: [{ apiToken: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { name: Idempotency-Key, in: header, required: false, schema: { type: string, minLength: 1, maxLength: 255 } }
+        - { name: filename, in: query, schema: { type: string, maxLength: 255 } }
+        - { name: title, in: query, schema: { type: string, maxLength: 300 } }
+        - { name: doc_date, in: query, schema: { type: string, format: date } }
+        - { name: document_type_id, in: query, schema: { type: string, format: uuid } }
+        - { name: archive, in: query, schema: { type: boolean, default: false } }
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema: { type: string, format: binary }
+      responses:
+        "201":
+          description: Dokument angelegt (oder gespeicherte Antwort bei Wiederholung)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DmsDocument" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "413": { $ref: "#/components/responses/Problem" }
+        "415": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/dms/sources:
+    get:
+      operationId: listDmsSources
+      summary: Quellen des Mandanten (Berechtigung dms.source.read) mit letztem Lauf und Fehlercode; nie mit Geheimnis
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+      responses:
+        "200":
+          description: Quellen (hoechstens 50 je Mandant), aelteste zuerst
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/DmsSource" } }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+    post:
+      operationId: createDmsSource
+      summary: Quelle anlegen (Berechtigung dms.source.manage); Audit dms.source.created, plant den ersten Lauf ein
+      description: |
+        kind mail: IMAP ueber implizites TLS (config.host, port 993, username, mailbox INBOX, processed_mailbox, interval_seconds 30..86400, include_body, sender_contains, subject_contains,
+        max_per_run) und password (Pflicht). Das Passwort wird mit AES-256-GCM verschluesselt (Schluessel aus SECRET_KEY, Betrieb) gespeichert und nie ausgegeben, geloggt oder auditiert
+        (Antwort: has_secret). Ohne SECRET_KEY auf dem Server: 422 mit Feld password und Code secret_key_missing (5xx-Details gibt die API nie aus). Verarbeitet werden ungelesene Nachrichten; danach als gelesen markiert und optional verschoben, nie geloescht.
+        kind folder: config.path relativ zum Mount <DMS_FOLDER_ROOT>/<mandant>/ im Worker-Container (nur [A-Za-z0-9_. -] und /), interval_seconds 10..86400, stable_seconds 0..3600.
+        Unbekannte Schluessel 422, gleicher Name 409, mehr als 50 Quellen 409.
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DmsSourceInput" }
+      responses:
+        "201":
+          description: Quelle
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DmsSource" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/dms/sources/{source}:
+    get:
+      operationId: getDmsSource
+      summary: Quelle mit letztem Lauf (Berechtigung dms.source.read); fremde ID 404
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/DmsSource" }
+      responses:
+        "200":
+          description: Quelle
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DmsSource" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+    patch:
+      operationId: updateDmsSource
+      summary: Quelle aendern (Berechtigung dms.source.manage); name, config (komplett), password, enabled; Audit dms.source.updated
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/DmsSource" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string, minLength: 1, maxLength: 100 }
+                config: { type: object, additionalProperties: true }
+                password: { type: string, minLength: 1, maxLength: 512 }
+                enabled: { type: boolean }
+      responses:
+        "200":
+          description: Quelle
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DmsSource" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+    delete:
+      operationId: deleteDmsSource
+      summary: Quelle loeschen (Berechtigung dms.source.manage); bereits aufgenommene Dokumente bleiben; Audit dms.source.deleted
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/DmsSource" }
+      responses:
+        "204": { description: Geloescht }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/dms/sources/{source}/run:
+    post:
+      operationId: runDmsSource
+      summary: Lauf sofort einplanen (Berechtigung dms.source.manage); zieht den wartenden Lauf vor, hoechstens ein offener Lauf je Quelle; Audit dms.source.run_requested
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/DmsSource" }
+      responses:
+        "202":
+          description: Eingeplant (Ergebnis spaeter in last_run_at/last_status)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DmsSource" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/dms/sources/{source}/test:
+    post:
+      operationId: testDmsSource
+      summary: Verbindung testen (Berechtigung dms.source.manage); nur Mail - Anmeldung und Postfach, keine Verarbeitung
+      description: |
+        Antwort immer 200 mit ok; bei Fehler nur ein Code (imap_connect_failed, imap_tls_failed, imap_auth_failed, imap_mailbox_not_found, imap_timeout, secret_key_missing, secret_unreadable), nie Servertext oder Passwort.
+        Ordnerquellen koennen vom Backend nicht geprueft werden (der Ordner ist nur im Worker eingebunden): 409 mit detail test_not_supported; Ergebnis dort ueber last_status nach einem Lauf.
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/DmsSource" }
+      responses:
+        "200":
+          description: Testergebnis
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok: { type: boolean }
+                  unseen: { type: integer, description: "Anzahl ungelesener Nachrichten, die passen (nur bei ok)" }
+                  error: { type: string }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
 components:
   securitySchemes:
     bearer: { type: http, scheme: bearer, description: "Sitzungstoken fuer Apps (Header X-Auth-Transport: bearer bei der Anmeldung)" }
+    apiToken: { type: http, scheme: bearer, description: "Persoenliches API-Token (Praefix lhp_) mit Scope; nur an Routen mit ausdruecklichem Scope (WP-D4, Minimalstand F-05)" }
     cookie: { type: apiKey, in: cookie, name: lh_session, description: "HttpOnly-Cookie der PWA; schreibende Methoden brauchen X-CSRF-Token" }
   headers:
     XRequestId:
@@ -2102,6 +2348,12 @@ components:
       name: suggestion
       in: path
       required: true
+      schema: { type: string, format: uuid }
+    DmsSource:
+      name: source
+      in: path
+      required: true
+      description: Quelle des Mandanten. Fremd oder unbekannt liefert 404.
       schema: { type: string, format: uuid }
     DmsDuplicate:
       name: duplicate
@@ -2759,3 +3011,44 @@ components:
         items: { type: array, items: { $ref: "#/components/schemas/DmsDuplicate" } }
         next_cursor: { type: [string, "null"] }
         total: { type: [integer, "null"] }
+    ApiToken:
+      type: object
+      required: [id, name, scopes, expires_at, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        scopes: { type: array, items: { type: string, enum: [dms.upload] } }
+        expires_at: { type: string, format: date-time }
+        created_at: { type: string, format: date-time }
+        last_used_at: { type: [string, "null"], format: date-time }
+        revoked_at: { type: [string, "null"], format: date-time }
+        token: { type: string, description: "Klartext, nur in der Antwort von createApiToken" }
+    DmsSource:
+      type: object
+      required: [id, kind, name, config, has_secret, enabled, runs, created_at, updated_at]
+      properties:
+        id: { type: string, format: uuid }
+        kind: { type: string, enum: [mail, folder] }
+        name: { type: string }
+        config: { type: object, additionalProperties: true, description: "ohne Geheimnisse" }
+        has_secret: { type: boolean, description: "ein Passwort ist hinterlegt (nie der Wert)" }
+        enabled: { type: boolean }
+        runs: { type: integer, format: int64 }
+        last_run_at: { type: [string, "null"], format: date-time }
+        last_status: { type: [string, "null"], enum: [ok, error, null] }
+        last_error: { type: [string, "null"], description: "Fehlercode des letzten Laufs, keine Nutzdaten" }
+        last_stats:
+          type: [object, "null"]
+          description: "Zaehler des letzten Laufs (Mail: messages, ingested, duplicates, skipped, failed; Ordner: files, ingested, duplicates, waiting, failed)"
+          additionalProperties: { type: integer }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    DmsSourceInput:
+      type: object
+      required: [kind, name, config]
+      properties:
+        kind: { type: string, enum: [mail, folder] }
+        name: { type: string, minLength: 1, maxLength: 100 }
+        config: { type: object, additionalProperties: true }
+        password: { type: string, minLength: 1, maxLength: 512, description: "nur kind mail, Pflicht; wird nie zurueckgegeben" }
+        enabled: { type: boolean, default: true }

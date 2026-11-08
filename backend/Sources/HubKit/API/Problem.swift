@@ -74,7 +74,7 @@ public enum ProblemCatalog {
         "csrf_invalid": "Das CSRF-Token fehlt oder ist ungültig.",
         "recovery_session_restricted": "Diese Aktion ist in einer Notfall-Sitzung nicht erlaubt.",
         "too_many_requests": "Zu viele Anfragen. Bitte später erneut versuchen.",
-        "service_unavailable": "Der Dienst ist vorübergehend nicht verfügbar.",
+        "service_unavailable":"Der Dienst ist vorübergehend nicht verfügbar.",
         "internal_error": "Interner Fehler. Bitte später erneut versuchen."
     ]
     public static func message(_ code: String) -> String { messages[code] ?? "Ein Fehler ist aufgetreten." }

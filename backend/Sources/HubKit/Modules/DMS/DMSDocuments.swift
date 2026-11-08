@@ -122,6 +122,10 @@ enum DMSDocuments {
         var verifyBlob: (@Sendable (any SQLDatabase) async throws -> Bool)? = nil
         /// WP-O2: Priorität des OCR-Jobs; nil = kein OCR-Job (Modul ohne Worker-Anbindung, z. B. in Tests).
         var ocrPriority: Int? = nil
+        /// WP-D4: Quelle des Eingangsvorgangs (Standard Upload), Herkunftskennung (ohne Nutzdaten) und Absender (Mail, für die Regelbedingung `sender_contains`).
+        var ingestSource: DMSIngest.Source = .upload
+        var originRef: String? = nil
+        var sender: String? = nil
     }
 
     /// Dokument mit Original in einer Transaktion. Gleiches Original im Mandanten: Hinweis `duplicates`, kein Abbruch.
@@ -152,9 +156,9 @@ enum DMSDocuments {
             try await DMSDuplicates.detectHash(document: id, sha256: n.stored.key.sha256, tenant: tenant, on: s)   // WP-D3 Stufe 1
             var asn: Int64?
             // WP-O1: Eingangsvorgang; Upload hat Speichern und Hash synchron erledigt, weitere Schritte (OCR usw.) führen Worker aus.
-            let ingestID = try await DMSIngest.create(tenant: tenant, document: id, source: .upload, actor: actor, upTo: .hashed, on: s)
+            let ingestID = try await DMSIngest.create(tenant: tenant, document: id, source: n.ingestSource, originRef: n.originRef, sender: n.sender, actor: actor, upTo: .hashed, on: s)
             try await AuditLog.record(AuditEvent(action: "dms.ingest.received", actor: actor, tenant: tenant, subjectType: "dms.ingest_item", subjectID: ingestID.uuidString,
-                                                 meta: ["source": .safe("upload")], requestID: requestID), on: s)
+                                                 meta: ["source": .safe(n.ingestSource.rawValue)], requestID: requestID), on: s)
             if let priority = n.ocrPriority { try await DMSOCR.enqueue(item: ingestID, tenant: tenant, priority: priority, on: s) }
             if n.archive { asn = try await assignASN(id, tenant: tenant, actor: actor, requestID: requestID, on: s) }
             try await AuditLog.record(AuditEvent(action: "dms.document.created", actor: actor, tenant: tenant, subjectType: "dms.document", subjectID: id.uuidString,

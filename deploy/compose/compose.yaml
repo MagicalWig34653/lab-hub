@@ -65,17 +65,28 @@ services:
   # Objektspeicher: wie das Backend (OBJECT_STORE*); bei OBJECT_STORE=fs muss dasselbe Volume eingehängt werden (Betriebsart mit mehreren Hosts: S3).
   worker:
     image: ${LABHUB_WORKER_IMAGE:-${LABHUB_IMAGE:?LABHUB_IMAGE setzen}-worker}
-    command: ["worker", "--kinds", "dms.ocr"]
+    # WP-D4: zusätzlich Prüf-/Export-Jobs (D5) und die Quellen Mail-Poll und Konsumordner. Mail-Passwörter werden mit SECRET_KEY entschlüsselt (Secret, nie als Wert in der Umgebung);
+    # der Konsumordner ist ein Volume NUR in diesem Dienst (ADR 0003: nichts im Backend-Container): <DMS_FOLDER_ROOT>/<mandanten-uuid>/<Pfad der Quelle>, schreibbar für Nutzer 10001.
+    command: ["worker", "--kinds", "dms.ocr,dms.verify,dms.export,dms.mail.poll,dms.folder.scan"]
     restart: unless-stopped
     depends_on:
       migrate: { condition: service_completed_successfully }
+    volumes:
+      - ${DMS_FOLDER_SOURCE:-labhub-consume}:/mnt/consume
     environment:
       <<: *dbenv
+      SECRET_KEY_FILE: /run/secrets/lh_secret_key
+      DMS_FOLDER_ROOT: /mnt/consume
+      DMS_MAIL_TLS_VERIFY: ${DMS_MAIL_TLS_VERIFY:-true}
+      DMS_MAIL_CA_PATH: ${DMS_MAIL_CA_PATH:-}
+      DMS_MAIL_HOST_ALLOWLIST: ${DMS_MAIL_HOST_ALLOWLIST:-}
+      DMS_TENANT_QUOTA_BYTES: ${DMS_TENANT_QUOTA_BYTES:-}
+      DMS_DEFAULT_RETENTION_YEARS: ${DMS_DEFAULT_RETENTION_YEARS:-}
       OCR_TMPDIR: /tmp
       OCR_TIMEOUT_SECONDS: ${OCR_TIMEOUT_SECONDS:-600}
       OCR_MEMORY_MB: ${OCR_MEMORY_MB:-4096}
       OCR_MAX_PAGES: ${OCR_MAX_PAGES:-300}
-    secrets: [lh_db_password]
+    secrets: [lh_db_password, lh_secret_key]
     read_only: true
     tmpfs: ["/tmp:size=2g"]
     stop_grace_period: 30s
@@ -92,3 +103,4 @@ secrets:
     file: ./secrets/lh_secret_key
 volumes:
   labhub-db:
+  labhub-consume:

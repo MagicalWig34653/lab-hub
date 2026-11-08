@@ -14,6 +14,7 @@ public func routes(_ app: Application) throws {
     registerTenancyRoutes(app)
     try registerModuleRoutes(app)
     registerContactRoutes(app)
+    registerApiTokenRoutes(app)  // WP-D4
 }
 
 public struct Readiness: Sendable {

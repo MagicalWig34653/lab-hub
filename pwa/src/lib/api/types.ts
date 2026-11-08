@@ -1386,6 +1386,153 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/api-tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Eigene API-Tokens (WP-D4, Minimalstand F-05); ohne Token-Klartext
+         * @description Nur mit Sitzung (kein API-Token, keine Notfall-Sitzung). Zeigt auch widerrufene und abgelaufene Tokens.
+         */
+        get: operations["listApiTokens"];
+        put?: never;
+        /**
+         * API-Token mit Scope erstellen; der Klartext steht nur in dieser Antwort (Audit auth.api_token.created)
+         * @description Minimalstand: einziger Scope ist dms.upload (Share-/Scan-API). Pflichtablauf (expires_in_days 1..730, Standard 365). Gespeichert wird nur der SHA-256-Hash.
+         *     Das Token (Praefix lhp_) wird ausschliesslich an Routen mit ausdruecklichem Scope akzeptiert, nie als Sitzung. Unbekannter Scope 422.
+         */
+        post: operations["createApiToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/api-tokens/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Eigenes API-Token widerrufen (wirkt sofort auf allen Instanzen; wiederholbar; fremde ID 404; Audit auth.api_token.revoked) */
+        delete: operations["revokeApiToken"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/dms/share": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Share-/Scan-API (WP-D4). Datei hochladen mit persoenlichem API-Token (Scope dms.upload); Berechtigung dms.document.create der Rolle des Token-Inhabers
+         * @description Wie dmsUpload (Body = Dateiinhalt, Magic Bytes, Limits, Quota, gleiche Query-Parameter), aber Authorization: Bearer lhp_... statt Sitzung; Cookies und Sitzungstokens werden hier nicht akzeptiert.
+         *     Der Idempotency-Key ist optional (Scanner kennen ihn nicht): ohne ihn gilt ein aus Inhalt und Parametern abgeleiteter Schluessel, dieselbe Datei erzeugt dann kein zweites Dokument,
+         *     sondern liefert die Antwort des ersten Aufrufs. Quelle des Eingangsvorgangs ist share_ext, Herkunft api_token:<id>.
+         *     Ungueltiges, widerrufenes, abgelaufenes Token oder falscher Scope 401; Token-Inhaber kein Mitglied des Mandanten 404; Modul aus 404 module_disabled; Rolle ohne Recht 403.
+         */
+        post: operations["dmsShare"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/dms/sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Quellen des Mandanten (Berechtigung dms.source.read) mit letztem Lauf und Fehlercode; nie mit Geheimnis */
+        get: operations["listDmsSources"];
+        put?: never;
+        /**
+         * Quelle anlegen (Berechtigung dms.source.manage); Audit dms.source.created, plant den ersten Lauf ein
+         * @description kind mail: IMAP ueber implizites TLS (config.host, port 993, username, mailbox INBOX, processed_mailbox, interval_seconds 30..86400, include_body, sender_contains, subject_contains,
+         *     max_per_run) und password (Pflicht). Das Passwort wird mit AES-256-GCM verschluesselt (Schluessel aus SECRET_KEY, Betrieb) gespeichert und nie ausgegeben, geloggt oder auditiert
+         *     (Antwort: has_secret). Ohne SECRET_KEY auf dem Server: 422 mit Feld password und Code secret_key_missing (5xx-Details gibt die API nie aus). Verarbeitet werden ungelesene Nachrichten; danach als gelesen markiert und optional verschoben, nie geloescht.
+         *     kind folder: config.path relativ zum Mount <DMS_FOLDER_ROOT>/<mandant>/ im Worker-Container (nur [A-Za-z0-9_. -] und /), interval_seconds 10..86400, stable_seconds 0..3600.
+         *     Unbekannte Schluessel 422, gleicher Name 409, mehr als 50 Quellen 409.
+         */
+        post: operations["createDmsSource"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/dms/sources/{source}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Quelle mit letztem Lauf (Berechtigung dms.source.read); fremde ID 404 */
+        get: operations["getDmsSource"];
+        put?: never;
+        post?: never;
+        /** Quelle loeschen (Berechtigung dms.source.manage); bereits aufgenommene Dokumente bleiben; Audit dms.source.deleted */
+        delete: operations["deleteDmsSource"];
+        options?: never;
+        head?: never;
+        /** Quelle aendern (Berechtigung dms.source.manage); name, config (komplett), password, enabled; Audit dms.source.updated */
+        patch: operations["updateDmsSource"];
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/dms/sources/{source}/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Lauf sofort einplanen (Berechtigung dms.source.manage); zieht den wartenden Lauf vor, hoechstens ein offener Lauf je Quelle; Audit dms.source.run_requested */
+        post: operations["runDmsSource"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/dms/sources/{source}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verbindung testen (Berechtigung dms.source.manage); nur Mail - Anmeldung und Postfach, keine Verarbeitung
+         * @description Antwort immer 200 mit ok; bei Fehler nur ein Code (imap_connect_failed, imap_tls_failed, imap_auth_failed, imap_mailbox_not_found, imap_timeout, secret_key_missing, secret_unreadable), nie Servertext oder Passwort.
+         *     Ordnerquellen koennen vom Backend nicht geprueft werden (der Ordner ist nur im Worker eingebunden): 409 mit detail test_not_supported; Ergebnis dort ueber last_status nach einem Lauf.
+         */
+        post: operations["testDmsSource"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2059,6 +2206,64 @@ export interface components {
             next_cursor: string | null;
             total?: number | null;
         };
+        ApiToken: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            scopes: "dms.upload"[];
+            /** Format: date-time */
+            expires_at: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            last_used_at?: string | null;
+            /** Format: date-time */
+            revoked_at?: string | null;
+            /** @description Klartext, nur in der Antwort von createApiToken */
+            token?: string;
+        };
+        DmsSource: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            kind: "mail" | "folder";
+            name: string;
+            /** @description ohne Geheimnisse */
+            config: {
+                [key: string]: unknown;
+            };
+            /** @description ein Passwort ist hinterlegt (nie der Wert) */
+            has_secret: boolean;
+            enabled: boolean;
+            /** Format: int64 */
+            runs: number;
+            /** Format: date-time */
+            last_run_at?: string | null;
+            /** @enum {string|null} */
+            last_status?: "ok" | "error" | null;
+            /** @description Fehlercode des letzten Laufs, keine Nutzdaten */
+            last_error?: string | null;
+            /** @description Zaehler des letzten Laufs (Mail: messages, ingested, duplicates, skipped, failed; Ordner: files, ingested, duplicates, waiting, failed) */
+            last_stats?: {
+                [key: string]: number;
+            } | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        DmsSourceInput: {
+            /** @enum {string} */
+            kind: "mail" | "folder";
+            name: string;
+            config: {
+                [key: string]: unknown;
+            };
+            /** @description nur kind mail, Pflicht; wird nie zurueckgegeben */
+            password?: string;
+            /** @default true */
+            enabled: boolean;
+        };
     };
     responses: {
         /** @description Fehler (RFC 9457) */
@@ -2106,6 +2311,8 @@ export interface components {
         DmsMasterId: string;
         DmsRule: string;
         DmsSuggestion: string;
+        /** @description Quelle des Mandanten. Fremd oder unbekannt liefert 404. */
+        DmsSource: string;
         DmsDuplicate: string;
     };
     requestBodies: never;
@@ -4996,6 +5203,345 @@ export interface operations {
             404: components["responses"]["Problem"];
             409: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
+        };
+    };
+    listApiTokens: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tokens des Nutzers */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["ApiToken"][];
+                    };
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+        };
+    };
+    createApiToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    scopes: "dms.upload"[];
+                    expires_in_days?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Token inklusive Klartext (nur jetzt sichtbar) */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiToken"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    revokeApiToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Widerrufen */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    dmsShare: {
+        parameters: {
+            query?: {
+                filename?: string;
+                title?: string;
+                doc_date?: string;
+                document_type_id?: string;
+                archive?: boolean;
+            };
+            header?: {
+                "Idempotency-Key"?: string;
+            };
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/octet-stream": string;
+            };
+        };
+        responses: {
+            /** @description Dokument angelegt (oder gespeicherte Antwort bei Wiederholung) */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmsDocument"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            413: components["responses"]["Problem"];
+            415: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listDmsSources: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Quellen (hoechstens 50 je Mandant), aelteste zuerst */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["DmsSource"][];
+                    };
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    createDmsSource: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DmsSourceInput"];
+            };
+        };
+        responses: {
+            /** @description Quelle */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmsSource"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getDmsSource: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                /** @description Quelle des Mandanten. Fremd oder unbekannt liefert 404. */
+                source: components["parameters"]["DmsSource"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Quelle */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmsSource"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    deleteDmsSource: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                /** @description Quelle des Mandanten. Fremd oder unbekannt liefert 404. */
+                source: components["parameters"]["DmsSource"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Geloescht */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    updateDmsSource: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                /** @description Quelle des Mandanten. Fremd oder unbekannt liefert 404. */
+                source: components["parameters"]["DmsSource"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name?: string;
+                    config?: {
+                        [key: string]: unknown;
+                    };
+                    password?: string;
+                    enabled?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Quelle */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmsSource"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    runDmsSource: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                /** @description Quelle des Mandanten. Fremd oder unbekannt liefert 404. */
+                source: components["parameters"]["DmsSource"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Eingeplant (Ergebnis spaeter in last_run_at/last_status) */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmsSource"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+        };
+    };
+    testDmsSource: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                /** @description Quelle des Mandanten. Fremd oder unbekannt liefert 404. */
+                source: components["parameters"]["DmsSource"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Testergebnis */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        ok: boolean;
+                        /** @description Anzahl ungelesener Nachrichten, die passen (nur bei ok) */
+                        unseen?: number;
+                        error?: string;
+                    };
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
         };
     };
 }

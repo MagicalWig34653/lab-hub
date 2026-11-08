@@ -406,6 +406,7 @@ final class ModuleTests: AuthTestCase {
         XCTAssertEqual(recorded, 2)
         // Revert/Prepare der Kernmigration (Expand-only, Revert vorhanden)
         let database = app1.db(.psql)
+        try await CreateApiTokens().revert(on: database)  // WP-D4 zuerst: verweist auf users
         try await CreateJobsPriority().revert(on: database)  // WP-O1 zuerst
         try await CreateContacts().revert(on: database)  // WP-K5 zuerst
         try await CreateModules().revert(on: database)
@@ -418,6 +419,7 @@ final class ModuleTests: AuthTestCase {
         XCTAssertEqual(again, 14)
         try await CreateContacts().prepare(on: database)
         try await CreateJobsPriority().prepare(on: database)
+        try await CreateApiTokens().prepare(on: database)
     }
 }
 

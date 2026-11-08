@@ -62,8 +62,19 @@ services:
   # Repliken nach Last (jeder Worker holt Aufträge per Lease aus der Datenbank, mehrere sind sicher, ADR 0006). Objektspeicher wie das Backend (S3 empfohlen).
   worker:
     image: ${LABHUB_WORKER_IMAGE:-${LABHUB_IMAGE:?LABHUB_IMAGE setzen}-worker}
-    command: ["worker", "--kinds", "dms.ocr"]
+    # WP-D4 (UNGETESTET unter Swarm, nur Syntax): Prüf-/Export-Jobs, Mail-Poll und Konsumordner. Der Konsumordner (Volume) hängt nur am Worker; im Swarm braucht er ein Volume,
+    # das auf jedem Knoten mit Worker-Replik dieselben Dateien zeigt (NFS o. ä.) oder die Worker-Replik an einen Knoten binden (placement constraint, Knoten-Label).
+    command: ["worker", "--kinds", "dms.ocr,dms.verify,dms.export,dms.mail.poll,dms.folder.scan"]
+    volumes:
+      - ${DMS_FOLDER_SOURCE:-labhub-consume}:/mnt/consume
     environment:
+      SECRET_KEY_FILE: /run/secrets/lh_secret_key
+      DMS_FOLDER_ROOT: /mnt/consume
+      DMS_MAIL_TLS_VERIFY: ${DMS_MAIL_TLS_VERIFY:-true}
+      DMS_MAIL_CA_PATH: ${DMS_MAIL_CA_PATH:-}
+      DMS_MAIL_HOST_ALLOWLIST: ${DMS_MAIL_HOST_ALLOWLIST:-}
+      DMS_TENANT_QUOTA_BYTES: ${DMS_TENANT_QUOTA_BYTES:-}
+      DMS_DEFAULT_RETENTION_YEARS: ${DMS_DEFAULT_RETENTION_YEARS:-}
       DB_HOST: ${DB_HOST:?DB_HOST setzen}
       DB_PORT: ${DB_PORT:-5432}
       DB_NAME: ${DB_NAME:-labhub}
@@ -75,7 +86,7 @@ services:
       OCR_TIMEOUT_SECONDS: ${OCR_TIMEOUT_SECONDS:-600}
       OCR_MEMORY_MB: ${OCR_MEMORY_MB:-4096}
       OCR_MAX_PAGES: ${OCR_MAX_PAGES:-300}
-    secrets: [lh_db_password]
+    secrets: [lh_db_password, lh_secret_key]
     read_only: true
     tmpfs: ["/tmp:size=2g"]
     stop_grace_period: 30s
@@ -91,3 +102,5 @@ secrets:
     external: true
   lh_secret_key:
     external: true
+volumes:
+  labhub-consume:

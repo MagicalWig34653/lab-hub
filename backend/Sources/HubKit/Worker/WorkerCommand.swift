@@ -18,6 +18,11 @@ public enum WorkerHandlers {
         // WP-D5: Prüf-Job und Export-Job
         map[DMSIntegrity.kind] = DMSIntegrity.handler { s in try ObjectStoreConfig.fromEnvironment(environment).makeStore(db: s) }
         map[DMSExport.kind] = DMSExport.handler(tempRoot: ocr.tempRoot) { s in try ObjectStoreConfig.fromEnvironment(environment).makeStore(db: s) }
+        // WP-D4: Quellen. Mail-Passwort nur über SECRET_KEY(_FILE) entschlüsselbar; Konsumordner nur als eingebundenes Volume `DMS_FOLDER_ROOT` im Worker.
+        let limits = DMSSourceLimits.fromEnvironment(environment)
+        let storeConfig: @Sendable () throws -> ObjectStoreConfig = { try ObjectStoreConfig.fromEnvironment(environment) }
+        map[DMSMailPoll.kind] = DMSMailPoll.handler(storeConfig: storeConfig, box: SecretBox.fromEnvironment(environment), imap: IMAPOptions.fromEnvironment(environment), limits: limits)
+        map[DMSFolderScan.kind] = DMSFolderScan.handler(storeConfig: storeConfig, root: environment["DMS_FOLDER_ROOT"], limits: limits)
         return map
     }
 

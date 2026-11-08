@@ -147,10 +147,15 @@ enum DMSUpload {
     }
 
     /// Kompletter Upload: Strom speichern, Datei registrieren, Dokument idempotent anlegen. Antwort 201 mit dem Dokument.
-    static func handle(_ req: Request, module: DMSModule) async throws -> Response {
+    /// `shareToken`: Aufruf über die Share-/Scan-API (WP-D4). Der Idempotency-Key ist dort optional (Scanner kennen ihn nicht); ohne ihn gilt ein aus Inhalt
+    /// und Parametern abgeleiteter Schlüssel: dieselbe Datei mit denselben Parametern erzeugt kein zweites Dokument, sondern liefert die Antwort des ersten.
+    static func handle(_ req: Request, module: DMSModule, shareToken: UUID? = nil) async throws -> Response {
         let context = try req.requireTenant()
         let actor = try req.requireAuth().user.id
-        guard let key = req.headers.first(name: IdempotencyMiddleware.header), !key.isEmpty, key.count <= 255 else { throw HubError(.badRequest, "idempotency_key_required") }
+        let headerKey = req.headers.first(name: IdempotencyMiddleware.header)
+        if shareToken == nil || headerKey != nil {
+            guard let k = headerKey, !k.isEmpty, k.count <= 255 else { throw HubError(.badRequest, "idempotency_key_required") }
+        }
         let params = try DMSUploadParams(req)
         let config = try module.objectStore.get()
         let store = try config.makeStore(db: try sql(req.db))
@@ -167,12 +172,14 @@ enum DMSUpload {
         let stored = try await store.put(tenant: tenant, stream: stream, expectedSHA256: nil)
         let result: StoredResponse
         do {
-            result = try await IdempotencyService(s).execute(tenant: tenant, key: key, requestHash: requestHash(sha256: stored.key.sha256, params: params)) {
+            let hash = requestHash(sha256: stored.key.sha256, params: params)
+            result = try await IdempotencyService(s).execute(tenant: tenant, key: headerKey ?? "share:" + hash, requestHash: hash) {
                 let doc = try await DMSDocuments.create(
                     tenant: tenant, actor: actor, requestID: requestID,
                     doc: .init(title: params.title, docDate: params.docDate, typeID: params.typeID, originalName: params.originalName, archive: params.archive,
                                kind: kind, stored: stored, backend: store.kind, quotaBytes: module.tenantQuotaBytes,
-                               verifyBlob: { s in try await config.makeStore(db: s).exists(stored.key) }, ocrPriority: module.enqueueOCR ? DMSOCR.priorityManual : nil), on: db)
+                               verifyBlob: { s in try await config.makeStore(db: s).exists(stored.key) }, ocrPriority: module.enqueueOCR ? DMSOCR.priorityManual : nil,
+                               ingestSource: shareToken == nil ? .upload : .shareExt, originRef: shareToken.map { "api_token:\($0.uuidString.lowercased())" }), on: db)
                 let encoder = JSONEncoder()
                 return StoredResponse(status: 201, body: String(decoding: try encoder.encode(doc), as: UTF8.self))
             }

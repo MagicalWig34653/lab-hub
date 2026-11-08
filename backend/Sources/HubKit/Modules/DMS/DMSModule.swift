@@ -17,15 +17,18 @@ public struct DMSModule: HubModule {
     let enqueueOCR: Bool
     /// WP-D5: Standard-Aufbewahrungsjahre für Dokumente ohne Typfrist (`DMS_DEFAULT_RETENTION_YEARS`, Standard 10, 0 = keine Frist). Konfiguration, keine rechtliche Zusage.
     let defaultRetentionYears: Int
+    /// WP-D4: Schlüssel für die Zugangsdaten der Quellen (`SECRET_KEY(_FILE)`); ohne ihn lassen sich Mail-Quellen weder anlegen noch abfragen (422, Feld `password`, Code `secret_key_missing`; 5xx-Details würden nicht ausgegeben).
+    let secretBox: SecretBox?
 
     /// Standard: Objektspeicher aus der Umgebung (`OBJECT_STORE*`), Upload-Limit `DMS_MAX_UPLOAD_BYTES` (Standard 100 MiB).
-    public init(objectStore: ObjectStoreConfig? = nil, maxUploadBytes: Int64? = nil, tenantQuotaBytes: Int64? = nil, enqueueOCR: Bool = false, defaultRetentionYears: Int? = nil, environment: [String: String] = ProcessInfo.processInfo.environment) {
+    public init(objectStore: ObjectStoreConfig? = nil, maxUploadBytes: Int64? = nil, tenantQuotaBytes: Int64? = nil, enqueueOCR: Bool = false, defaultRetentionYears: Int? = nil, secretKey: String? = nil, environment: [String: String] = ProcessInfo.processInfo.environment) {
         if let objectStore { self.objectStore = .success(objectStore) } else {
             do { self.objectStore = .success(try ObjectStoreConfig.fromEnvironment(environment)) }
             catch let e as ConfigError { self.objectStore = .failure(e) }
             catch { self.objectStore = .failure(ConfigError(description: "OBJECT_STORE ungültig")) }
         }
         self.enqueueOCR = enqueueOCR
+        self.secretBox = secretKey.flatMap { SecretBox(secretKey: $0) } ?? SecretBox.fromEnvironment(environment)
         self.defaultRetentionYears = defaultRetentionYears ?? DMSRetention.defaultYears(environment)
         self.tenantQuotaBytes = tenantQuotaBytes ?? environment["DMS_TENANT_QUOTA_BYTES"].flatMap(Int64.init).flatMap { $0 > 0 ? $0 : nil } ?? 1024 * 1024 * 1024 * 1024
         self.maxUploadBytes = maxUploadBytes ?? environment["DMS_MAX_UPLOAD_BYTES"].flatMap(Int64.init).flatMap { $0 > 0 ? $0 : nil } ?? 100 * 1024 * 1024
@@ -44,10 +47,13 @@ public struct DMSModule: HubModule {
          PermissionDefinition("dms.document.purge"),
          PermissionDefinition("dms.document.retention", roles: [.accountant]),
          PermissionDefinition("dms.integrity.run", roles: [.accountant]),
-         PermissionDefinition("dms.export.run", roles: [.accountant, .taxAdvisor])] + Self.rulePermissions   // WP-D3: dms.rule.*, dms.suggestion.*
+         PermissionDefinition("dms.export.run", roles: [.accountant, .taxAdvisor]),
+         // WP-D4: Quellen (Mail, Konsumordner) enthalten Zugangsdaten und lösen Fremdzugriffe aus: Buchhaltung
+         PermissionDefinition("dms.source.read", roles: [.accountant]),
+         PermissionDefinition("dms.source.manage", roles: [.accountant])] + Self.rulePermissions   // WP-D3: dms.rule.*, dms.suggestion.*
     }
 
-    public var migrations: [any Migration] { [CreateDMSCore(), CreateDMSIngest(), CreateDMSSearch(), CreateDMSOCR(), CreateDMSRules(), CreateDMSRevision()] }
+    public var migrations: [any Migration] { [CreateDMSCore(), CreateDMSIngest(), CreateDMSSearch(), CreateDMSOCR(), CreateDMSRules(), CreateDMSRevision(), CreateDMSSources()] }
     public var navigation: [NavigationItem] { [NavigationItem(key: "dms", labelKey: "nav.dms", path: "/dms", permission: "dms.document.read")] }
 
     func makeStore(_ req: Request) throws -> any ObjectStore {
@@ -144,6 +150,9 @@ public struct DMSModule: HubModule {
 
         // Regeln, Vorschläge, Duplikate (WP-D3)
         registerRuleRoutes(routes)
+
+        // Quellen (WP-D4) und Share-/Scan-API
+        registerSourceRoutes(routes, module: module)
 
         // Revisionssicherheit (WP-D5): Aufbewahrung, Löschsperre, endgültiges Löschen, Prüfläufe, Export
         let years = defaultRetentionYears
