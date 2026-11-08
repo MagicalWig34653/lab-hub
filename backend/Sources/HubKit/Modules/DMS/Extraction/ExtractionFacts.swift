@@ -12,18 +12,18 @@ enum Facts {
 
     // MARK: Muster
 
-    private static let dueLabel = Rx("(fällig(?:keit(?:sdatum)?)?(?:\\s+(?:am|bis))?|zahlungsziel|zahlbar\\s+bis|zu\\s+zahlen\\s+bis|zahlungsfrist|due\\s+date|payment\\s+due|due\\s+on|due\\s+by|pay\\s+by)[\\s:.|-]*$")
-    private static let issueLabel = Rx("(rechnungsdatum|rechnungs-datum|belegdatum|ausstellungsdatum|invoice\\s+date|date\\s+of\\s+issue|issue\\s+date|ausgestellt\\s+am)[\\s:.|-]*$")
-    private static let plainDateLabel = Rx("(datum|date|vom|dated)[\\s:.|-]*$")
-    private static let deadlineLabel = Rx("(frist|bis\\s+zum|spätestens(?:\\s+bis)?|deadline|until|no\\s+later\\s+than)[\\s:.|-]*$")
-    private static let relativeDue = Rx("(?:innerhalb\\s+von|binnen|within|zahlungsziel:?|zahlbar\\s+in|net|zahlbar\\s+innerhalb\\s+von)\\s*(\\d{1,3})\\s*(?:tage|tagen|tag|days|day)")
-    private static let invoiceNumber = Rx("(?:rechnungs-?\\s?(?:nummer|nr|no)\\.?|invoice\\s?(?:number|no|nr|#)\\.?|rechnung\\s+(?:nr|no)\\.?|re-?nr\\.?|beleg-?\\s?(?:nummer|nr)\\.?)\\s*[:#|]?\\s*[:#|]?\\s*([A-Z0-9][A-Z0-9\\-/._]{2,30})")
-    private static let reference = Rx("(aktenzeichen|geschäftszeichen|vertragsnummer|kundennummer|kunden-nr|versicherungsnummer|policennummer|police(?:n)?-?nr|steuernummer|bestellnummer|referenznummer|referenz|customer\\s+(?:no|number|id)|contract\\s+(?:no|number)|policy\\s+(?:no|number)|order\\s+(?:no|number)|reference|az)\\.?\\s*[:#|]\\s*([A-Z0-9][A-Z0-9\\-/._]{2,28})")
-    private static let legalForm = Rx("(?<![A-Za-zäöü])(GmbH(?:\\s*&\\s*Co\\.?\\s*KG)?|AG|UG(?:\\s*\\(haftungsbeschränkt\\))?|KG|OHG|GbR|e\\.\\s?K\\.|eG|SE|Ltd\\.?|Inc\\.?|LLC|S\\.A\\.|B\\.V\\.|Corp\\.?)(?![A-Za-zäöü])", caseInsensitive: false)
+    private static let dueLabel = Rx("(fällig(?:keit(?:sdatum)?)?(?:\\s{1,3}(?:am|bis))?|zahlungsziel|zahlbar\\s{1,3}bis|zu\\s{1,3}zahlen\\s{1,3}bis|zahlungsfrist|due\\s{1,3}date|payment\\s{1,3}due|due\\s{1,3}on|due\\s{1,3}by|pay\\s{1,3}by)[\\s:.|-]{0,20}$")
+    private static let issueLabel = Rx("(rechnungsdatum|rechnungs-datum|belegdatum|ausstellungsdatum|invoice\\s{1,3}date|date\\s{1,3}of\\s{1,3}issue|issue\\s{1,3}date|ausgestellt\\s{1,3}am)[\\s:.|-]{0,20}$")
+    private static let plainDateLabel = Rx("(datum|date|vom|dated)[\\s:.|-]{0,20}$")
+    private static let deadlineLabel = Rx("(frist|bis\\s{1,3}zum|spätestens(?:\\s{1,3}bis)?|deadline|until|no\\s{1,3}later\\s{1,3}than)[\\s:.|-]{0,20}$")
+    private static let relativeDue = Rx("(?:innerhalb\\s{1,3}von|binnen|within|zahlungsziel:?|zahlbar\\s{1,3}in|net|zahlbar\\s{1,3}innerhalb\\s{1,3}von)\\s{0,3}(\\d{1,3})\\s{0,3}(?:tage|tagen|tag|days|day)")
+    private static let invoiceNumber = Rx("(?:rechnungs-?\\s?(?:nummer|nr|no)\\.?|invoice\\s?(?:number|no|nr|#)\\.?|rechnung\\s{1,3}(?:nr|no)\\.?|re-?nr\\.?|beleg-?\\s?(?:nummer|nr)\\.?)\\s{0,3}[:#|]?\\s{0,3}[:#|]?\\s{0,3}([A-Z0-9][A-Z0-9\\-/._]{2,30})")
+    private static let reference = Rx("(aktenzeichen|geschäftszeichen|vertragsnummer|kundennummer|kunden-nr|versicherungsnummer|policennummer|police(?:n)?-?nr|steuernummer|bestellnummer|referenznummer|referenz|customer\\s{1,3}(?:no|number|id)|contract\\s{1,3}(?:no|number)|policy\\s{1,3}(?:no|number)|order\\s{1,3}(?:no|number)|reference|az)\\.?\\s{0,3}[:#|]\\s{0,3}([A-Z0-9][A-Z0-9\\-/._]{2,28})")
+    private static let legalForm = Rx("(?<![A-Za-zäöü])(GmbH(?:\\s{0,3}&\\s{0,3}Co\\.?\\s{0,3}KG)?|AG|UG(?:\\s{0,3}\\(haftungsbeschränkt\\))?|KG|OHG|GbR|e\\.\\s?K\\.|eG|SE|Ltd\\.?|Inc\\.?|LLC|S\\.A\\.|B\\.V\\.|Corp\\.?)(?![A-Za-zäöü])", caseInsensitive: false)
 
-    private static let grossTier1 = Rx("(?<![a-zäöü-])(gesamtbetrag|rechnungsbetrag|bruttobetrag|endbetrag|gesamtsumme|rechnungssumme|zahlbetrag|total\\s+amount|amount\\s+due|grand\\s+total|total\\s+due|balance\\s+due|invoice\\s+total|zu\\s+zahlender\\s+betrag|zu\\s+zahlen|gesamt\\s+brutto|summe\\s+brutto|brutto(?:summe|betrag)?)(?![a-zäöü])")
+    private static let grossTier1 = Rx("(?<![a-zäöü-])(gesamtbetrag|rechnungsbetrag|bruttobetrag|endbetrag|gesamtsumme|rechnungssumme|zahlbetrag|total\\s{1,3}amount|amount\\s{1,3}due|grand\\s{1,3}total|total\\s{1,3}due|balance\\s{1,3}due|invoice\\s{1,3}total|zu\\s{1,3}zahlender\\s{1,3}betrag|zu\\s{1,3}zahlen|gesamt\\s{1,3}brutto|summe\\s{1,3}brutto|brutto(?:summe|betrag)?)(?![a-zäöü])")
     private static let grossTier2 = Rx("(?<![a-zäöü-])(summe|gesamt|total|betrag|amount|beitrag|prämie|saldo|zahlung)(?![a-zäöü])")
-    private static let netLabel = Rx("(?<![a-zäöü])(nettobetrag|netto(?:summe)?|summe\\s+netto|zwischensumme|subtotal|net\\s+(?:amount|total)|gesamt\\s+netto)(?![a-zäöü])")
+    private static let netLabel = Rx("(?<![a-zäöü])(nettobetrag|netto(?:summe)?|summe\\s{1,3}netto|zwischensumme|subtotal|net\\s{1,3}(?:amount|total)|gesamt\\s{1,3}netto)(?![a-zäöü])")
     private static let taxLabel = Rx("(?<![a-zäöü])(mwst|mehrwertsteuer|umsatzsteuer|ust|vat|tax)(?![a-zäöü])(?!\\.?-?\\s?ident)(?!\\.?-?\\s?id\\b)(?!-?\\s?nr)(?!\\.?\\s?-?\\s?voranmeldung)")
     private static let netWordAfter = Rx("^\\s{0,3}(netto|net)(?![a-zäöü])")
 

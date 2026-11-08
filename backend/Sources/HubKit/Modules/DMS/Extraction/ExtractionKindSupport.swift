@@ -157,7 +157,7 @@ enum KS {
     static func cutName(_ s: String) -> String {
         var name = s
         for sep in [" · ", " | ", "·", " • "] { if let r = name.range(of: sep) { name = String(name[..<r.lowerBound]) } }
-        if let r = name.range(of: ",\\s*\\d", options: .regularExpression) { name = String(name[..<r.lowerBound]) }
+        if let r = name.range(of: ",\\s{0,3}\\d", options: .regularExpression) { name = String(name[..<r.lowerBound]) }
         return trimValue(name)
     }
 

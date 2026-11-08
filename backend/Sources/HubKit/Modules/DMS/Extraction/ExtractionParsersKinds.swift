@@ -50,10 +50,10 @@ extension ExtractionParsers {
     // MARK: Zahlweise
 
     private static let intervalRules: [(String, Rx)] = [
-        ("quarterly", Rx("vierteljährlich|vierteljährl\\.|vierteljahres\\w*|quartalsweise|quartals\\w+|(?:pro|je|im) quartal|quarterly|per quarter|a quarter|every three months|alle (?:drei|3) monate")),
-        ("semiannual", Rx("halbjährlich|halbjährl\\.|halbjahres\\w*|semi-?annual\\w*|bi-?annual\\w*|every six months|alle (?:sechs|6) monate")),
-        ("monthly", Rx("monatlich|monatl\\.|mtl\\.|monats(?:beitrag|prämie|miete|rate|preis|gebühr|entgelt)\\w*|(?:pro|je|im|/|per|a) ?monat|(?:per|a|/) ?month|monthly|/mo\\b")),
-        ("yearly", Rx("(?<![\\p{L}])jährlich|(?<![\\p{L}])jährl\\.|jahres(?:beitrag|prämie|miete|gebühr|preis|entgelt|abo)\\w*|(?:pro|je|im|/) ?jahr|p\\.\\s?a\\.|(?:per|a|/) ?year|annual(?:ly)?|yearly"))]
+        ("quarterly", Rx("vierteljährlich|vierteljährl\\.|vierteljahres\\w{0,30}|quartalsweise|quartals\\w{1,30}|(?:pro|je|im) quartal|quarterly|per quarter|a quarter|every three months|alle (?:drei|3) monate")),
+        ("semiannual", Rx("halbjährlich|halbjährl\\.|halbjahres\\w{0,30}|semi-?annual\\w{0,30}|bi-?annual\\w{0,30}|every six months|alle (?:sechs|6) monate")),
+        ("monthly", Rx("monatlich|monatl\\.|mtl\\.|monats(?:beitrag|prämie|miete|rate|preis|gebühr|entgelt)\\w{0,30}|(?:pro|je|im|/|per|a) ?monat|(?:per|a|/) ?month|monthly|/mo\\b")),
+        ("yearly", Rx("(?<![\\p{L}])jährlich|(?<![\\p{L}])jährl\\.|jahres(?:beitrag|prämie|miete|gebühr|preis|entgelt|abo)\\w{0,30}|(?:pro|je|im|/) ?jahr|p\\.\\s?a\\.|(?:per|a|/) ?year|annual(?:ly)?|yearly"))]
 
     /// Zahlweise im Text (erster Treffer nach fester Reihenfolge der Regeln): quarterly, semiannual, monthly, yearly.
     static func interval(in text: String) -> (value: String, match: String)? {

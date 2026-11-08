@@ -7,15 +7,15 @@ struct BankStatementDetector: DocumentDetector {
     let kind = DocumentKind.bankStatement
     var replaces: Set<FactType> { [.amount] }
 
-    private static let title = Rx("(?<![\\p{L}])(kontoauszug|tagesauszug|kontoumsätze|umsatzübersicht|account\\s+statement|bank\\s+statement|statement\\s+of\\s+account|kreditkartenabrechnung|credit\\s+card\\s+statement)(?![\\p{L}])")
-    private static let opening = Rx("(?<![\\p{L}])(?:alter\\s+kontostand|kontostand\\s+alt|anfangssaldo|anfangsbestand|saldovortrag|saldo\\s+vortrag|saldo\\s+alt|alter\\s+saldo|saldo\\s+zum\\s+(?:beginn|vortag)|opening\\s+balance|balance\\s+brought\\s+forward|previous\\s+balance|starting\\s+balance|beginning\\s+balance)(?![\\p{L}])")
-    private static let closing = Rx("(?<![\\p{L}])(?:neuer\\s+kontostand|kontostand\\s+neu|endsaldo|schlusssaldo|endbestand|saldo\\s+neu|neuer\\s+saldo|saldo\\s+zum\\s+ende|saldo\\s+am\\s+ende|closing\\s+balance|ending\\s+balance|new\\s+balance|final\\s+balance|end\\s+balance|aktueller\\s+kontostand)(?![\\p{L}])")
-    private static let balanceGeneric = Rx("(?<![\\p{L}])(?:kontostand(?:\\s+am)?|saldo)(?![\\p{L}])")
-    private static let periodRange = Rx("(?:abrechnungszeitraum|auszugszeitraum|buchungszeitraum|zeitraum|statement\\s+period|period|für\\s+den\\s+zeitraum|umsätze\\s+(?:vom|von))\\s*[:|]?")
-    private static let statementDate = Rx("(?:auszugsdatum|kontoauszug\\s+vom|statement\\s+date|erstellt\\s+am|stand|datum|date)\\s*[:|]?")
-    private static let posting = Rx("^[ \\t]*(?:\\d{1,2}\\.\\d{1,2}\\.(?:\\d{2,4})?|\\d{4}-\\d{2}-\\d{2})\\s+.{3,}?\\s[-+−–]?\\d[\\d.,']*\\s?(?:€|EUR|[-+SH])?[ \\t]*$", multiline: true)
-    private static let postingHead = Rx("buchungstag|valuta|buchungstext|verwendungszweck|umsatz|booking\\s+date|value\\s+date|description|zahlungsempfänger|auftraggeber")
-    private static let notification = Rx("liegt\\s+(?:für\\s+sie\\s+)?(?:zum\\s+abruf\\s+)?bereit|steht\\s+(?:für\\s+sie\\s+)?(?:zum\\s+(?:abruf|download)\\s+)?bereit|im\\s+(?:online-?banking|postfach|banking-?postfach)|jetzt\\s+(?:einsehen|abrufen|ansehen)|zum\\s+abruf|ready\\s+to\\s+(?:view|download)|available\\s+(?:in|on)\\s+your\\s+online|log\\s?in\\s+to\\s+(?:view|see)|melden\\s+sie\\s+sich\\s+an|neue\\s+nachricht")
+    private static let title = Rx("(?<![\\p{L}])(kontoauszug|tagesauszug|kontoumsätze|umsatzübersicht|account\\s{1,3}statement|bank\\s{1,3}statement|statement\\s{1,3}of\\s{1,3}account|kreditkartenabrechnung|credit\\s{1,3}card\\s{1,3}statement)(?![\\p{L}])")
+    private static let opening = Rx("(?<![\\p{L}])(?:alter\\s{1,3}kontostand|kontostand\\s{1,3}alt|anfangssaldo|anfangsbestand|saldovortrag|saldo\\s{1,3}vortrag|saldo\\s{1,3}alt|alter\\s{1,3}saldo|saldo\\s{1,3}zum\\s{1,3}(?:beginn|vortag)|opening\\s{1,3}balance|balance\\s{1,3}brought\\s{1,3}forward|previous\\s{1,3}balance|starting\\s{1,3}balance|beginning\\s{1,3}balance)(?![\\p{L}])")
+    private static let closing = Rx("(?<![\\p{L}])(?:neuer\\s{1,3}kontostand|kontostand\\s{1,3}neu|endsaldo|schlusssaldo|endbestand|saldo\\s{1,3}neu|neuer\\s{1,3}saldo|saldo\\s{1,3}zum\\s{1,3}ende|saldo\\s{1,3}am\\s{1,3}ende|closing\\s{1,3}balance|ending\\s{1,3}balance|new\\s{1,3}balance|final\\s{1,3}balance|end\\s{1,3}balance|aktueller\\s{1,3}kontostand)(?![\\p{L}])")
+    private static let balanceGeneric = Rx("(?<![\\p{L}])(?:kontostand(?:\\s{1,3}am)?|saldo)(?![\\p{L}])")
+    private static let periodRange = Rx("(?:abrechnungszeitraum|auszugszeitraum|buchungszeitraum|zeitraum|statement\\s{1,3}period|period|für\\s{1,3}den\\s{1,3}zeitraum|umsätze\\s{1,3}(?:vom|von))\\s{0,3}[:|]?")
+    private static let statementDate = Rx("(?:auszugsdatum|kontoauszug\\s{1,3}vom|statement\\s{1,3}date|erstellt\\s{1,3}am|stand|datum|date)\\s{0,3}[:|]?")
+    private static let posting = Rx("^[ \\t]{0,3}(?:\\d{1,2}\\.\\d{1,2}\\.(?:\\d{2,4})?|\\d{4}-\\d{2}-\\d{2})\\s{1,3}.{3,200}?\\s[-+−–]?\\d[\\d.,']{0,20}\\s?(?:€|EUR|[-+SH])?[ \\t]{0,3}$", multiline: true)
+    private static let postingHead = Rx("buchungstag|valuta|buchungstext|verwendungszweck|umsatz|booking\\s{1,3}date|value\\s{1,3}date|description|zahlungsempfänger|auftraggeber")
+    private static let notification = Rx("liegt\\s{1,3}(?:für\\s{1,3}sie\\s{1,3})?(?:zum\\s{1,3}abruf\\s{1,3})?bereit|steht\\s{1,3}(?:für\\s{1,3}sie\\s{1,3})?(?:zum\\s{1,3}(?:abruf|download)\\s{1,3})?bereit|im\\s{1,3}(?:online-?banking|postfach|banking-?postfach)|jetzt\\s{1,3}(?:einsehen|abrufen|ansehen)|zum\\s{1,3}abruf|ready\\s{1,3}to\\s{1,3}(?:view|download)|available\\s{1,3}(?:in|on)\\s{1,3}your\\s{1,3}online|log\\s?in\\s{1,3}to\\s{1,3}(?:view|see)|melden\\s{1,3}sie\\s{1,3}sich\\s{1,3}an|neue\\s{1,3}nachricht")
 
     func score(_ ctx: ExtractionContext) -> KindScore {
         let (add, result) = scoreBuilder()
@@ -61,7 +61,7 @@ struct BankStatementDetector: DocumentDetector {
             closingConf = 0.6
         }
         if let a = closing { out.append(signed(a, .balanceClosing, closingConf, closingConf < 0.7 ? "Endsaldo (unbeschriftet als „Kontostand/Saldo“)" : "Endsaldo")) }
-        out += PeriodFacts.facts(ns, start: Rx("(?:zeitraum\\s+von|umsätze\\s+vom|von)(?![\\p{L}])"), end: Rx("(?:\\bbis\\b)(?![\\p{L}])"), range: BankStatementDetector.periodRange, what: "Kontoauszug")
+        out += PeriodFacts.facts(ns, start: Rx("(?:zeitraum\\s{1,3}von|umsätze\\s{1,3}vom|von)(?![\\p{L}])"), end: Rx("(?:\\bbis\\b)(?![\\p{L}])"), range: BankStatementDetector.periodRange, what: "Kontoauszug")
             .filter { $0.reason.contains("Beschriftung „Zeitraum") || $0.reason.contains("Beschriftung „Abrechnungszeitraum") || $0.reason.contains("Beschriftung „Auszugszeitraum") || $0.reason.contains("Beschriftung „Buchungszeitraum") || $0.reason.contains("Beschriftung „Statement period") || $0.reason.contains("Beschriftung „Period") || $0.reason.contains("Beschriftung „für den Zeitraum") || $0.reason.contains("Beschriftung „Umsätze") }
         if let d = KS.dateAfter(BankStatementDetector.statementDate, ns, gap: 6).first {
             out.append(KS.make(.date, d.date.value, 0.85, "Auszugsdatum: Beschriftung „\(DMSRuleEngine.excerpt(d.label.trimmingCharacters(in: .whitespaces), max: 30))“", ns, d.range))
@@ -76,18 +76,18 @@ struct ReceiptDetector: DocumentDetector {
     let kind = DocumentKind.receipt
     var replaces: Set<FactType> { [.amount] }
 
-    private static let title = Rx("^\\W*(?:[\\p{L}\\-]+\\s+){0,2}(kassenbon|kassenbeleg|kassenzettel|bon|quittung|zahlungsbeleg|kundenbeleg|kundenquittung|receipt|sales\\s+receipt|till\\s+receipt|customer\\s+copy)(?![\\p{L}])")
-    private static let bonNumber = Rx("(?:bon-?\\s?(?:nr|nummer)|quittung\\s+(?:nr|nummer)|bonnummer|beleg-?\\s?(?:nr|nummer)|kassenbeleg-?\\s?(?:nr|nummer)|receipt\\s+(?:no|number|nr|#)|trans(?:action)?\\s+(?:no|nr|id|#)|transaktions-?\\s?(?:nr|nummer))\\.?\\s*[:#|]?")
-    private static let sumLabel = Rx("(?<![\\p{L}])(?:summe|gesamtsumme|gesamt|total|zu\\s+zahlen|zahlbetrag|gesamtbetrag|endbetrag|betrag|amount|sum|total\\s+due)(?![\\p{L}])")
+    private static let title = Rx("^\\W*(?:[\\p{L}\\-]{1,30}\\s{1,3}){0,2}(kassenbon|kassenbeleg|kassenzettel|bon|quittung|zahlungsbeleg|kundenbeleg|kundenquittung|receipt|sales\\s{1,3}receipt|till\\s{1,3}receipt|customer\\s{1,3}copy)(?![\\p{L}])")
+    private static let bonNumber = Rx("(?:bon-?\\s?(?:nr|nummer)|quittung\\s{1,3}(?:nr|nummer)|bonnummer|beleg-?\\s?(?:nr|nummer)|kassenbeleg-?\\s?(?:nr|nummer)|receipt\\s{1,3}(?:no|number|nr|#)|trans(?:action)?\\s{1,3}(?:no|nr|id|#)|transaktions-?\\s?(?:nr|nummer))\\.?\\s{0,3}[:#|]?")
+    private static let sumLabel = Rx("(?<![\\p{L}])(?:summe|gesamtsumme|gesamt|total|zu\\s{1,3}zahlen|zahlbetrag|gesamtbetrag|endbetrag|betrag|amount|sum|total\\s{1,3}due)(?![\\p{L}])")
     private static let subtotal = Rx("zwischensumme|subtotal|teilsumme")
-    private static let taxLine = Rx("(?:(?:mwst|ust|steuer|vat|tax|mw\\.?st\\.?)\\s*)?(?:[A-D]\\s+)?(7|19)(?:[,.]0{1,2})?\\s?%")
-    private static let change = Rx("(?<![\\p{L}])(?:rückgeld|wechselgeld|change(?:\\s+due)?|cash\\s+tendered|gegeben)(?![\\p{L}])")
-    private static let payLabel = Rx("(?:zahlart|zahlungsart|bezahlt\\s+mit|payment(?:\\s+method)?|paid\\s+by|tender)\\s*[:|]?")
-    private static let tse = Rx("(?<![\\p{L}])(?:tse|seriennummer\\s+kasse|kassen-?seriennummer|kassenid|kasse\\s+\\d|kassierer|bediener|filiale|terminal-?id|trace-?nr)(?![\\p{L}])")
-    private static let thanks = Rx("vielen\\s+dank\\s+für\\s+ihren\\s+(?:einkauf|besuch)|danke\\s+für\\s+ihren\\s+einkauf|thank\\s+you\\s+for\\s+(?:shopping|your\\s+purchase|your\\s+visit)|bis\\s+bald")
-    private static let itemLine = Rx("^[ \\t]*(?:\\d+\\s?x?\\s?)?[\\p{L}][^\\n]{1,40}?\\s+\\d{1,4}[,.]\\d{2}\\s?(?:€|EUR|[A-D])?[ \\t]*$", multiline: true)
-    private static let invoiceMarks = Rx("rechnungs-?\\s?(?:nummer|nr)|invoice\\s+(?:number|no)|zahlungsziel|zahlbar\\s+(?:bis|innerhalb)|bitte\\s+überweisen|payment\\s+terms|due\\s+date")
-    private static let orderMarks = Rx("bestellbestätigung|versandbestätigung|order\\s+confirmation|bestellnummer|wurde\\s+versendet|sendungsverfolgung|lieferung\\s+in|tracking")
+    private static let taxLine = Rx("(?:(?:mwst|ust|steuer|vat|tax|mw\\.?st\\.?)\\s{0,3})?(?:[A-D]\\s{1,3})?(7|19)(?:[,.]0{1,2})?\\s?%")
+    private static let change = Rx("(?<![\\p{L}])(?:rückgeld|wechselgeld|change(?:\\s{1,3}due)?|cash\\s{1,3}tendered|gegeben)(?![\\p{L}])")
+    private static let payLabel = Rx("(?:zahlart|zahlungsart|bezahlt\\s{1,3}mit|payment(?:\\s{1,3}method)?|paid\\s{1,3}by|tender)\\s{0,3}[:|]?")
+    private static let tse = Rx("(?<![\\p{L}])(?:tse|seriennummer\\s{1,3}kasse|kassen-?seriennummer|kassenid|kasse\\s{1,3}\\d|kassierer|bediener|filiale|terminal-?id|trace-?nr)(?![\\p{L}])")
+    private static let thanks = Rx("vielen\\s{1,3}dank\\s{1,3}für\\s{1,3}ihren\\s{1,3}(?:einkauf|besuch)|danke\\s{1,3}für\\s{1,3}ihren\\s{1,3}einkauf|thank\\s{1,3}you\\s{1,3}for\\s{1,3}(?:shopping|your\\s{1,3}purchase|your\\s{1,3}visit)|bis\\s{1,3}bald")
+    private static let itemLine = Rx("^[ \\t]{0,3}(?:\\d+\\s?x?\\s?)?[\\p{L}][^\\n]{1,40}?\\s{1,3}\\d{1,4}[,.]\\d{2}\\s?(?:€|EUR|[A-D])?[ \\t]{0,3}$", multiline: true)
+    private static let invoiceMarks = Rx("rechnungs-?\\s?(?:nummer|nr)|invoice\\s{1,3}(?:number|no)|zahlungsziel|zahlbar\\s{1,3}(?:bis|innerhalb)|bitte\\s{1,3}überweisen|payment\\s{1,3}terms|due\\s{1,3}date")
+    private static let orderMarks = Rx("bestellbestätigung|versandbestätigung|order\\s{1,3}confirmation|bestellnummer|wurde\\s{1,3}versendet|sendungsverfolgung|lieferung\\s{1,3}in|tracking")
 
     func score(_ ctx: ExtractionContext) -> KindScore {
         let (add, result) = scoreBuilder()
@@ -154,11 +154,11 @@ struct ReceiptDetector: DocumentDetector {
 
     static func paymentMethod(_ ns: NSString) -> (value: String, range: NSRange, why: String)? {
         let rules: [(String, Rx)] = [
-            ("debit_card", Rx("girocard|ec-?karte|ec-?cash|maestro|debitkarte|debit\\s+card|v\\s?pay")),
-            ("credit_card", Rx("(?<![\\p{L}])(?:visa|mastercard|master\\s+card|amex|american\\s+express|kreditkarte|credit\\s+card)(?![\\p{L}])")),
+            ("debit_card", Rx("girocard|ec-?karte|ec-?cash|maestro|debitkarte|debit\\s{1,3}card|v\\s?pay")),
+            ("credit_card", Rx("(?<![\\p{L}])(?:visa|mastercard|master\\s{1,3}card|amex|american\\s{1,3}express|kreditkarte|credit\\s{1,3}card)(?![\\p{L}])")),
             ("paypal", Rx("paypal")),
-            ("card", Rx("kartenzahlung|card\\s+payment|kontaktlos|contactless|(?<![\\p{L}])karte(?![\\p{L}])|(?<![\\p{L}])card(?![\\p{L}])")),
-            ("cash", Rx("^[ \\t]*(?:bar(?:zahlung)?|bargeld|cash)\\s*[:]?\\s*(?:eur\\s*|€\\s*)?\\d|(?<![\\p{L}])(?:rückgeld|wechselgeld)(?![\\p{L}])|(?:zahlart|zahlungsart|bezahlt\\s+mit|payment(?:\\s+method)?|paid\\s+by)\\s*[:|]?\\s*(?:bar|cash)(?![\\p{L}])"))]
+            ("card", Rx("kartenzahlung|card\\s{1,3}payment|kontaktlos|contactless|(?<![\\p{L}])karte(?![\\p{L}])|(?<![\\p{L}])card(?![\\p{L}])")),
+            ("cash", Rx("^[ \\t]{0,3}(?:bar(?:zahlung)?|bargeld|cash)\\s{0,3}[:]?\\s{0,3}(?:eur\\s{0,3}|€\\s{0,3})?\\d|(?<![\\p{L}])(?:rückgeld|wechselgeld)(?![\\p{L}])|(?:zahlart|zahlungsart|bezahlt\\s{1,3}mit|payment(?:\\s{1,3}method)?|paid\\s{1,3}by)\\s{0,3}[:|]?\\s{0,3}(?:bar|cash)(?![\\p{L}])"))]
         for (value, rx) in rules {
             let multi = value == "cash" ? Rx(rx.re.pattern, multiline: true) : rx
             if let m = multi.first(ns) { return (value, m.range, "Zahlart „\(DMSRuleEngine.excerpt(ns.substring(with: m.range).trimmingCharacters(in: .whitespacesAndNewlines), max: 30))“") }

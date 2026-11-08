@@ -227,7 +227,7 @@ enum DMSDownload {
         headers.replaceOrAdd(name: .contentType, value: file.mime.hasPrefix("text/") ? file.mime + "; charset=utf-8" : file.mime)
         headers.replaceOrAdd(name: .contentDisposition, value: disposition(inline, title: file.title, ext: ext(for: file.mime)))
         headers.replaceOrAdd(name: "X-Content-Type-Options", value: "nosniff")
-        headers.replaceOrAdd(name: "Content-Security-Policy", value: "default-src 'none'; sandbox")
+        headers.replaceOrAdd(name: "Content-Security-Policy", value: "default-src 'none'; sandbox; frame-src 'none'; base-uri 'none'; form-action 'none'")
         headers.replaceOrAdd(name: .cacheControl, value: "private, no-store")
         let body = Response.Body(asyncStream: { writer in
             do {

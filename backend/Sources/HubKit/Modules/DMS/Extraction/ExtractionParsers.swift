@@ -13,10 +13,49 @@ struct Rx: @unchecked Sendable {
         re = try! NSRegularExpression(pattern: pattern, options: o)
     }
     func all(_ ns: NSString, range: NSRange? = nil) -> [NSTextCheckingResult] {
-        re.matches(in: ns as String, options: [], range: range ?? NSRange(location: 0, length: ns.length))
+        let r = range ?? NSRange(location: 0, length: ns.length)
+        guard let state = ExtractionDeadline.current else { return re.matches(in: ns as String, options: [], range: r) }
+        if state.isExpired { return [] }
+        var out: [NSTextCheckingResult] = []
+        re.enumerateMatches(in: ns as String, options: [.reportProgress], range: r) { result, flags, stop in
+            if let result { out.append(result) } else if flags.contains(.progress), state.isExpired { stop.pointee = true }
+        }
+        return state.isExpired ? [] : out
     }
     func first(_ ns: NSString, range: NSRange? = nil) -> NSTextCheckingResult? {
-        re.firstMatch(in: ns as String, options: [], range: range ?? NSRange(location: 0, length: ns.length))
+        let r = range ?? NSRange(location: 0, length: ns.length)
+        guard let state = ExtractionDeadline.current else { return re.firstMatch(in: ns as String, options: [], range: r) }
+        if state.isExpired { return nil }
+        var found: NSTextCheckingResult?
+        re.enumerateMatches(in: ns as String, options: [.reportProgress], range: r) { result, flags, stop in
+            if let result { found = result; stop.pointee = true } else if flags.contains(.progress), state.isExpired { stop.pointee = true }
+        }
+        return state.isExpired ? nil : found
+    }
+}
+
+/// Harte Frist für die (synchrone) Extraktion, je Thread (Thread-Dictionary). Die ICU-Engine meldet in langen Läufen Fortschritt (`reportProgress`);
+/// nach Fristablauf liefern `Rx.first`/`Rx.all` sofort leer und brechen laufende Läufe ab. Wanduhr, nur zur Begrenzung (das Ergebnis bei Ablauf ist fest).
+final class ExtractionDeadline: @unchecked Sendable {
+    private static let key = "labhub.extraction.deadline"
+    private let end: Date
+    private var expired = false
+    private init(timeout: TimeInterval) { end = Date().addingTimeInterval(timeout) }
+
+    static var current: ExtractionDeadline? { Thread.current.threadDictionary[key] as? ExtractionDeadline }
+
+    var isExpired: Bool {
+        if !expired, Date() >= end { expired = true }
+        return expired
+    }
+
+    static func run<T>(timeout: TimeInterval, _ body: () -> T) -> (T, expired: Bool) {
+        let state = ExtractionDeadline(timeout: timeout)
+        let previous = Thread.current.threadDictionary[key]
+        Thread.current.threadDictionary[key] = state
+        defer { if let previous { Thread.current.threadDictionary[key] = previous } else { Thread.current.threadDictionary.removeObject(forKey: key) } }
+        let value = body()
+        return (value, state.isExpired)
     }
 }
 
@@ -116,8 +155,8 @@ enum ExtractionParsers {
     static let monthAlt = "januar|january|februar|february|märz|maerz|march|april|mai|may|juni|june|juli|july|august|september|sept|oktober|october|november|dezember|december|jan|feb|mär|mar|apr|jun|jul|aug|sep|okt|oct|nov|dez|dec"
     private static let dmy = Rx("(?<![\\d.])(\\d{1,2})\\.\\s?(\\d{1,2})\\.\\s?(\\d{4}|\\d{2})(?![\\d])")
     private static let iso = Rx("(?<![\\d-])(\\d{4})-(\\d{2})-(\\d{2})(?![\\d-])")
-    private static let dMonthY = Rx("(?<![\\d])(\\d{1,2})\\.?\\s+(\(monthAlt))\\.?,?\\s+(\\d{4})(?![\\d])")
-    private static let monthDY = Rx("(?<![A-Za-zäöü])(\(monthAlt))\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?,?\\s+(\\d{4})(?![\\d])")
+    private static let dMonthY = Rx("(?<![\\d])(\\d{1,2})\\.?\\s{1,3}(\(monthAlt))\\.?,?\\s{1,3}(\\d{4})(?![\\d])")
+    private static let monthDY = Rx("(?<![A-Za-zäöü])(\(monthAlt))\\.?\\s{1,3}(\\d{1,2})(?:st|nd|rd|th)?,?\\s{1,3}(\\d{4})(?![\\d])")
     private static let slash = Rx("(?<![\\d/])(\\d{1,2})/(\\d{1,2})/(\\d{4})(?![\\d/])")
 
     struct DateHit: Sendable, Equatable { let value: String; let range: NSRange }

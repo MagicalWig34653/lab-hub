@@ -144,3 +144,30 @@ enum HTMLText {
         return lines.joined(separator: "\n")
     }
 }
+
+// WP-H10 Befund 4: Das gespeicherte HTML-Derivat einer Mail wird beim Speichern entschärft. Entfernt werden `<meta>` (u. a. `http-equiv=refresh`), `<base>` und `<link>`;
+// `<form>` wird zu `<div>`, `action`/`formaction` entfallen, damit nichts navigiert oder absendet. Mehrfach angewandt bis zum Fixpunkt (verschachtelte Tarnung wie `<me<meta>ta …>`).
+// Zusätzlich liefert `DMSUpload.response` jedes Dokument mit `default-src 'none'; sandbox; frame-src 'none'; base-uri 'none'; form-action 'none'`.
+enum HTMLSafety {
+    private static let removeTags = try! NSRegularExpression(pattern: "<(?:meta|base|link)(?![A-Za-z0-9])[^>]*>?", options: [.caseInsensitive])
+    private static let formOpen = try! NSRegularExpression(pattern: "<form(?![A-Za-z0-9])", options: [.caseInsensitive])
+    private static let formClose = try! NSRegularExpression(pattern: "</form(?![A-Za-z0-9])", options: [.caseInsensitive])
+    private static let actionAttr = try! NSRegularExpression(pattern: "(?<![A-Za-z0-9_-])(?:form)?action\\s{0,5}=\\s{0,5}(?:\"[^\"]*\"|'[^']*'|[^\\s>]*)", options: [.caseInsensitive])
+
+    static func neutralize(_ html: String) -> String {
+        var s = html
+        for _ in 0..<8 {
+            let before = s
+            s = replace(removeTags, in: s, with: "")
+            s = replace(formOpen, in: s, with: "<div")
+            s = replace(formClose, in: s, with: "</div")
+            s = replace(actionAttr, in: s, with: "")
+            if s == before { break }
+        }
+        return s
+    }
+
+    private static func replace(_ re: NSRegularExpression, in s: String, with template: String) -> String {
+        re.stringByReplacingMatches(in: s, options: [], range: NSRange(location: 0, length: (s as NSString).length), withTemplate: template)
+    }
+}

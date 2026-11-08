@@ -341,4 +341,32 @@ final class DMSMailTests: DMSSourceTestBase {
         try await aEq(try await count("dms_documents"), before, "Wiederholung ohne Duplikate")
         try await aEq(try await count("dms_extractions"), 1, "Extraktion nur für die Mail; der PDF-Anhang wartet auf OCR (OCR-Worker)")
     }
+
+    // MARK: WP-H10
+
+    /// AK-H10-1: Feindliche Klartext-Mail (Etikett + über 190 000 Leerzeichen, dazu viel Text) blockiert den Worker nicht; läuft die Extraktion in die harte Frist
+    /// (hier künstlich 50 ms), wird die Mail trotzdem als verarbeitet behandelt (gelesen und verschoben) und nicht endlos neu geholt (keine Poison-Pill).
+    func testAKH10_1_hostileMailNeverBecomesPoisonPill() async throws {
+        setenv("DMS_EXTRACT_TIMEOUT_MS", "50", 1)
+        defer { unsetenv("DMS_EXTRACT_TIMEOUT_MS") }
+        let w = try await world()
+        let log = LogCapture()
+        let hostile = "Rechnungsnr" + String(repeating: " ", count: 190_000) + "X1\n" + String(repeating: "Rechnungsnummer: A1234 Gesamtbetrag 10,00 EUR\n", count: 1_000)
+        try await seed("mail5", [message(subject: "Rechnung dringend", id: "h10-1", text: hostile)], create: ["Verarbeitet"])
+        let id = try await createMailSource(w, user: "mail5", extra: ["include_body": false, "keep_mail": "always"])
+        let start = Date()
+        try await runWorker(worker(db, log: log), until: "erster Lauf") { try await self.runs(id) >= 1 }
+        XCTAssertLessThan(Date().timeIntervalSince(start), 30, "der Worker bleibt nicht hängen")
+        let status = try await call(app1, .GET, src(w.tenantA) + "/\(id)", token: w.alice.token)
+        XCTAssertEqual(status.json["last_status"] as? String, "ok", "\(status.json)")
+        try await aEq(try await mailboxState("mail5", "INBOX").unseen, 0, "Mail ist gelesen")
+        try await aEq(try await mailboxState("mail5", "Verarbeitet").all, 1, "und verschoben")
+        try await aEq(try await count("dms_documents"), 1, "Ingest läuft weiter: Mail-Original abgelegt")
+        // der nächste Lauf holt nichts mehr
+        _ = try await call(app1, .POST, src(w.tenantA) + "/\(id)/run", token: w.alice.token)
+        try await runWorker(worker(db, log: log), until: "zweiter Lauf") { try await self.runs(id) >= 2 }
+        let stats = try await call(app1, .GET, src(w.tenantA) + "/\(id)", token: w.alice.token)
+        XCTAssertEqual((stats.json["last_stats"] as? [String: Any])?["messages"] as? Int, 0, "keine erneute Verarbeitung: \(stats.json)")
+        try await aEq(try await count("dms_documents"), 1)
+    }
 }

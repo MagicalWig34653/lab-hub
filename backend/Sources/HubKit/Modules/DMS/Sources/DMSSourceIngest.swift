@@ -93,7 +93,7 @@ enum DMSSourceIngest {
         let store = try config.makeStore(db: s)
         let stored = try await store.put(tenant: source.tenant, stream: stream, expectedSHA256: nil)
         let html: (stored: StoredObject, name: String)?
-        if let data = mail?.html, !data.isEmpty { html = (try await store.put(tenant: source.tenant, stream: Self.stream(data), expectedSHA256: nil), "mail.html") } else { html = nil }
+        if let data = mail?.html.map({ Data(HTMLSafety.neutralize(String(decoding: $0, as: UTF8.self)).utf8) }), !data.isEmpty { html = (try await store.put(tenant: source.tenant, stream: Self.stream(data), expectedSHA256: nil), "mail.html") } else { html = nil }
         let key = itemKey(stored.key.sha256)
         let tenant = source.tenant, sourceID = source.id, actor = source.createdBy
         func discard() async {

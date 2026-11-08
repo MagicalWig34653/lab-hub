@@ -78,6 +78,8 @@ struct ExtractionResult: Sendable, Equatable {
     /// Scores aller Detektoren (zur Nachvollziehbarkeit), absteigend.
     let scores: [KindScore]
     let facts: [ExtractedFact]
+    /// WP-H10: die Extraktion hat die harte Frist überschritten (Grund `extraction_timeout`); Art `other`, unsicher, ohne Fakten.
+    var timedOut = false
 
     func facts(_ type: FactType) -> [ExtractedFact] { facts.filter { $0.type == type.rawValue } }
     func first(_ type: FactType) -> ExtractedFact? { facts(type).first }

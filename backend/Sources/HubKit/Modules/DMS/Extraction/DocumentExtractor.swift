@@ -6,8 +6,53 @@ import Foundation
 // Regeln der Wahl: höchster Score gewinnt (Gleichstand: feste Detektor-Reihenfolge); ist `reminder` sicher, wird `invoice` auf 0,3 gedeckelt;
 // unter `uncertainThreshold` gilt `other`. Alle Zahlen sind Konstanten im Code, keine Uhr, kein Zufall.
 
+// WP-H10 (ReDoS-Härtung): (1) Whitespace-Läufe werden vor der Extraktion auf höchstens 3 Zeichen gekappt (`normalize`), (2) alle Etikett-Muster nutzen begrenzte
+// Quantoren (`\\s{0,3}`, `[ \\t]{0,3}`, keine verschachtelten offenen Quantoren), (3) der Text wird auf `maxChars` (50 000) begrenzt, (4) die ganze Extraktion läuft unter einer
+// harten Frist (`ExtractionDeadline`, Standard 5 s, `DMS_EXTRACT_TIMEOUT_MS` 50…30000): jeder Regex-Lauf meldet Fortschritt und bricht nach Fristablauf ab.
+// Ablauf der Frist: Ergebnis `other`, unsicher, Grund `extraction_timeout`, keine Fakten; der Aufrufer (Ingest, Mail-Poll) läuft normal weiter.
+// Fundstellen-Offsets (`FactSource`) beziehen sich auf den normalisierten Text.
+
 enum DocumentExtractor {
-    static let maxChars = 200_000
+    /// Obergrenze des ausgewerteten Textes nach der Normalisierung (50 000 Zeichen reichen für Briefe/Rechnungen; mehr Text ist fast immer Anhang/Rauschen).
+    static let maxChars = 50_000
+    /// Der Rohtext wird vor der Normalisierung auf diese Zahl Unicode-Zeichen begrenzt (Speicher/Zeit der Normalisierung selbst).
+    static let maxRawScalars = 600_000
+    static let defaultTimeout: TimeInterval = 5.0
+    static let timeoutReason = "extraction_timeout"
+
+    static var timeout: TimeInterval {
+        if let raw = ProcessInfo.processInfo.environment["DMS_EXTRACT_TIMEOUT_MS"], let ms = Int(raw), (50...30_000).contains(ms) { return Double(ms) / 1000 }
+        return defaultTimeout
+    }
+
+    /// Kappt jeden zusammenhängenden Whitespace-Lauf auf höchstens 3 Zeichen. Läufe bis 3 Zeichen bleiben unverändert; längere Läufe mit Zeilenumbruch werden zu
+    /// höchstens zwei Umbrüchen plus höchstens drei Leerzeichen Einrückung (Absatz und Einrückung der nächsten Zeile bleiben erhalten), ohne Umbruch zu höchstens drei Leerzeichen.
+    static func normalize(_ text: String) -> String {
+        var out = String.UnicodeScalarView()
+        var run: [Unicode.Scalar] = []
+        func flush() {
+            defer { run.removeAll(keepingCapacity: true) }
+            if run.count <= 3 { out.append(contentsOf: run); return }
+            var newlines = 0, indent = 0, previous: Unicode.Scalar = " "
+            for c in run {
+                switch c {
+                case "\n": if previous != "\r" { newlines += 1 }; indent = 0
+                case "\r", "\u{2028}", "\u{2029}", "\u{85}", "\u{0B}", "\u{0C}": newlines += 1; indent = 0
+                default: indent += 1
+                }
+                previous = c
+            }
+            if newlines == 0 { out.append(contentsOf: [Unicode.Scalar](repeating: " ", count: 3)); return }
+            out.append(contentsOf: [Unicode.Scalar](repeating: "\n", count: min(newlines, 2)))
+            out.append(contentsOf: [Unicode.Scalar](repeating: " ", count: min(indent, 3)))
+        }
+        for c in text.unicodeScalars.prefix(maxRawScalars) {
+            if c.properties.isWhitespace { run.append(c) } else { flush(); out.append(c) }
+        }
+        flush()
+        return String(out)
+    }
+
     /// Reihenfolge = Rangfolge bei Gleichstand (WP-D8: Mahnung vor den übrigen Arten, Rechnung zuerst).
     static let detectors: [any DocumentDetector] = [
         InvoiceDetector(), ReminderDetector(), ReceiptDetector(), ContractDetector(), InsuranceDetector(), BankStatementDetector(),
@@ -16,8 +61,19 @@ enum DocumentExtractor {
 
     private static let invoiceBlockers: Set<DocumentKind> = [.receipt, .bankStatement, .taxNotice, .letter]
 
-    static func extract(_ input: ExtractionInput) -> ExtractionResult {
-        let text = input.text.count > maxChars ? String(input.text.prefix(maxChars)) : input.text
+    /// Läuft unter einer harten Frist (`timeout`); bei Ablauf siehe `timeoutResult`.
+    static func extract(_ input: ExtractionInput, timeout: TimeInterval = DocumentExtractor.timeout) -> ExtractionResult {
+        let (result, expired) = ExtractionDeadline.run(timeout: timeout) { compute(input) }
+        return expired ? timeoutResult : result
+    }
+
+    static var timeoutResult: ExtractionResult {
+        ExtractionResult(kind: .other, kindScore: 0, kindCertain: false, reasons: [timeoutReason], scores: [KindScore(kind: .other, score: 0, reasons: [timeoutReason])], facts: [], timedOut: true)
+    }
+
+    private static func compute(_ input: ExtractionInput) -> ExtractionResult {
+        let normalized = normalize(input.text)
+        let text = normalized.count > maxChars ? String(normalized.prefix(maxChars)) : normalized
         let ns = text as NSString
         let subject = (input.subject ?? derivedSubject(ns))
         let general = Facts.general(ns, input: input, subject: subject)
@@ -92,7 +148,7 @@ enum DocumentExtractor {
 
     static func fmt(_ d: Double) -> String { String(format: "%.2f", d).replacingOccurrences(of: ".", with: ",") }
 
-    private static let subjectRx = Rx("^(?:betreff|subject|betr\\.?)\\s*:\\s*(.{1,300})$", multiline: true)
+    private static let subjectRx = Rx("^(?:betreff|subject|betr\\.?)\\s{0,3}:\\s{0,3}(.{1,300})$", multiline: true)
     /// Mailtext beginnt mit „Betreff: …“ (so legt D7 ihn ab); sonst kein Betreff.
     static func derivedSubject(_ ns: NSString) -> String? {
         let head = ns.substring(to: min(ns.length, 600)) as NSString
@@ -112,9 +168,9 @@ func scoreBuilder() -> (add: (Double, String) -> Void, result: (DocumentKind) ->
 
 struct InvoiceDetector: DocumentDetector {
     let kind = DocumentKind.invoice
-    private static let subjectWord = Rx("(?<![a-zäöü])(rechnung|invoice|faktura|rechnungs\\w*)(?![a-zäöü]{3})")
-    private static let titleLine = Rx("^[ \\t]*(rechnung|invoice|tax invoice|ausgangsrechnung|eingangsrechnung|rechnung[ \\t]+(?:nr|nummer)[^\\n]{0,30})[ \\t]*$", multiline: true)
-    private static let strongLabel = Rx("rechnungs-?\\s?(?:nummer|nr|datum)|invoice\\s?(?:number|no|nr|date|#)|rechnung\\s+nr|re-?nr")
+    private static let subjectWord = Rx("(?<![a-zäöü])(rechnung|invoice|faktura|rechnungs\\w{0,30})(?![a-zäöü]{3})")
+    private static let titleLine = Rx("^[ \\t]{0,3}(rechnung|invoice|tax invoice|ausgangsrechnung|eingangsrechnung|rechnung[ \\t]{1,3}(?:nr|nummer)[^\\n]{0,30})[ \\t]{0,3}$", multiline: true)
+    private static let strongLabel = Rx("rechnungs-?\\s?(?:nummer|nr|datum)|invoice\\s?(?:number|no|nr|date|#)|rechnung\\s{1,3}nr|re-?nr")
     private static let dueWords = Rx("fällig|zahlungsziel|zahlbar|due date|payment terms|zahlungsbedingungen|payment due")
     private static let taxWords = Rx("(?<![a-zäöü])(mwst|ust|umsatzsteuer|mehrwertsteuer|vat)(?![a-zäöü])")
     private static let payWords = Rx("bitte überweisen|überweisen sie|please pay|please remit|bankverbindung|bank details|zahlung an")

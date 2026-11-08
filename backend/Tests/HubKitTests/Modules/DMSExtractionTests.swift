@@ -119,6 +119,44 @@ final class DMSExtractionTests: DMSRulesTestBase {
         try await call(via ?? app1, .GET, base(w.tenantA) + "/documents/\(doc)/extraction", token: w.alice.token)
     }
 
+    // MARK: WP-H10
+
+    /// AK-H10-4: Meta-Refresh, `<base>`, `<link>` und Formular-Aktionen werden im gespeicherten HTML-Derivat entschärft; das Original (.eml) bleibt byte-identisch.
+    func testAKH10_4_htmlDerivativeIsNeutralized() async throws {
+        let w = try await world()
+        let source = try await mailSource(w)
+        let hostile = #"<meta http-equiv="refresh" content="0;url=https://evil.example.org/x"><META HTTP-EQUIV=Refresh CONTENT='0; URL=https://evil.example.org/y'><base href="https://evil.example.org/"><link rel="prefetch" href="https://evil.example.org/p"><me<meta>ta http-equiv=refresh content="0;url=https://evil.example.org/z"><form action="https://evil.example.org/post" method="post"><button formaction="https://evil.example.org/other">Senden</button></form>"#
+        let eml = mime(subject: "Ihre Rechnung Nr. 4711", id: "inv-h10-4", html: html(remote: hostile))
+        let r = try await ingest(eml, w, source)
+        XCTAssertEqual(r.ingested, 1); XCTAssertEqual(r.failed, 0)
+        let doc = try await mailDoc(w)
+        let h = try await raw(app1, .GET, base(w.tenantA) + "/documents/\(doc)/file?role=derivative", token: w.alice.token)
+        XCTAssertEqual(h.status, .ok)
+        let body = String(decoding: h.body, as: UTF8.self).lowercased()
+        XCTAssertTrue(body.contains("<h1>rechnung</h1>"), "Inhalt bleibt")
+        for forbidden in ["<meta", "http-equiv", "refresh", "<base", "<link", "<form", "</form", "action=", "evil.example.org/x", "evil.example.org/post", "evil.example.org/other"] {
+            XCTAssertFalse(body.contains(forbidden), "Derivat enthält noch \(forbidden)")
+        }
+        let csp = h.headers.first(name: "Content-Security-Policy") ?? ""
+        for directive in ["default-src 'none'", "sandbox", "frame-src 'none'", "base-uri 'none'", "form-action 'none'"] { XCTAssertTrue(csp.contains(directive), directive) }
+        let original = try await raw(app1, .GET, base(w.tenantA) + "/documents/\(doc)/file", token: w.alice.token)
+        XCTAssertEqual(original.body, eml, "das Original bleibt unverändert")
+    }
+
+    func testAKH10_4_neutralizeUnit() {
+        let cases = ["<meta http-equiv=refresh content=0;url=x>", "<META\nHTTP-EQUIV='refresh'>", "<base href=//x>", "<link rel=a href=b>", "<me<meta>ta http-equiv=refresh>", "<meta/http-equiv=refresh>",
+                     "<form action=x><input formaction=y></form>", "<FORM\tACTION=\"x\">", "<<meta http-equiv=refresh>"]
+        for c in cases {
+            let out = HTMLSafety.neutralize(c).lowercased()
+            for f in ["<meta", "refresh", "<base", "<link", "<form", "action"] { XCTAssertFalse(out.contains(f), "\(c) -> \(out)") }
+        }
+        XCTAssertEqual(HTMLSafety.neutralize("<p>Hallo <b>Welt</b> &amp; Co. <a href=\"https://example.org\">Link</a></p>"), "<p>Hallo <b>Welt</b> &amp; Co. <a href=\"https://example.org\">Link</a></p>")
+        let t0 = Date()
+        _ = HTMLSafety.neutralize(String(repeating: "<meta ", count: 50_000) + String(repeating: "a", count: 100_000))
+        _ = HTMLSafety.neutralize(String(repeating: "action=\"", count: 50_000))
+        XCTAssertLessThan(Date().timeIntervalSince(t0), 5)
+    }
+
     // MARK: AK-D7-1 / AK-D7-2 / AK-D7-7
 
     /// AK-D7-2: HTML-Mail ohne Anhang -> Rechnung mit richtigen Feldern, Text im Suchindex, HTML als Derivat. AK-D7-1: Original byte-identisch, in der Datenbank unveränderlich.
@@ -137,7 +175,7 @@ final class DMSExtractionTests: DMSRulesTestBase {
         XCTAssertEqual(download.status, .ok)
         XCTAssertEqual(download.body, eml)
         XCTAssertEqual(download.headers.first(name: .contentType), "message/rfc822")
-        XCTAssertEqual(download.headers.first(name: "Content-Security-Policy"), "default-src 'none'; sandbox")
+        XCTAssertEqual(download.headers.first(name: "Content-Security-Policy"), "default-src 'none'; sandbox; frame-src 'none'; base-uri 'none'; form-action 'none'")
         let storedHash = try await scalar("SELECT sha256 AS v FROM dms_document_files WHERE document_id = '\(doc)' AND role = 'original'", as: String.self)
         XCTAssertEqual(storedHash, SHA256.hash(data: eml).map { String(format: "%02x", $0) }.joined())
         // unveränderlich (Trigger auf Datenbankebene)
@@ -178,7 +216,7 @@ final class DMSExtractionTests: DMSRulesTestBase {
         for disposition in ["attachment", "inline"] {
             let h = try await raw(app2, .GET, base(w.tenantA) + "/documents/\(doc)/file?role=derivative&disposition=\(disposition)", token: w.alice.token)
             XCTAssertEqual(h.status, .ok)
-            XCTAssertEqual(h.headers.first(name: "Content-Security-Policy"), "default-src 'none'; sandbox")
+            XCTAssertEqual(h.headers.first(name: "Content-Security-Policy"), "default-src 'none'; sandbox; frame-src 'none'; base-uri 'none'; form-action 'none'")
             XCTAssertEqual(h.headers.first(name: "X-Content-Type-Options"), "nosniff")
             XCTAssertEqual(h.headers.first(name: .contentType), "text/html; charset=utf-8")
             XCTAssertTrue(h.headers.first(name: .contentDisposition)?.hasPrefix(disposition) == true)
