@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
-	import { dmsApi, type DmsDocument, type DmsProcessing } from '#lib/api/client';
+	import { ApiError, dmsApi, type DmsDocument, type DmsProcessing } from '#lib/api/client';
 	import ErrorBanner from '#lib/components/app/ErrorBanner.svelte';
 	import * as Alert from '#lib/components/ui/alert';
 	import { Button } from '#lib/components/ui/button';
@@ -39,6 +39,10 @@
 	let saved = $state(false);
 	let formError = $state<string | null>(null);
 	let titleInvalid = $state(false);
+	/** rev of the document the form was filled from. Only fillForm sets it: the processing poll refreshes files/status but must not move it, or a save would overwrite foreign changes. */
+	let formRev = $state(0);
+	let conflict = $state(false);
+	let reloading = $state(false);
 
 	// --- actions ---
 	let trashReason = $state('');
@@ -81,6 +85,8 @@
 	);
 
 	function fillForm(d: DmsDocument) {
+		formRev = d.rev;
+		conflict = false;
 		title = d.title;
 		docDate = d.doc_date ?? '';
 		typeId = d.document_type_id ?? '';
@@ -159,7 +165,7 @@
 		if (reloadWhenDone && processing.phase === 'done') {
 			try {
 				const d = await dmsApi.document(tenantId, documentId);
-				doc = { ...(doc as DmsDocument), files: d.files, status: d.status, rev: d.rev };
+				doc = { ...(doc as DmsDocument), files: d.files, status: d.status };
 				if (previewUrl && previewKind !== 'html') URL.revokeObjectURL(previewUrl);
 				previewUrl = null;
 				previewKind = 'none';
@@ -219,15 +225,32 @@
 					tag_ids: tagIds,
 					fields
 				},
-				doc.rev
+				formRev
 			);
 			doc = { ...doc, ...updated };
 			fillForm(doc);
 			saved = true;
 		} catch (e) {
 			formError = errorMessage(e);
+			conflict = e instanceof ApiError && e.status === 412;
 		} finally {
 			saving = false;
+		}
+	}
+
+	/** After a conflict: load the current document and refill the form (the own unsaved edits are dropped). */
+	async function reloadForm() {
+		reloading = true;
+		try {
+			const d = await dmsApi.document(tenantId, documentId);
+			doc = { ...(doc as DmsDocument), ...d };
+			fillForm(doc);
+			formError = null;
+			saved = false;
+		} catch (e) {
+			formError = errorMessage(e);
+		} finally {
+			reloading = false;
 		}
 	}
 
@@ -444,6 +467,9 @@
 				</fieldset>
 				{#if formError}
 					<p role="alert" class="text-destructive text-sm" data-testid="dms-edit-error">{formError}</p>
+					{#if conflict}
+						<Button type="button" variant="outline" disabled={reloading} onclick={() => void reloadForm()} data-testid="dms-edit-reload">{tx('dms.edit.reload')}</Button>
+					{/if}
 				{/if}
 				{#if !canUpdate}<p class="text-muted-foreground text-xs">{tx('dms.edit.readOnly')}</p>{/if}
 			</form>

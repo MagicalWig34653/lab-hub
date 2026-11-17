@@ -376,3 +376,37 @@ test('WP-F4b upload_interrupted (409) is repeated automatically with the same ke
 	expect(keys[1]).toBe(keys[0]);
 	await expect(page.getByTestId('dms-row')).toHaveCount(1);
 });
+
+test('AK-H15-1 a change made elsewhere during processing is not overwritten: save reports the conflict, then reload shows the current values', async ({ page, context }) => {
+	await bootstrap(page, context);
+	await upload(page, pdf('Konflikt'));
+	await expect(page.getByTestId('dms-upload-item')).toHaveAttribute('data-state', 'processing');
+	await page.getByTestId('dms-row').first().getByRole('link').first().click();
+	await expect(page.getByTestId('dms-processing-status')).toBeVisible();
+	await page.getByTestId('dms-edit-title').fill('Meine Fassung');
+
+	// Someone else changes the title while processing is still running (the mock has one user; same session and CSRF token).
+	const session = await (await page.request.get('/api/v1/auth/session')).json();
+	const tenant = session.memberships[0].tenant_id;
+	const docId = page.url().split('/').pop()!.split('?')[0];
+	const other = await page.request.patch(`/api/v1/tenants/${tenant}/dms/documents/${docId}`, {
+		data: { title: 'Fremde Fassung' },
+		headers: { 'x-csrf-token': session.csrf_token }
+	});
+	expect(other.status()).toBe(200);
+
+	// The poll reloads the finished document (new rev); the form must stay bound to the rev it was filled from.
+	await expect(page.getByTestId('dms-processing-status')).toHaveCount(0, { timeout: 10_000 });
+	await page.getByTestId('dms-save').click();
+	await expect(page.getByTestId('dms-edit-error')).toBeVisible();
+	await expect(page.getByTestId('dms-saved')).toHaveCount(0);
+	const current = await (await page.request.get(`/api/v1/tenants/${tenant}/dms/documents/${docId}`)).json();
+	expect(current.title).toBe('Fremde Fassung');
+
+	await page.getByTestId('dms-edit-reload').click();
+	await expect(page.getByTestId('dms-edit-title')).toHaveValue('Fremde Fassung');
+	await expect(page.getByTestId('dms-edit-error')).toHaveCount(0);
+	await page.getByTestId('dms-edit-title').fill('Zusammengefuehrt');
+	await page.getByTestId('dms-save').click();
+	await expect(page.getByTestId('dms-saved')).toBeVisible();
+});
