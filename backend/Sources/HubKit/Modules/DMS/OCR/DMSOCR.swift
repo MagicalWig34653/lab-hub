@@ -90,14 +90,15 @@ enum DMSOCR {
     // MARK: Handler
 
     /// `storeFactory` liefert den Objektspeicher aus der Worker-Umgebung. `tempRoot`: tmpfs (Arbeitsverzeichnis je Auftrag, wird immer entfernt).
-    static func handler(engine: any OCRExtracting, tempRoot: String, storeFactory: @escaping @Sendable (any SQLDatabase) throws -> any ObjectStore) -> JobHandler {
+    /// `quotaBytes`: Speicherquota je Mandant (WP-H11: die Archivdatei zählt wie jede andere Datei); Standard aus `DMS_TENANT_QUOTA_BYTES`.
+    static func handler(engine: any OCRExtracting, tempRoot: String, quotaBytes: Int64 = DMSSourceLimits.fromEnvironment().quotaBytes, storeFactory: @escaping @Sendable (any SQLDatabase) throws -> any ObjectStore) -> JobHandler {
         return { job, s in
             guard let payload = try? JSONDecoder().decode(Payload.self, from: Data(job.payload.utf8)) else { throw PermanentJobError(code: "payload_invalid") }
-            try await process(job: job, payload: payload, engine: engine, tempRoot: tempRoot, store: try storeFactory(s), s: s)
+            try await process(job: job, payload: payload, engine: engine, tempRoot: tempRoot, quotaBytes: quotaBytes, store: try storeFactory(s), s: s)
         }
     }
 
-    private static func process(job: ClaimedJob, payload: Payload, engine: any OCRExtracting, tempRoot: String, store: any ObjectStore, s: any SQLDatabase) async throws {
+    private static func process(job: ClaimedJob, payload: Payload, engine: any OCRExtracting, tempRoot: String, quotaBytes: Int64, store: any ObjectStore, s: any SQLDatabase) async throws {
         let tenant = payload.tenant_id, item = payload.ingest_item_id
         guard let row = try await s.raw("SELECT state, document_id FROM dms_ingest_items WHERE tenant_id = \(bind: tenant) AND id = \(bind: item)").first(),
               let document = try row.decode(column: "document_id", as: UUID?.self)
@@ -140,21 +141,24 @@ enum DMSOCR {
         }
 
         // Archivdatei in den Objektspeicher (inhaltsadressiert, idempotent), danach alles Weitere in einer Transaktion
-        let archive: (stored: StoredObject, fileID: UUID)?
+        let archive: StoredObject?
         if let url = extraction.archive {
-            let stored = try await store.put(tenant: tenant, stream: try fileStream(url), expectedSHA256: nil)
-            archive = (stored, try await FileRecordService(s).register(stored, backend: store.kind, contentType: "application/pdf"))
+            archive = try await store.put(tenant: tenant, stream: try fileStream(url), expectedSHA256: nil)
         } else { archive = nil }
         guard let database = s as? any Database else { throw OCRFailure(code: "database_unavailable", permanent: false) }
+        do {
         _ = try await dmsTransaction(database) { txDB, tx in
+            // WP-H11: Quota unter Blob- und Quota-Sperre vor der files-Zeile der Archivdatei (Zeile entsteht nur zusammen mit dem Ergebnis)
+            var archiveFile: UUID? = nil
+            if let archive { archiveFile = try await DMSUpload.registerWithinQuota(archive, backend: store.kind, contentType: "application/pdf", quotaBytes: quotaBytes, on: tx) }
             guard let cur = try await tx.raw("SELECT state FROM dms_ingest_items WHERE tenant_id = \(bind: tenant) AND id = \(bind: item) FOR UPDATE").first() else { return false }
             let state = try cur.decode(column: "state", as: String.self)
             guard state == "ocr_queued" else { return false }   // ein anderer Worker war schneller (oder Item steht im Fehlerzustand): kein zweites Ergebnis
             try await DMSTexts.add(document: document, tenant: tenant, engine: extraction.engine, lang: extraction.lang, text: extraction.text, on: txDB)
-            if let archive {
+            if let archive, let archiveFile {
                 try await tx.raw("""
                     INSERT INTO dms_document_files (tenant_id, document_id, role, file_id, mime, size_bytes, sha256, page_count)
-                    VALUES (\(bind: tenant), \(bind: document), 'archive', \(bind: archive.fileID), 'application/pdf', \(bind: archive.stored.size), \(bind: archive.stored.key.sha256), \(bind: extraction.pages))
+                    VALUES (\(bind: tenant), \(bind: document), 'archive', \(bind: archiveFile), 'application/pdf', \(bind: archive.size), \(bind: archive.key.sha256), \(bind: extraction.pages))
                     ON CONFLICT (document_id, role) WHERE role IN ('archive', 'thumbnail') DO NOTHING
                     """).run()
             }
@@ -169,6 +173,12 @@ enum DMSOCR {
                                                  meta: ["engine": .safe(extraction.engine), "ocr": .number(extraction.usedOCR ? 1 : 0), "pdfa": .number(extraction.pdfa ? 1 : 0),
                                                         "pages": .number(Int64(extraction.pages ?? 0)), "characters": .number(Int64(extraction.text.count))]), on: tx)
             return true
+        }
+        } catch let e as HubError where e.code == "storage_quota_exceeded" {
+            // Archivdatei verwerfen (nur wenn nichts auf sie zeigt); Auftrag endgültig fehlgeschlagen, wiederholbar über `retryPermanent`, sobald Platz ist
+            if let archive { await DMSUpload.discardIfUnreferenced(archive.key, store: store, db: database, logger: Logger(label: "dms.ocr")) }
+            try await giveUp(item, tenant: tenant, code: "storage_quota_exceeded", job: job, permanent: true, on: s)
+            throw PermanentJobError(code: "storage_quota_exceeded")
         }
     }
 

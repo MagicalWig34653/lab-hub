@@ -95,10 +95,11 @@ enum DMSExport {
 
     // MARK: Handler
 
-    static func handler(tempRoot: String, storeFactory: @escaping @Sendable (any SQLDatabase) throws -> any ObjectStore) -> JobHandler {
+    /// `quotaBytes`: Speicherquota je Mandant (WP-H11: das ZIP zählt wie jede andere Datei des Mandanten); Standard aus `DMS_TENANT_QUOTA_BYTES`.
+    static func handler(tempRoot: String, quotaBytes: Int64 = DMSSourceLimits.fromEnvironment().quotaBytes, storeFactory: @escaping @Sendable (any SQLDatabase) throws -> any ObjectStore) -> JobHandler {
         return { job, s in
             guard let payload = try? JSONDecoder().decode(Payload.self, from: Data(job.payload.utf8)) else { throw PermanentJobError(code: "payload_invalid") }
-            try await process(job: job, payload: payload, tempRoot: tempRoot, store: try storeFactory(s), s: s)
+            try await process(job: job, payload: payload, tempRoot: tempRoot, quotaBytes: quotaBytes, store: try storeFactory(s), s: s)
         }
     }
 
@@ -111,7 +112,7 @@ enum DMSExport {
             """).run()
     }
 
-    private static func process(job: ClaimedJob, payload: Payload, tempRoot: String, store: any ObjectStore, s: any SQLDatabase) async throws {
+    private static func process(job: ClaimedJob, payload: Payload, tempRoot: String, quotaBytes: Int64, store: any ObjectStore, s: any SQLDatabase) async throws {
         let tenant = payload.tenant_id, id = payload.export_id
         guard let row = try await s.raw("""
             UPDATE dms_exports SET state = 'running' WHERE tenant_id = \(bind: tenant) AND id = \(bind: id) AND state IN ('queued', 'running')
@@ -195,10 +196,13 @@ enum DMSExport {
         // ZIP in den Objektspeicher (inhaltsadressiert, idempotent), danach Ergebnis in einer Transaktion
         let stored = try await store.put(tenant: tenant, stream: try fileStream(zipURL), expectedSHA256: nil)
         zipSHA = stored.key.sha256; zipSize = stored.size
-        let fileID = try await FileRecordService(s).register(stored, backend: store.kind, contentType: "application/zip")
         guard let database = s as? any Database else { throw PermanentJobError(code: "database_unavailable") }
         let (docCount, fileCount, finalSHA, finalSize, manifestHash) = (docs.count, written.count, zipSHA, zipSize, manifestSHA)
+        let storedKey = stored.key
+        do {
         _ = try await dmsTransaction(database) { _, tx in
+            // WP-H11: Quota unter Blob- und Quota-Sperre (Reihenfolge wie DMSDocuments.create), erst dann die files-Zeile
+            let fileID = try await DMSUpload.registerWithinQuota(stored, backend: store.kind, contentType: "application/zip", quotaBytes: quotaBytes, on: tx)
             guard try await tx.raw("""
                 UPDATE dms_exports SET state = 'done', finished_at = now(), document_count = \(bind: docCount), file_count = \(bind: fileCount), size_bytes = \(bind: finalSize),
                   sha256 = \(bind: finalSHA), manifest_sha256 = \(bind: manifestHash), file_id = \(bind: fileID)
@@ -207,6 +211,12 @@ enum DMSExport {
             try await AuditLog.record(AuditEvent(action: "dms.export.completed", tenant: tenant, subjectType: "dms.export", subjectID: id.uuidString,
                                                  meta: ["documents": .number(Int64(docCount)), "files": .number(Int64(fileCount)), "size": .number(finalSize)]), on: tx)
             return true
+        }
+        } catch let e as HubError where e.code == "storage_quota_exceeded" {
+            // Blob verwerfen (nur wenn nichts auf ihn zeigt), Export endgültig fehlgeschlagen: klarer Code statt stiller Umgehung der Quota
+            await DMSUpload.discardIfUnreferenced(storedKey, store: store, db: database, logger: Logger(label: "dms.export"))
+            try await fail(id, tenant: tenant, code: "storage_quota_exceeded", on: s)
+            throw PermanentJobError(code: "storage_quota_exceeded")
         }
     }
 

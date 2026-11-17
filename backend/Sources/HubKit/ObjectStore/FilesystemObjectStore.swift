@@ -58,17 +58,23 @@ public struct FilesystemObjectStore: ObjectStore {
         guard FileManager.default.fileExists(atPath: url(key).path) else { throw ObjectStoreError.notFound }
         let fd = open(url(key).path, O_RDONLY)
         guard fd >= 0 else { throw ObjectStoreError.notFound }
-        let box = UnsafeSendableBox(fd)
+        // WP-H11: Deskriptor gehört einer Klasse; `deinit` schließt ihn auch, wenn der Strom verworfen wird (Abbruch, Cancel) oder `read` fehlschlägt.
+        let handle = DescriptorHandle(fd)
         return ByteStream(unfolding: {
-            guard box.value >= 0 else { return nil }
+            guard handle.isOpen else { return nil }
             var buf = ByteBuffer()
-            let n = try buf.writeWithUnsafeMutableBytes(minimumWritableBytes: objectStoreChunkSize) { raw in
-                let r = read(box.value, raw.baseAddress!, raw.count)
-                if r < 0 { throw ObjectStoreError.io("read") }
-                return r
+            do {
+                let n = try buf.writeWithUnsafeMutableBytes(minimumWritableBytes: objectStoreChunkSize) { raw in
+                    let r = read(handle.fd, raw.baseAddress!, raw.count)
+                    if r < 0 { throw ObjectStoreError.io("read") }
+                    return r
+                }
+                if n == 0 { handle.close(); return nil }
+                return buf
+            } catch {
+                handle.close()
+                throw error
             }
-            if n == 0 { close(box.value); box.value = -1; return nil }
-            return buf
         })
     }
 
@@ -78,4 +84,19 @@ public struct FilesystemObjectStore: ObjectStore {
         guard FileManager.default.fileExists(atPath: url(key).path) else { return }
         try FileManager.default.removeItem(at: url(key))
     }
+}
+
+/// Besitzer eines Dateideskriptors: `close()` ist idempotent, `deinit` schließt als Rückfall.
+private final class DescriptorHandle: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value: Int32
+    init(_ fd: Int32) { value = fd }
+    var fd: Int32 { lock.withLock { value } }
+    var isOpen: Bool { lock.withLock { value >= 0 } }
+    func close() {
+        lock.withLock {
+            if value >= 0 { _ = Foundation.close(value); value = -1 }
+        }
+    }
+    deinit { close() }
 }

@@ -135,7 +135,8 @@ enum PL {
         switch v {
         case let i as Int: return Int64(i)
         case let i as Int64: return i
-        case let d as Double where d == d.rounded(): return Int64(d)
+        // WP-H11: inf, NaN, Bruchteile und Werte außerhalb von Int64 -> nil (Quelldaten ungültig) statt Laufzeitabbruch
+        case let d as Double: return Int64(exactly: d)
         case let s as String: return Int64(s.trimmingCharacters(in: .whitespaces))
         default: return nil
         }
