@@ -73,6 +73,7 @@ test('totals per currency over the whole filtered set, source column and filter 
 	await expect(page.getByTestId('dms-list').locator('th')).toContainText(['Art', 'Titel / Absender', 'Datum', 'Betrag', 'Fällig', 'Referenz', 'Quelle', 'Status']);
 	await expect(page.getByTestId('dms-row').filter({ hasText: 'Rechnung Alpha' }).getByTestId('dms-row-source')).toHaveText('E-Mail');
 	await expect(page.getByTestId('dms-row').filter({ hasText: 'Rechnung Dollar' }).getByTestId('dms-row-source')).toHaveText('Scanner / Teilen');
+	await page.getByTestId('dms-filters').locator('summary').click();
 	await page.getByTestId('dms-filter-source').selectOption('mail');
 	await expect(page).toHaveURL(/source=mail/);
 	await expect(page.getByTestId('dms-row')).toHaveCount(1);
@@ -146,7 +147,8 @@ test('dashboard counters come from the stats route (AK-F4d)', async ({ page, con
 	await expectNoSeriousA11y(page);
 	await page.getByTestId('dms-card-overdue-link').click();
 	await expect(page).toHaveURL(/\/dms\?due=overdue/);
-	await expect(page.getByTestId('dms-row')).toHaveCount(2);
+	// the list filter (unlike the counter) also finds the contract end in the past: Alpha, Gamma, Alt
+	await expect(page.getByTestId('dms-row')).toHaveCount(3);
 });
 
 test('detail: facts of contract, insurance, authority, bank statement and receipt in readable form (AK-F4d)', async ({ page, context, request }) => {
