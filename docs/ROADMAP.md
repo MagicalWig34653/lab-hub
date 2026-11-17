@@ -54,7 +54,7 @@ Ausgangsstand (vorhanden, getestet laut `deploy/README.md`/Tests): `migrate`, `s
 | | F7 | Layout-Verwaltung und Designer in der PWA | F6, R6 | L | | offen |
 | 5 Verknüpfung | X1 | Beleg↔Dokument, Events, Steuerberater-Export | D5, R3 | M | | offen |
 | 6 Hardening | H1 | Lizenzen (BoringSSL), SBOM, Abhängigkeitsprüfung | K0 | M | P ab Phase 0 | offen |
-| | H2 | Backup/Restore mit Hash-Verifikation | D2 | M | | offen |
+| | H2 | Backup/Restore mit Hash-Verifikation | D2 | M | | fertig, Branch wp-H2 (Handoff `docs/handoff/WP-H2.md`) |
 | | H3 | Datenschutz: Export/Löschung je Kontakt/Mandant | K5, D5 | M | | offen |
 | | H4 | Update-/Swarm-Test real (Repliken, Rolling, Rollback) | K3, O2 | M | | offen |
 | | H5 | Last-/Skalierungstest (Suche, OCR-Backlog) | S1, O2 | M | | offen |

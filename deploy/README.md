@@ -18,6 +18,24 @@ Backend ist stateless: mehrere Repliken, rollierendes Update (start-first), Migr
 
 **Status:** Betriebsart 3 (Compose) am 2026-10-30 real mit Docker (colima) getestet: setup.sh non-interaktiv, Stack-Start (db, migrate, backend), `/health` und `/ready` 200, `update.sh` mit Image-Wechsel (Migration, Neuerstellung, `/ready`). Gefunden und behoben: lokales Image ohne Registry ließ `update.sh` am Pull scheitern (jetzt Rückfall auf lokales Image); Port/Adresse des Backends sind per `LH_BACKEND_PORT`/`LH_BACKEND_BIND` setzbar und stehen in `.env`. Swarm (Betriebsarten 1 und 2) ist weiterhin ungetestet (`docker swarm init` auf dem gemeinsam genutzten colima bewusst nicht ausgeführt). Skripte sind mit `shellcheck` geprüft. Das Image baut (`swift:6.2`), und `migrate` (Advisory Lock, Exit-Code 0/1), `DB_*`/`_FILE`, `/ready` sind lokal gegen Postgres 17 getestet (Docker, read-only Root, Secret-Datei). Variablen: DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD(_FILE), DB_TLS (disable|require), SECRET_KEY(_FILE), AUTO_MIGRATE, PUBLIC_URL, WEBAUTHN_RP_ID.
 
+## Backup und Restore (WP-H2)
+
+`deploy/backup.sh` schreibt ein konsistentes Paar in ein neues Verzeichnis: `db.dump` (`pg_dump -Fc`, ein Snapshot), `objects/` (Kopie des Dateisystem-Objektspeichers, ohne `.staging`), `manifest.sha256` (SHA-256 je Datei) und `manifest.hash` (SHA-256 des Manifests, zusätzlich auf der Standardausgabe; getrennt vom Archiv notieren). Erst die Datenbank, dann die Objekte: Objekte sind unveränderlich und liegen vor ihrer Datenbankzeile, die Sicherung enthält also alles, was der Dump referenziert. Bei `OBJECT_STORE=db` stecken die Objekte im Dump, `--objects` entfällt. `s3` ist noch nicht implementiert.
+
+```
+DB_HOST=… DB_NAME=labhub DB_USER=labhub DB_PASSWORD_FILE=/pfad/zur/datei \
+  deploy/backup.sh --out /srv/backup/labhub-2026-11-17 --objects "$OBJECT_STORE_FS_PATH"
+deploy/restore.sh /srv/backup/labhub-2026-11-17 --verify-only        # Test-Restore in Wegwerf-Datenbank, regelmäßig
+deploy/restore.sh /srv/backup/labhub-2026-11-17 --db labhub_neu --objects /srv/labhub/objects-neu --expect-manifest-hash <Hash>
+```
+
+- Konfiguration nur über Umgebung (`DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD(_FILE)`); das Passwort geht nur als `PGPASSWORD` an die Werkzeuge, nie in Argumente oder Ausgaben. `LH_PG_CONTAINER=<Container>` führt `pg_dump`/`pg_restore`/`psql` per `docker exec` im Postgres-Container aus (wenn auf dem Host kein Client installiert ist).
+- `restore.sh` prüft **vor jedem Schreiben** Manifest-Hash, SHA-256 jeder Datei sowie fehlende und zusätzliche Dateien; jede Abweichung bricht ab. Ziel-Datenbank (muss existieren) und Ziel-Verzeichnis müssen leer sein, es wird nie überschrieben. Danach `pg_restore` in einer Transaktion, Kopie der Objekte und erneuter Hash-Vergleich im Ziel.
+- `--verify-only` stellt in eine Wegwerf-Datenbank (`--scratch-db`, braucht CREATE DATABASE) und ein temporäres Verzeichnis her, vergleicht und räumt auf. Das ist der Test-Restore; regelmäßig (z. B. wöchentlich) per Cron/Timer ausführen und den Exit-Code überwachen.
+- **Schlüssel getrennt sichern.** `SECRET_KEY` / Master-Key (SecretBox) ist bewusst nicht Teil der Sicherung und darf nie ins Archiv. Ohne ihn sind verschlüsselte Werte (Mail-Passwörter, Import-Tokens) nach dem Restore unlesbar. Eigene, zugriffsbeschränkte Ablage (z. B. `setup.sh --save-generated`), mit Hinweis, welcher Sicherungsstand dazugehört.
+- Sicherungsverzeichnis wie Nutzerdaten behandeln (enthält Dokumente und Datenbank): Rechte 700, verschlüsselter, externer Speicherort.
+- Automatischer Test: `scripts/backup-restore-test.sh` (synthetische Daten, Wegwerf-Datenbanken `<TEST_DB_NAME>_src/_restore/_verify`; Teil von `scripts/ci.sh`).
+
 ## OCR-Worker (WP-O2)
 
 Der Worker (`App worker --kinds dms.ocr`) ist ein eigener Dienst mit eigenem Image: `Dockerfile.worker` (Ubuntu 24.04, ocrmypdf, Tesseract `deu`+`eng`, Ghostscript, poppler; Lizenzen `docs/LIZENZEN.md`). Das Backend-Image bleibt ohne OCR-Werkzeuge. Der Worker hat keinen Port, liest Aufträge per Lease aus der Datenbank und darf nur nach `/tmp` (tmpfs) schreiben (read-only Root); mehrere Worker sind sicher (jeder Auftrag wird genau einmal wirksam).
