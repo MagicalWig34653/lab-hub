@@ -213,6 +213,49 @@ final class AuthTests: AuthTestCase {
 
     // MARK: AK-K1-4 Recovery-Codes
 
+    // MARK: WP-H13 (Codex-Befunde 5 und 6)
+
+    /// AK-H13-1: Parallele Erzeugung von Recovery-Codes (zwei Instanzen) hinterlässt genau einen Satz mit 10 Zeilen.
+    func testAKH13_1_ParallelRecoveryCodeGenerationLeavesExactlyOneSet() async throws {
+        let s = try await bootstrap(app1, VirtualAuthenticator())
+        for round in 1...8 {
+            async let a = call(app1, .POST, "api/v1/me/recovery-codes", token: s.token)
+            async let b = call(app2, .POST, "api/v1/me/recovery-codes", token: s.token)
+            let (ra, rb) = try await (a, b)
+            XCTAssertEqual(ra.status, .created, "round \(round)"); XCTAssertEqual(rb.status, .created, "round \(round)")
+            let rows = try await scalar("SELECT count(*)::bigint AS v FROM recovery_codes", as: Int64.self)
+            XCTAssertEqual(rows, 10, "round \(round): more than one code set is valid")
+            // Nur einer der beiden Sätze meldet an
+            var accepted = 0
+            for code in (ra.json["codes"] as! [String]) + (rb.json["codes"] as! [String]) {
+                let r = try await call(app1, .POST, "api/v1/auth/recovery/login", json: ["handle": "alice", "code": code])
+                if r.status == .ok { accepted += 1 }
+            }
+            XCTAssertEqual(accepted, 10, "round \(round): exactly one set (10 codes) may log in")
+        }
+    }
+
+    /// AK-H13-2: Zwei parallele Passkey-Assertions (Zähler 11 und 12, zwei Instanzen): Endstand ist 12, nie 11.
+    func testAKH13_2_ParallelAssertionsNeverLowerTheSignCount() async throws {
+        let auth = VirtualAuthenticator()
+        let first = try await bootstrap(app1, auth)
+        var base: UInt32 = 10
+        for round in 1...12 {
+            let o1 = try await call(app1, .POST, "api/v1/auth/login/options")
+            let o2 = try await call(app2, .POST, "api/v1/auth/login/options")
+            let c1 = try auth.assertion(o1.json["public_key"] as! [String: Any], userID: first.userID, count: base + 1)
+            let c2 = try auth.assertion(o2.json["public_key"] as! [String: Any], userID: first.userID, count: base + 2)
+            async let a = call(app1, .POST, "api/v1/auth/login/verify", json: ["challenge_id": o1.json["challenge_id"]!, "credential": c1])
+            async let b = call(app2, .POST, "api/v1/auth/login/verify", json: ["challenge_id": o2.json["challenge_id"]!, "credential": c2])
+            let (ra, rb) = try await (a, b)
+            XCTAssertEqual(rb.status, .ok, "round \(round): the higher counter must succeed")
+            XCTAssertTrue(ra.status == .ok || ra.status == .unauthorized, "round \(round)")
+            let count = try await scalar("SELECT sign_count AS v FROM passkey_credentials", as: Int64.self)
+            XCTAssertEqual(count, Int64(base + 2), "round \(round): counter regressed")
+            base += 2
+        }
+    }
+
     func testAKK1_4_RecoveryCodesAreSingleUseAndStoredHashed() async throws {
         let auth = VirtualAuthenticator()
         let s = try await bootstrap(app1, auth)

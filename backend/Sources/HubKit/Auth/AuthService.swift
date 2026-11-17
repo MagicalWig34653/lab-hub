@@ -255,7 +255,8 @@ struct AuthService: Sendable {
                     SELECT p.id, p.public_key, p.sign_count, u.id AS user_id, u.handle, u.display_name, u.is_operator
                     FROM passkey_credentials p JOIN users u ON u.id = p.user_id
                     WHERE p.credential_id = \(bind: info.credentialID) AND p.revoked_at IS NULL AND u.disabled_at IS NULL
-                    """).first() else { throw failed }
+                    FOR UPDATE OF p
+                    """).first() else { throw failed }  // row lock serializes parallel assertions; sign_count is read after the lock
             let userID = try row.decode(column: "user_id", as: UUID.self)
             guard info.userHandle == Data(userID.uuidString.utf8) else { throw failed }
             let result: PasskeyAssertionResult
@@ -302,6 +303,8 @@ struct AuthService: Sendable {
     func generateRecoveryCodes(_ c: AuthContext, requestID: String, on db: any Database) async throws -> [String] {
         let codes = (0..<Self.recoveryCodeCount).map { _ in AuthSecrets.recoveryCode() }
         try await inTransaction(db) { s in
+            // User row lock serializes concurrent generations: DELETE+INSERT becomes atomic, only one set stays valid.
+            try await s.raw("SELECT id FROM users WHERE id = \(bind: c.user.id) FOR UPDATE").run()
             try await s.raw("DELETE FROM recovery_codes WHERE user_id = \(bind: c.user.id)").run()
             for code in codes {
                 try await s.raw("INSERT INTO recovery_codes (user_id, code_hash) VALUES (\(bind: c.user.id), \(bind: AuthSecrets.recoveryHash(user: c.user.id, code: code)))").run()
