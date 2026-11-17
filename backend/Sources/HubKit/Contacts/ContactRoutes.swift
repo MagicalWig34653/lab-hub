@@ -71,6 +71,12 @@ func registerContactRoutes(_ app: Application) {
         return try await contactResponse(out, req)
     }
 
+    /// Herkunft für Schutzregeln des DMS: darf die Rolle Dokumente ändern?
+    @Sendable func origin(_ req: Request) throws -> LinkService.Origin {
+        let ctx = try req.requireTenant()
+        return .external(canWriteDocuments: req.application.hubModules.permissions(of: ctx.role, module: "dms").contains("dms.document.update"))
+    }
+
     on(.GET, "links", permission: "contact.link.read") { req in
         guard let type: String = req.query["type"], let id: UUID = req.query["id"] else { throw ContactValidation.fail("type", "required") }
         let items = try await LinkService.list(tenant: try req.requireTenant().tenantID, type: type, id: id, includeRemoved: (req.query["include_removed"] as String?) == "true", on: req.db)
@@ -78,15 +84,15 @@ func registerContactRoutes(_ app: Application) {
     }
     on(.POST, "links", permission: "contact.link.write") { req in
         let out = try await LinkService.create(tenant: try req.requireTenant().tenantID, actor: try req.requireAuth().user.id,
-                                               body: try req.content.decode(LinkBody.self), requestID: req.requestId, on: req.db)
+                                               body: try req.content.decode(LinkBody.self), requestID: req.requestId, origin: try origin(req), on: req.db)
         return try await contactResponse(out, req, status: .created)
     }
     on(.DELETE, "links", ":link", permission: "contact.link.write") { req in
-        try await LinkService.remove(try uuidParam(req, "link"), tenant: try req.requireTenant().tenantID, actor: try req.requireAuth().user.id, requestID: req.requestId, on: req.db)
+        try await LinkService.remove(try uuidParam(req, "link"), tenant: try req.requireTenant().tenantID, actor: try req.requireAuth().user.id, requestID: req.requestId, origin: try origin(req), on: req.db)
         return Response(status: .noContent)
     }
     on(.POST, "links", ":link", "restore", permission: "contact.link.write") { req in
-        let out = try await LinkService.restore(try uuidParam(req, "link"), tenant: try req.requireTenant().tenantID, actor: try req.requireAuth().user.id, requestID: req.requestId, on: req.db)
+        let out = try await LinkService.restore(try uuidParam(req, "link"), tenant: try req.requireTenant().tenantID, actor: try req.requireAuth().user.id, requestID: req.requestId, origin: try origin(req), on: req.db)
         return try await contactResponse(out, req)
     }
 }

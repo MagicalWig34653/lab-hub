@@ -376,14 +376,14 @@ final class ContactTests: AuthTestCase {
         let a = base(w.tenantA)
         let contact = try await newContact(w.alice, w.tenantA, name: "Korrespondent")
         let doc = UUID().uuidString
-        let body: [String: Any] = ["from_type": "dms.document", "from_id": doc, "to_type": "contact", "to_id": contact, "kind": "correspondent", "source": "rule"]
+        let body: [String: Any] = ["from_type": "invoice.document", "from_id": doc, "to_type": "contact", "to_id": contact, "kind": "correspondent", "source": "rule"]
         let created = try await call(app1, .POST, a + "/links", json: body, token: w.alice.token)
         XCTAssertEqual(created.status, .created, "\(created.json)")
         XCTAssertEqual(created.json["source"] as? String, "rule")
         XCTAssertEqual((created.json["created_by"] as? String)?.lowercased(), w.alice.userID.lowercased())
         XCTAssertTrue(created.json["removed_at"] == nil || created.json["removed_at"] is NSNull)
         let id = created.json["id"] as! String
-        let manual = try await call(app2, .POST, a + "/links", json: ["from_type": "dms.document", "from_id": UUID().uuidString, "to_type": "contact", "to_id": contact, "kind": "correspondent"], token: w.alice.token)
+        let manual = try await call(app2, .POST, a + "/links", json: ["from_type": "invoice.document", "from_id": UUID().uuidString, "to_type": "contact", "to_id": contact, "kind": "correspondent"], token: w.alice.token)
         XCTAssertEqual(manual.json["source"] as? String, "manual")
         let dup = try await call(app2, .POST, a + "/links", json: body, token: w.alice.token)
         XCTAssertEqual(dup.status, .conflict)
@@ -396,7 +396,7 @@ final class ContactTests: AuthTestCase {
         // Lesen von beiden Seiten
         let fromContact = try await call(app1, .GET, a + "/links?type=contact&id=\(contact)", token: w.alice.token)
         XCTAssertEqual(items(fromContact).count, 2)
-        let fromDoc = try await call(app1, .GET, a + "/links?type=dms.document&id=\(doc)", token: w.alice.token)
+        let fromDoc = try await call(app1, .GET, a + "/links?type=invoice.document&id=\(doc)", token: w.alice.token)
         XCTAssertEqual(items(fromDoc).count, 1)
 
         // Entfernen: Eintrag bleibt mit removed_at/removed_by, taucht standardmäßig nicht mehr auf, Audit vorhanden
@@ -405,9 +405,9 @@ final class ContactTests: AuthTestCase {
         let row = try await db.raw("SELECT removed_at IS NOT NULL AS r, removed_by::text AS b, source FROM links WHERE id = \(bind: UUID(uuidString: id)!)").first()!
         XCTAssertTrue(try row.decode(column: "r", as: Bool.self)); XCTAssertEqual(try row.decode(column: "b", as: String.self), w.alice.userID.lowercased())
         XCTAssertEqual(try row.decode(column: "source", as: String.self), "rule")
-        let active = try await call(app1, .GET, a + "/links?type=dms.document&id=\(doc)", token: w.alice.token)
+        let active = try await call(app1, .GET, a + "/links?type=invoice.document&id=\(doc)", token: w.alice.token)
         XCTAssertTrue(items(active).isEmpty)
-        let withRemoved = try await call(app1, .GET, a + "/links?type=dms.document&id=\(doc)&include_removed=true", token: w.alice.token)
+        let withRemoved = try await call(app1, .GET, a + "/links?type=invoice.document&id=\(doc)&include_removed=true", token: w.alice.token)
         XCTAssertEqual(items(withRemoved).count, 1); XCTAssertNotNil(items(withRemoved)[0]["removed_at"]); XCTAssertFalse(items(withRemoved)[0]["removed_at"] is NSNull)
         let removedAgain = try await call(app1, .DELETE, a + "/links/\(id)", token: w.alice.token)
         XCTAssertEqual(removedAgain.status, .notFound)
@@ -423,7 +423,7 @@ final class ContactTests: AuthTestCase {
         XCTAssertEqual(restored.status, .ok); XCTAssertTrue(restored.json["removed_at"] == nil || restored.json["removed_at"] is NSNull)
         let restoreActive = try await call(app1, .POST, a + "/links/\(id)/restore", token: w.alice.token)
         XCTAssertEqual(restoreActive.status, .notFound)
-        let again = try await call(app1, .GET, a + "/links?type=dms.document&id=\(doc)", token: w.alice.token)
+        let again = try await call(app1, .GET, a + "/links?type=invoice.document&id=\(doc)", token: w.alice.token)
         XCTAssertEqual(items(again).count, 1)
         let created2 = try await auditCount("link.created", tenant: w.tenantA); XCTAssertEqual(created2, 3)
         let restoredAudit = try await auditCount("link.restored", tenant: w.tenantA); XCTAssertEqual(restoredAudit, 1)
@@ -431,7 +431,7 @@ final class ContactTests: AuthTestCase {
         do {
             try await db.raw("""
                 INSERT INTO links (tenant_id, from_type, from_id, to_type, to_id, kind, source) VALUES
-                (\(bind: UUID(uuidString: w.tenantA)!), 'dms.document', \(bind: UUID(uuidString: doc)!), 'contact', \(bind: UUID(uuidString: contact)!), 'correspondent', 'manual')
+                (\(bind: UUID(uuidString: w.tenantA)!), 'invoice.document', \(bind: UUID(uuidString: doc)!), 'contact', \(bind: UUID(uuidString: contact)!), 'correspondent', 'manual')
                 """).run()
             XCTFail("doppelter aktiver Eintrag muss an der Datenbank scheitern")
         } catch {}
@@ -469,7 +469,7 @@ final class ContactTests: AuthTestCase {
         for route in routes {
             for role in Role.allCases {
                 let c1 = try await insertContact(w.tenantA, name: "Probe \(cells)"), c2 = try await insertContact(w.tenantA, name: "Quelle \(cells)")
-                let link = try await insertLink(w.tenantA, from: ("dms.document", UUID()), to: ("contact", c1), kind: "k\(cells % 7)", removed: route.path.hasSuffix("/restore"))
+                let link = try await insertLink(w.tenantA, from: ("invoice.document", UUID()), to: ("contact", c1), kind: "k\(cells % 7)", removed: route.path.hasSuffix("/restore"))
                 var path = String(route.path.dropFirst()).replacingOccurrences(of: "{tenant}", with: w.tenantA)
                     .replacingOccurrences(of: "{contact}", with: c1.uuidString).replacingOccurrences(of: "{link}", with: link.uuidString)
                 var body: [String: Any]?
@@ -477,7 +477,7 @@ final class ContactTests: AuthTestCase {
                 case ("POST", "contacts"): body = ["kind": "person", "display_name": "Neu"]
                 case ("PATCH", _): body = ["display_name": "Geändert"]
                 case ("POST", "merge"): body = ["source_id": c2.uuidString]
-                case ("POST", "links"): body = ["from_type": "dms.document", "from_id": UUID().uuidString, "to_type": "contact", "to_id": c1.uuidString, "kind": "probe"]
+                case ("POST", "links"): body = ["from_type": "invoice.document", "from_id": UUID().uuidString, "to_type": "contact", "to_id": c1.uuidString, "kind": "probe"]
                 default: break
                 }
                 if route.method == "GET", route.path.hasSuffix("/links") { path += "?type=contact&id=\(c1)" }

@@ -65,12 +65,16 @@ enum DMSOCR {
             guard let doc = try await s.raw("SELECT trashed_at FROM dms_documents WHERE tenant_id = \(bind: tenant) AND id = \(bind: document) FOR SHARE").first()
             else { throw DMSError.notFound }
             if try doc.decode(column: "trashed_at", as: Date?.self) != nil { throw DMSError.trashed }
+            // WP-H14: Auch ein `ocr_queued`-Vorgang gilt als dauerhaft fehlgeschlagen, wenn sein Job in Quarantaene ist (Absturzschleife: der Kern setzt nur `jobs.state`).
             guard let row = try await s.raw("""
-                SELECT id FROM dms_ingest_items WHERE tenant_id = \(bind: tenant) AND document_id = \(bind: document) AND state = 'failed_permanent'
-                ORDER BY created_at DESC, id DESC LIMIT 1
+                SELECT i.id, i.state FROM dms_ingest_items i WHERE i.tenant_id = \(bind: tenant) AND i.document_id = \(bind: document)
+                  AND (i.state = 'failed_permanent' OR (i.state = 'ocr_queued' AND EXISTS (SELECT 1 FROM jobs j WHERE j.id = i.job_id AND j.state = 'failed_permanent')))
+                ORDER BY i.created_at DESC, i.id DESC LIMIT 1 FOR UPDATE OF i
                 """).first() else { throw HubError(.conflict, "ingest_not_failed") }
             let item = try row.decode(column: "id", as: UUID.self)
-            guard try await DMSIngest.retry(item, tenant: tenant, on: s) else { throw HubError(.conflict, "ingest_not_failed") }
+            if try row.decode(column: "state", as: String.self) == "failed_permanent" {
+                guard try await DMSIngest.retry(item, tenant: tenant, on: s) else { throw HubError(.conflict, "ingest_not_failed") }
+            }
             let state = try await s.raw("SELECT state FROM dms_ingest_items WHERE tenant_id = \(bind: tenant) AND id = \(bind: item)").first()?.decode(column: "state", as: String.self)
             var queued = false
             if state == "ocr_queued" || state == "hashed" {
@@ -228,7 +232,7 @@ enum DMSOCR {
         let phase: String
         switch state {
         case "received", "stored", "hashed": phase = "pending"
-        case "ocr_queued": phase = jobState == "running" ? "processing" : "queued"
+        case "ocr_queued": phase = jobState == "running" ? "processing" : (jobState == "failed_permanent" ? "failed" : "queued")
         case "ocr_done", "classified": phase = "processing"
         case "done": phase = "done"
         case "failed_retryable": phase = "retrying"
@@ -237,7 +241,7 @@ enum DMSOCR {
         let steps = try await s.raw("SELECT state, at FROM dms_ingest_transitions WHERE tenant_id = \(bind: tenant) AND ingest_item_id = \(bind: id) ").all()
             .map { DMSProcessingOut.Step(state: try $0.decode(column: "state", as: String.self), at: iso(try $0.decode(column: "at", as: Date.self))) }
             .sorted { (DMSIngest.State(rawValue: $0.state)?.index ?? 99) < (DMSIngest.State(rawValue: $1.state)?.index ?? 99) }
-        return DMSProcessingOut(document_id: document, ingest_item_id: id, state: state, phase: phase, error_code: try row.decode(column: "error_code", as: String?.self),
+        return DMSProcessingOut(document_id: document, ingest_item_id: id, state: state, phase: phase, error_code: try row.decode(column: "error_code", as: String?.self) ?? (state == "ocr_queued" && phase == "failed" ? "lease_expired" : nil),
                                 steps: steps, text: textInfo, has_archive: archive, updated_at: iso(try row.decode(column: "updated_at", as: Date.self)))
     }
 }
