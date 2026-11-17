@@ -167,6 +167,8 @@ export const en: Record<MessageKey, string> = {
 	'error.csrf_invalid': 'The security check failed. Please reload the page.',
 	'error.document_trashed': 'The document is in the trash.',
 	'error.suggestion_decided': 'The suggestion has already been decided.',
+	'error.series_in_use': 'The number series has already issued numbers and cannot be changed or deleted.',
+	'error.tax_period_overlap': 'The tax period overlaps an existing period.',
 	'error.suggestion_stale': 'The suggestion no longer matches the current state of the document.',
 	'error.document_not_trashed': 'The document must be moved to the trash first.',
 	'error.retention_not_expired': 'The retention period has not expired yet.',

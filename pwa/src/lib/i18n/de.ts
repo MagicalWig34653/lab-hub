@@ -165,6 +165,8 @@ export const de = {
 	'error.csrf_invalid': 'Die Sicherheitsprüfung ist fehlgeschlagen. Bitte lade die Seite neu.',
 	'error.document_trashed': 'Das Dokument liegt im Papierkorb.',
 	'error.suggestion_decided': 'Der Vorschlag wurde schon entschieden.',
+	'error.series_in_use': 'Die Nummernserie hat bereits Nummern vergeben und kann nicht geändert oder gelöscht werden.',
+	'error.tax_period_overlap': 'Der Steuerzeitraum überschneidet sich mit einem vorhandenen Zeitraum.',
 	'error.suggestion_stale': 'Der Vorschlag passt nicht mehr zum aktuellen Stand des Dokuments.',
 	'error.document_not_trashed': 'Das Dokument muss zuerst in den Papierkorb verschoben werden.',
 	'error.retention_not_expired': 'Die Aufbewahrungsfrist ist noch nicht abgelaufen.',

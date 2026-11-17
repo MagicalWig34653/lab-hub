@@ -57,6 +57,8 @@ public enum ProblemCatalog {
         "module_requires": "Das Modul benötigt andere Module, die noch nicht aktiviert sind.",
         "module_required_by": "Das Modul wird von anderen aktivierten Modulen benötigt.",
         "module_unavailable": "Das Modul ist auf diesem Server nicht freigegeben.",
+        "series_in_use": "Die Nummernserie hat bereits Nummern vergeben und kann nicht geändert oder gelöscht werden.",
+        "tax_period_overlap": "Der Steuerzeitraum überschneidet sich mit einem vorhandenen Zeitraum.",
         "document_trashed": "Das Dokument liegt im Papierkorb.",
         "document_not_trashed": "Das Dokument muss zuerst in den Papierkorb verschoben werden.",
         "retention_not_expired": "Die Aufbewahrungsfrist ist noch nicht abgelaufen.",

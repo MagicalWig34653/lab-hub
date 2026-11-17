@@ -2502,6 +2502,437 @@ paths:
         "401": { $ref: "#/components/responses/Problem" }
         "403": { $ref: "#/components/responses/Problem" }
         "404": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/invoice/settings:
+    get:
+      operationId: getInvoiceSettings
+      summary: "Absender und Einstellungen (Berechtigung invoice.master.read)"
+      description: "Modul invoice. Ohne gespeicherte Einstellungen: Standardwerte mit configured=false und rev=0 (nichts wird angelegt)."
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+      responses:
+        "200":
+          description: Einstellungen
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoiceSettings" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+    put:
+      operationId: replaceInvoiceSettings
+      summary: "Absender und Einstellungen ersetzen (Berechtigung invoice.master.manage)"
+      description: "Ersetzt den gesamten Stand: nicht genannte Felder werden leer bzw. auf den Standard (currency EUR, payment_term_days 14) gesetzt. IBAN wird ohne Leerzeichen gespeichert und per Pruefziffer geprueft. Audit invoice.settings.updated; rev zaehlt jede Aenderung."
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InvoiceSettingsInput" }
+      responses:
+        "200":
+          description: Gespeichert
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoiceSettings" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/invoice/tax-periods:
+    get:
+      operationId: listInvoiceTaxPeriods
+      summary: "Liste Steuerzeitraeume (Berechtigung invoice.master.read)"
+      description: "Modul invoice; bei deaktiviertem Modul 404 module_disabled. Hoechstens 1000 Eintraege. Filter: q (Name/Nummer), active (true|false), soweit das Feld existiert."
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+      responses:
+        "200":
+          description: Eintraege
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/InvoiceTaxPeriod" } }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+    post:
+      operationId: createInvoiceTaxPeriods
+      summary: "Steuerzeitraeume anlegen (Berechtigung invoice.master.manage)"
+      description: "Steuerzeitraum (Regelbesteuerung oder Kleinunternehmer) mit Beginn und optionalem Ende. Ueberschneidung mit einem vorhandenen Zeitraum 409 tax_period_overlap; Ende vor Beginn 422. Optional Idempotency-Key (Wiederholung liefert dieselbe Antwort; anderer Inhalt unter demselben Key 422 idempotency_key_reused)."
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InvoiceTaxPeriodInput" }
+      responses:
+        "201":
+          description: Angelegt
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoiceTaxPeriod" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/invoice/tax-periods/{id}:
+    get:
+      operationId: getInvoiceTaxPeriods
+      summary: "Steuerzeitraeume: einzelner Eintrag (Berechtigung invoice.master.read); fremde ID 404"
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/InvoiceMasterId" }
+      responses:
+        "200":
+          description: Eintrag
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoiceTaxPeriod" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+    patch:
+      operationId: updateInvoiceTaxPeriods
+      summary: "Steuerzeitraeume aendern (Berechtigung invoice.master.manage)"
+      description: "Teilaenderung. Ueberschneidung 409 tax_period_overlap."
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/InvoiceMasterId" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InvoiceTaxPeriodInput" }
+      responses:
+        "200":
+          description: Aktualisiert
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoiceTaxPeriod" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+    delete:
+      operationId: deleteInvoiceTaxPeriods
+      summary: "Steuerzeitraeume loeschen (Berechtigung invoice.master.manage); solange etwas darauf verweist 409"
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/InvoiceMasterId" }
+      responses:
+        "204": { description: Geloescht }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/invoice/document-types:
+    get:
+      operationId: listInvoiceDocumentTypes
+      summary: "Liste Belegtypen (Berechtigung invoice.master.read)"
+      description: "Modul invoice; bei deaktiviertem Modul 404 module_disabled. Hoechstens 1000 Eintraege. Filter: q (Name/Nummer), active (true|false), soweit das Feld existiert."
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+      responses:
+        "200":
+          description: Eintraege
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/InvoiceDocumentType" } }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+    post:
+      operationId: createInvoiceDocumentTypes
+      summary: "Belegtypen anlegen (Berechtigung invoice.master.manage)"
+      description: "Belegtyp mit fester Art (kind) und optionaler Standardserie (Serie desselben Mandanten, sonst 422). Doppelter Code oder Name 409. Optional Idempotency-Key (Wiederholung liefert dieselbe Antwort; anderer Inhalt unter demselben Key 422 idempotency_key_reused)."
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InvoiceDocumentTypeInput" }
+      responses:
+        "201":
+          description: Angelegt
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoiceDocumentType" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/invoice/document-types/{id}:
+    get:
+      operationId: getInvoiceDocumentTypes
+      summary: "Belegtypen: einzelner Eintrag (Berechtigung invoice.master.read); fremde ID 404"
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/InvoiceMasterId" }
+      responses:
+        "200":
+          description: Eintrag
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoiceDocumentType" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+    patch:
+      operationId: updateInvoiceDocumentTypes
+      summary: "Belegtypen aendern (Berechtigung invoice.master.manage)"
+      description: "Teilaenderung."
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/InvoiceMasterId" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InvoiceDocumentTypeInput" }
+      responses:
+        "200":
+          description: Aktualisiert
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoiceDocumentType" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+    delete:
+      operationId: deleteInvoiceDocumentTypes
+      summary: "Belegtypen loeschen (Berechtigung invoice.master.manage); solange etwas darauf verweist 409"
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/InvoiceMasterId" }
+      responses:
+        "204": { description: Geloescht }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/invoice/series:
+    get:
+      operationId: listInvoiceSeries
+      summary: "Liste Nummernserien (Berechtigung invoice.master.read)"
+      description: "Modul invoice; bei deaktiviertem Modul 404 module_disabled. Hoechstens 1000 Eintraege. Filter: q (Name/Nummer), active (true|false), soweit das Feld existiert."
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+      responses:
+        "200":
+          description: Eintraege
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/InvoiceSeries" } }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+    post:
+      operationId: createInvoiceSeries
+      summary: "Nummernserien anlegen (Berechtigung invoice.master.manage)"
+      description: "Nummernserie; number_format in der Syntax {YYYY} {YY} {MM} {N:<Stellen>} {ABBR} {CLIENT} {PROJECT} (doppelte geschweifte Klammern als Klammerzeichen, genau ein Zaehler); Fehler 422 mit errors[number_format] (unknown_token, unbalanced_brace, counter_count, invalid_digits). start_number hebt den Kernzaehler des laufenden Zeitraums an (Audit counter.raised). Doppelter Code 409. Optional Idempotency-Key (Wiederholung liefert dieselbe Antwort; anderer Inhalt unter demselben Key 422 idempotency_key_reused)."
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InvoiceSeriesInput" }
+      responses:
+        "201":
+          description: Angelegt
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoiceSeries" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/invoice/series/{id}:
+    get:
+      operationId: getInvoiceSeries
+      summary: "Nummernserien: einzelner Eintrag (Berechtigung invoice.master.read); fremde ID 404"
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/InvoiceMasterId" }
+      responses:
+        "200":
+          description: Eintrag
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoiceSeries" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+    patch:
+      operationId: updateInvoiceSeries
+      summary: "Nummernserien aendern (Berechtigung invoice.master.manage)"
+      description: "number_format und Loeschen sind gesperrt (409 series_in_use), sobald der Zaehler Nummern vergeben hat."
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/InvoiceMasterId" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InvoiceSeriesInput" }
+      responses:
+        "200":
+          description: Aktualisiert
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoiceSeries" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+    delete:
+      operationId: deleteInvoiceSeries
+      summary: "Nummernserien loeschen (Berechtigung invoice.master.manage); solange etwas darauf verweist 409"
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/InvoiceMasterId" }
+      responses:
+        "204": { description: Geloescht }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/invoice/items:
+    get:
+      operationId: listInvoiceItems
+      summary: "Liste Artikel (Berechtigung invoice.master.read)"
+      description: "Modul invoice; bei deaktiviertem Modul 404 module_disabled. Hoechstens 1000 Eintraege. Filter: q (Name/Nummer), active (true|false), soweit das Feld existiert."
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+      responses:
+        "200":
+          description: Eintraege
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/InvoiceItem" } }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+    post:
+      operationId: createInvoiceItems
+      summary: "Artikel anlegen (Berechtigung invoice.master.manage)"
+      description: "Artikel. Betraege nur als Dezimal-Strings (unit_price bis 14 Vorkomma- und 4 Nachkommastellen, tax_rate 0 bis 100); JSON-Zahlen und mehr als 4 Nachkommastellen 422. Doppelte sku 409. Optional Idempotency-Key (Wiederholung liefert dieselbe Antwort; anderer Inhalt unter demselben Key 422 idempotency_key_reused)."
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InvoiceItemInput" }
+      responses:
+        "201":
+          description: Angelegt
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoiceItem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/invoice/items/{id}:
+    get:
+      operationId: getInvoiceItems
+      summary: "Artikel: einzelner Eintrag (Berechtigung invoice.master.read); fremde ID 404"
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/InvoiceMasterId" }
+      responses:
+        "200":
+          description: Eintrag
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoiceItem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+    patch:
+      operationId: updateInvoiceItems
+      summary: "Artikel aendern (Berechtigung invoice.master.manage)"
+      description: "Teilaenderung; Bestand nur mit track_stock."
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/InvoiceMasterId" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InvoiceItemInput" }
+      responses:
+        "200":
+          description: Aktualisiert
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoiceItem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+    delete:
+      operationId: deleteInvoiceItems
+      summary: "Artikel loeschen (Berechtigung invoice.master.manage); solange etwas darauf verweist 409"
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/InvoiceMasterId" }
+      responses:
+        "204": { description: Geloescht }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
 components:
   securitySchemes:
     bearer: { type: http, scheme: bearer, description: "Sitzungstoken fuer Apps (Header X-Auth-Transport: bearer bei der Anmeldung)" }
@@ -2554,6 +2985,11 @@ components:
       required: true
       schema: { type: string, format: uuid }
     DmsMasterId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    InvoiceMasterId:
       name: id
       in: path
       required: true
@@ -2760,11 +3196,13 @@ components:
             - precondition_failed
             - recovery_session_restricted
             - retention_not_expired
+            - series_in_use
             - service_unavailable
             - setup_token_invalid
             - storage_quota_exceeded
             - suggestion_decided
             - suggestion_stale
+            - tax_period_overlap
             - tenant_required
             - too_many_requests
             - unauthorized
@@ -3454,3 +3892,148 @@ components:
         config: { type: object, additionalProperties: true }
         password: { type: string, minLength: 1, maxLength: 512, description: "nur kind mail, Pflicht; wird nie zurueckgegeben" }
         enabled: { type: boolean, default: true }
+    InvoiceSettings:
+      type: object
+      required: [configured, rev, currency, payment_term_days]
+      properties:
+        configured: { type: boolean, description: "false, solange nichts gespeichert wurde (Standardwerte)" }
+        sender_name: { type: [string, "null"] }
+        street: { type: [string, "null"] }
+        postal_code: { type: [string, "null"] }
+        city: { type: [string, "null"] }
+        country: { type: [string, "null"], description: "ISO 3166-1 Alpha-2" }
+        tax_number: { type: [string, "null"] }
+        vat_id: { type: [string, "null"] }
+        email: { type: [string, "null"] }
+        phone: { type: [string, "null"] }
+        website: { type: [string, "null"] }
+        bank_name: { type: [string, "null"] }
+        iban: { type: [string, "null"], description: "ohne Leerzeichen, Pruefziffer geprueft" }
+        bic: { type: [string, "null"] }
+        currency: { type: string, description: "ISO 4217, Standard EUR" }
+        payment_term_days: { type: integer, minimum: 0, maximum: 365, description: "Zahlungsziel in Tagen, Standard 14" }
+        abbreviation: { type: [string, "null"], description: "Kuerzel fuer {ABBR} im Nummernformat" }
+        footer_text: { type: [string, "null"] }
+        rev: { type: integer }
+        updated_at: { type: string, format: date-time }
+    InvoiceSettingsInput:
+      type: object
+      required: [sender_name]
+      additionalProperties: false
+      properties:
+        sender_name: { type: string, minLength: 1, maxLength: 200 }
+        street: { type: [string, "null"], maxLength: 200 }
+        postal_code: { type: [string, "null"], maxLength: 20 }
+        city: { type: [string, "null"], maxLength: 100 }
+        country: { type: [string, "null"], pattern: "^[A-Z]{2}$" }
+        tax_number: { type: [string, "null"], maxLength: 40 }
+        vat_id: { type: [string, "null"], maxLength: 20 }
+        email: { type: [string, "null"], maxLength: 200 }
+        phone: { type: [string, "null"], maxLength: 50 }
+        website: { type: [string, "null"], maxLength: 200 }
+        bank_name: { type: [string, "null"], maxLength: 100 }
+        iban: { type: [string, "null"] }
+        bic: { type: [string, "null"] }
+        currency: { type: string, pattern: "^[A-Z]{3}$", default: EUR }
+        payment_term_days: { type: integer, minimum: 0, maximum: 365, default: 14 }
+        abbreviation: { type: [string, "null"], pattern: "^[A-Za-z0-9]{1,10}$" }
+        footer_text: { type: [string, "null"], maxLength: 2000 }
+    InvoiceTaxPeriod:
+      type: object
+      required: [id, regime, valid_from, valid_to, note, created_at, updated_at]
+      properties:
+        id: { type: string, format: uuid }
+        regime: { type: string, enum: [standard, small_business], description: "standard = Regelbesteuerung, small_business = Kleinunternehmer" }
+        valid_from: { type: string, format: date }
+        valid_to: { type: [string, "null"], format: date, description: "inklusive; null = offen" }
+        note: { type: [string, "null"] }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    InvoiceTaxPeriodInput:
+      type: object
+      required: [regime, valid_from]
+      additionalProperties: false
+      properties:
+        regime: { type: string, enum: [standard, small_business] }
+        valid_from: { type: string, format: date }
+        valid_to: { type: [string, "null"], format: date }
+        note: { type: [string, "null"], maxLength: 500 }
+    InvoiceDocumentType:
+      type: object
+      required: [id, code, name, kind, default_series_id, active, created_at, updated_at]
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: string }
+        kind: { type: string, enum: [quote, order_confirmation, delivery_note, invoice, credit_note] }
+        default_series_id: { type: [string, "null"], format: uuid }
+        active: { type: boolean }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    InvoiceDocumentTypeInput:
+      type: object
+      required: [code, name, kind]
+      additionalProperties: false
+      properties:
+        code: { type: string, pattern: "^[a-z][a-z0-9_]{0,39}$" }
+        name: { type: string, minLength: 1, maxLength: 100 }
+        kind: { type: string, enum: [quote, order_confirmation, delivery_note, invoice, credit_note] }
+        default_series_id: { type: [string, "null"], format: uuid }
+        active: { type: boolean, default: true }
+    InvoiceSeries:
+      type: object
+      required: [id, code, name, number_format, counter_scope, active, in_use, next_number, next_number_preview, created_at, updated_at]
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: string }
+        number_format: { type: string }
+        counter_scope: { type: string, enum: [continuous, per_year, per_month], description: "folgt aus dem Format (MM = je Monat, YYYY/YY = je Jahr)" }
+        active: { type: boolean }
+        in_use: { type: boolean, description: "Der Zaehler hat Nummern vergeben (Format und Loeschen gesperrt)" }
+        next_number: { type: integer, format: int64, description: "naechste Zaehlernummer im laufenden Zeitraum (UTC, Datenbankuhr)" }
+        next_number_preview: { type: [string, "null"], description: "formatiert; null, wenn CLIENT oder PROJECT Werte brauchen" }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    InvoiceSeriesInput:
+      type: object
+      required: [code, name, number_format]
+      additionalProperties: false
+      properties:
+        code: { type: string, pattern: "^[a-z][a-z0-9_]{0,39}$" }
+        name: { type: string, minLength: 1, maxLength: 100 }
+        number_format: { type: string, minLength: 1, maxLength: 100 }
+        active: { type: boolean, default: true }
+        start_number: { type: integer, format: int64, minimum: 1, description: "nur beim Anlegen; hebt den Kernzaehler auf start_number - 1 an" }
+    InvoiceItem:
+      type: object
+      required: [id, sku, name, description, unit, unit_price, price_includes_tax, tax_rate, track_stock, stock_quantity, active, created_at, updated_at]
+      properties:
+        id: { type: string, format: uuid }
+        sku: { type: [string, "null"] }
+        name: { type: string }
+        description: { type: [string, "null"] }
+        unit: { type: [string, "null"] }
+        unit_price: { type: string, description: "Dezimal-String mit 4 Nachkommastellen, z. B. 19.9900" }
+        price_includes_tax: { type: boolean }
+        tax_rate: { type: string, description: "Prozent als Dezimal-String, z. B. 19.0000" }
+        track_stock: { type: boolean }
+        stock_quantity: { type: [string, "null"], description: "Dezimal-String; nur mit track_stock (wird nur gespeichert)" }
+        active: { type: boolean }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    InvoiceItemInput:
+      type: object
+      required: [name, unit_price, tax_rate]
+      additionalProperties: false
+      properties:
+        sku: { type: [string, "null"], maxLength: 60 }
+        name: { type: string, minLength: 1, maxLength: 200 }
+        description: { type: [string, "null"], maxLength: 2000 }
+        unit: { type: [string, "null"], maxLength: 20 }
+        unit_price: { type: string, pattern: "^-?[0-9]{1,14}(\\.[0-9]{1,4})?$", description: "Dezimal-String, kein JSON-Zahlenwert" }
+        price_includes_tax: { type: boolean, default: false }
+        tax_rate: { type: string, pattern: "^[0-9]{1,3}(\\.[0-9]{1,4})?$", description: "0 bis 100" }
+        track_stock: { type: boolean, default: false }
+        stock_quantity: { type: [string, "null"] }
+        active: { type: boolean, default: true }

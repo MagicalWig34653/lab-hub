@@ -259,7 +259,7 @@ final class PostgresObjectStoreTests: XCTestCase {
         XCTAssertEqual(n, 1)
         // WP-K1: Migrationen nach `files` (Auth, 006-012) zuerst zurücknehmen, damit der Stand dieses Tests (Version 5) gilt.
         let later: [any AsyncMigration] = [CreateUsers(), CreatePasskeyCredentials(), CreateSessions(), CreateInvitations(),
-                                           CreateRecoveryCodes(), CreateAuditLog(), CreateAuthSupport(), CreateTenants(), CreateModules(), CreateContacts(),
+                                           CreateRecoveryCodes(), CreateAuditLog(), CreateAuthSupport(), CreateTenants(), CreateModules(), CreateContacts(), CreateInvoiceMaster(),
                                            CreateDMSCore(), CreateDMSIngest(), CreateDMSSearch(), CreateDMSOCR(), CreateDMSRules(), CreateDMSRevision(), CreateDMSSources(), CreateDMSImport(), CreateDMSExtraction(), CreateDMSDocumentSource(), CreateApiTokens(), CreateDMSApiTokenTenant(), CreateJobsPriority()]  // WP-D2/O1/S1/O2/D3/D5/D4: DMS-Tabellen verweisen auf `files`
         for m in later.reversed() { try await m.revert(on: app.db(.psql)) }
         var v = try await db.raw("SELECT version FROM schema_version").first()!.decode(column: "version", as: Int.self)

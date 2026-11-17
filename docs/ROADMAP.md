@@ -42,7 +42,7 @@ Ausgangsstand (vorhanden, getestet laut `deploy/README.md`/Tests): `migrate`, `s
 | | F4c | Dokumentübersicht (alle Dokumentarten), Eingang, gegliederte Seitenleiste der App-Shell | F4, F5, F5b, D7 | M | | umgesetzt (Branch wp-F4c, `docs/handoff/WP-F4c.md`) |
 | | F4d | PWA an D8/D9: Summenzeile je Währung, Quelle (Spalte/Filter), Dashboard-Zähler aus `dms/stats`, serverseitiger Filter offene Vorschläge, Fakten je Art, Suchtreffer mit Art/Betrag | F4c, D8, D9 | S | | umgesetzt, Gate siehe Handoff (Branch wp-F4d, `docs/handoff/WP-F4d.md`) |
 | 4 Rechnung | R0 | Spike: Linux-Build Rechenkern, Testvektoren | K0 | S | P ab Phase 0 | umgesetzt (Branch wp-R0, `docs/handoff/WP-R0.md`) |
-| | R1 | Stammdaten Rechnung | K3, K5, R0 | M | | offen |
+| | R1 | Stammdaten Rechnung | K3, K5, R0 | M | | umgesetzt (Branch wp-R1, `docs/handoff/WP-R1.md`) |
 | | R2 | Belege, Berechnung, Finalisieren mit Hub-Zähler | R1, K6 | L | | offen |
 | | R3 | Zahlungen, Gutschrift, Umwandlung | R2 | M | | offen |
 | | R4 | Taxlab-Import/Export | R2 | M | P R3 | offen |
@@ -168,6 +168,7 @@ Grundsatz: Hub ohne Swift-App nutzbar (`AGENTS.md`); die Rechnungsphase ist dahe
 *Status WP-R0: Ja für Core/Model (unverändert Linux-tauglich, 53 + 135 Tests grün), teilweise für Reports/E-Rechnung; 50 Testvektoren; siehe `MODUL-RECHNUNG.md` Abschnitt 12 und `docs/handoff/WP-R0.md`. Entscheidung F-27 offen.*
 
 **WP-R1 Stammdaten (M).** Einstellungen, Steuerzeiträume, Serien, Belegtypen, Artikel. Mandantentrennung/Rechte. Abh.: K3, K5, R0.
+*Status WP-R1: umgesetzt (Modul `invoice`: Einstellungen/Absender, Steuerzeiträume, Belegtypen, Nummernserien über den Kernzähler, Artikel; Details und Annahmen `MODUL-RECHNUNG.md` Abschnitt 13 und `docs/handoff/WP-R1.md`). Nächster Schritt: WP-R2 (Belege, Finalisieren).*
 
 **WP-R2 Belege und Finalisieren (L).** Entwurf CRUD, Positionen, Berechnung (Konformität mit Testvektoren), Zustandsautomat, Finalisieren mit Hub-Zähler; Invarianten per DB (`MODUL-RECHNUNG.md` Abschnitte 2, 4). Akzeptanz: AK-R4 (50 parallele Finalisierungen, zwei Instanzen), Final unveränderlich (SQL-Test), Idempotenz. Abh.: R1, K6.
 

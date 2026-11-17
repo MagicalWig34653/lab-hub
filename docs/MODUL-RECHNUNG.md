@@ -182,3 +182,19 @@ Auffälligkeiten:
 Gesamtschätzung A (Core/Model + Reports ohne PDF + E-Rechnung-Trennung): M (4–6 Sessions); nur Core/Model: S. Schätzungen, keine Zusage.
 
 **Offen:** E-Rechnung-Tests unter Linux (nach Trennung von `RenderData`), Linux-Lauf der `TaxlabLayout`-Tests nach CF-Fix, Skonto-Quelle, Auslagerungsumfang `TaxlabModel`.
+
+## 13. R1 – Stammdaten (WP-R1, 17.11.2026)
+
+Umgesetzt als HubModule `invoice` (`backend/Sources/HubKit/Modules/Invoice/`), Migration `invoice_027_master` (Expand-only, Revert vorhanden, `schema_version` unverändert wie beim DMS). Routen unter `/api/v1/tenants/{tenant}/invoice/` (Vertrag `contracts/openapi.yaml`):
+
+| Bereich | Route | Tabelle | Besonderheiten |
+| --- | --- | --- | --- |
+| Absender/Einstellungen | `settings` (GET, PUT) | `invoice_settings` (eine Zeile je Mandant) | PUT ersetzt, `rev` zählt; IBAN mit Prüfziffer, Land ISO-2, Währung ISO-4217, Zahlungsziel, Kürzel für `{ABBR}` |
+| Steuerzeiträume | `tax-periods` | `invoice_tax_periods` | `standard` (Regelbesteuerung) oder `small_business`; Zeiträume überlappen nie (API 409 `tax_period_overlap`, Trigger als Rückfall, Sperre je Mandant) |
+| Belegtypen | `document-types` | `invoice_document_types` | feste Arten `quote`, `order_confirmation`, `delivery_note`, `invoice`, `credit_note`; Standardserie optional |
+| Nummernserien | `series` | `invoice_series` | Format-Syntax `{YYYY} {YY} {MM} {N:n} {ABBR} {CLIENT} {PROJECT}`, Gültigkeitsbereich folgt aus dem Format; Zähler liegt im Kern |
+| Artikel | `items` | `invoice_items` | `numeric(18,4)`/`numeric(7,4)`, Beträge nur als Dezimal-Strings |
+
+Zählerschlüssel (Grundlage für WP-R2): `CounterKey(space: "invoice", name: <serie-uuid>[-<jjjj>[-<mm>]])`, je nach Gültigkeitsbereich fortlaufend, je Jahr oder je Monat. Eine Serie gilt als benutzt, sobald ein Zähler-Eintrag existiert (auch durch `start_number`); dann sind Format und Löschen gesperrt (409 `series_in_use`). `start_number` beim Anlegen hebt den Zähler des laufenden Zeitraums (UTC, Datenbankuhr) über `ensureAtLeast` an (Audit `counter.raised`). Nummernformat und Zählerschlüssel sind gegen die Testvektoren `number-format.json` geprüft (F-27: Neuimplementierung).
+
+Berechtigungen: `invoice.master.read` (accountant, member, tax_advisor, Owner) und `invoice.master.manage` (accountant, Owner); `customer_viewer` hat keinen Zugriff auf Stammdaten (Annahme, da hier keine feinere Matrix steht). Anlegen akzeptiert optional `Idempotency-Key`. Annahmen und offene Punkte: `docs/handoff/WP-R1.md`.

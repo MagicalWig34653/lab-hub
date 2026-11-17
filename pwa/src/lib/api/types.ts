@@ -1710,6 +1710,214 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tenants/{tenant}/invoice/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Absender und Einstellungen (Berechtigung invoice.master.read)
+         * @description Modul invoice. Ohne gespeicherte Einstellungen: Standardwerte mit configured=false und rev=0 (nichts wird angelegt).
+         */
+        get: operations["getInvoiceSettings"];
+        /**
+         * Absender und Einstellungen ersetzen (Berechtigung invoice.master.manage)
+         * @description Ersetzt den gesamten Stand: nicht genannte Felder werden leer bzw. auf den Standard (currency EUR, payment_term_days 14) gesetzt. IBAN wird ohne Leerzeichen gespeichert und per Pruefziffer geprueft. Audit invoice.settings.updated; rev zaehlt jede Aenderung.
+         */
+        put: operations["replaceInvoiceSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/invoice/tax-periods": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Liste Steuerzeitraeume (Berechtigung invoice.master.read)
+         * @description Modul invoice; bei deaktiviertem Modul 404 module_disabled. Hoechstens 1000 Eintraege. Filter: q (Name/Nummer), active (true|false), soweit das Feld existiert.
+         */
+        get: operations["listInvoiceTaxPeriods"];
+        put?: never;
+        /**
+         * Steuerzeitraeume anlegen (Berechtigung invoice.master.manage)
+         * @description Steuerzeitraum (Regelbesteuerung oder Kleinunternehmer) mit Beginn und optionalem Ende. Ueberschneidung mit einem vorhandenen Zeitraum 409 tax_period_overlap; Ende vor Beginn 422. Optional Idempotency-Key (Wiederholung liefert dieselbe Antwort; anderer Inhalt unter demselben Key 422 idempotency_key_reused).
+         */
+        post: operations["createInvoiceTaxPeriods"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/invoice/tax-periods/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Steuerzeitraeume: einzelner Eintrag (Berechtigung invoice.master.read); fremde ID 404 */
+        get: operations["getInvoiceTaxPeriods"];
+        put?: never;
+        post?: never;
+        /** Steuerzeitraeume loeschen (Berechtigung invoice.master.manage); solange etwas darauf verweist 409 */
+        delete: operations["deleteInvoiceTaxPeriods"];
+        options?: never;
+        head?: never;
+        /**
+         * Steuerzeitraeume aendern (Berechtigung invoice.master.manage)
+         * @description Teilaenderung. Ueberschneidung 409 tax_period_overlap.
+         */
+        patch: operations["updateInvoiceTaxPeriods"];
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/invoice/document-types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Liste Belegtypen (Berechtigung invoice.master.read)
+         * @description Modul invoice; bei deaktiviertem Modul 404 module_disabled. Hoechstens 1000 Eintraege. Filter: q (Name/Nummer), active (true|false), soweit das Feld existiert.
+         */
+        get: operations["listInvoiceDocumentTypes"];
+        put?: never;
+        /**
+         * Belegtypen anlegen (Berechtigung invoice.master.manage)
+         * @description Belegtyp mit fester Art (kind) und optionaler Standardserie (Serie desselben Mandanten, sonst 422). Doppelter Code oder Name 409. Optional Idempotency-Key (Wiederholung liefert dieselbe Antwort; anderer Inhalt unter demselben Key 422 idempotency_key_reused).
+         */
+        post: operations["createInvoiceDocumentTypes"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/invoice/document-types/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Belegtypen: einzelner Eintrag (Berechtigung invoice.master.read); fremde ID 404 */
+        get: operations["getInvoiceDocumentTypes"];
+        put?: never;
+        post?: never;
+        /** Belegtypen loeschen (Berechtigung invoice.master.manage); solange etwas darauf verweist 409 */
+        delete: operations["deleteInvoiceDocumentTypes"];
+        options?: never;
+        head?: never;
+        /**
+         * Belegtypen aendern (Berechtigung invoice.master.manage)
+         * @description Teilaenderung.
+         */
+        patch: operations["updateInvoiceDocumentTypes"];
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/invoice/series": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Liste Nummernserien (Berechtigung invoice.master.read)
+         * @description Modul invoice; bei deaktiviertem Modul 404 module_disabled. Hoechstens 1000 Eintraege. Filter: q (Name/Nummer), active (true|false), soweit das Feld existiert.
+         */
+        get: operations["listInvoiceSeries"];
+        put?: never;
+        /**
+         * Nummernserien anlegen (Berechtigung invoice.master.manage)
+         * @description Nummernserie; number_format in der Syntax {YYYY} {YY} {MM} {N:<Stellen>} {ABBR} {CLIENT} {PROJECT} (doppelte geschweifte Klammern als Klammerzeichen, genau ein Zaehler); Fehler 422 mit errors[number_format] (unknown_token, unbalanced_brace, counter_count, invalid_digits). start_number hebt den Kernzaehler des laufenden Zeitraums an (Audit counter.raised). Doppelter Code 409. Optional Idempotency-Key (Wiederholung liefert dieselbe Antwort; anderer Inhalt unter demselben Key 422 idempotency_key_reused).
+         */
+        post: operations["createInvoiceSeries"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/invoice/series/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Nummernserien: einzelner Eintrag (Berechtigung invoice.master.read); fremde ID 404 */
+        get: operations["getInvoiceSeries"];
+        put?: never;
+        post?: never;
+        /** Nummernserien loeschen (Berechtigung invoice.master.manage); solange etwas darauf verweist 409 */
+        delete: operations["deleteInvoiceSeries"];
+        options?: never;
+        head?: never;
+        /**
+         * Nummernserien aendern (Berechtigung invoice.master.manage)
+         * @description number_format und Loeschen sind gesperrt (409 series_in_use), sobald der Zaehler Nummern vergeben hat.
+         */
+        patch: operations["updateInvoiceSeries"];
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/invoice/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Liste Artikel (Berechtigung invoice.master.read)
+         * @description Modul invoice; bei deaktiviertem Modul 404 module_disabled. Hoechstens 1000 Eintraege. Filter: q (Name/Nummer), active (true|false), soweit das Feld existiert.
+         */
+        get: operations["listInvoiceItems"];
+        put?: never;
+        /**
+         * Artikel anlegen (Berechtigung invoice.master.manage)
+         * @description Artikel. Betraege nur als Dezimal-Strings (unit_price bis 14 Vorkomma- und 4 Nachkommastellen, tax_rate 0 bis 100); JSON-Zahlen und mehr als 4 Nachkommastellen 422. Doppelte sku 409. Optional Idempotency-Key (Wiederholung liefert dieselbe Antwort; anderer Inhalt unter demselben Key 422 idempotency_key_reused).
+         */
+        post: operations["createInvoiceItems"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/invoice/items/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Artikel: einzelner Eintrag (Berechtigung invoice.master.read); fremde ID 404 */
+        get: operations["getInvoiceItems"];
+        put?: never;
+        post?: never;
+        /** Artikel loeschen (Berechtigung invoice.master.manage); solange etwas darauf verweist 409 */
+        delete: operations["deleteInvoiceItems"];
+        options?: never;
+        head?: never;
+        /**
+         * Artikel aendern (Berechtigung invoice.master.manage)
+         * @description Teilaenderung; Bestand nur mit track_stock.
+         */
+        patch: operations["updateInvoiceItems"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1826,7 +2034,7 @@ export interface components {
              * @description Stabiler maschinenlesbarer Code
              * @enum {string}
              */
-            code: "api_token_unbound" | "bad_request" | "conflict" | "contact_merged" | "csrf_invalid" | "document_linked" | "document_not_trashed" | "document_trashed" | "forbidden" | "handle_taken" | "idempotency_in_progress" | "idempotency_key_required" | "idempotency_key_reused" | "ingest_not_failed" | "internal_error" | "invalid_cursor" | "invalid_limit" | "invitation_invalid" | "last_owner" | "last_passkey" | "legal_hold" | "login_failed" | "method_not_allowed" | "module_disabled" | "module_required_by" | "module_requires" | "module_unavailable" | "not_found" | "passkey_invalid" | "payload_too_large" | "precondition_failed" | "recovery_session_restricted" | "retention_not_expired" | "service_unavailable" | "setup_token_invalid" | "storage_quota_exceeded" | "suggestion_decided" | "suggestion_stale" | "tenant_required" | "too_many_requests" | "unauthorized" | "unsupported_media_type" | "upload_interrupted" | "validation_failed";
+            code: "api_token_unbound" | "bad_request" | "conflict" | "contact_merged" | "csrf_invalid" | "document_linked" | "document_not_trashed" | "document_trashed" | "forbidden" | "handle_taken" | "idempotency_in_progress" | "idempotency_key_required" | "idempotency_key_reused" | "ingest_not_failed" | "internal_error" | "invalid_cursor" | "invalid_limit" | "invitation_invalid" | "last_owner" | "last_passkey" | "legal_hold" | "login_failed" | "method_not_allowed" | "module_disabled" | "module_required_by" | "module_requires" | "module_unavailable" | "not_found" | "passkey_invalid" | "payload_too_large" | "precondition_failed" | "recovery_session_restricted" | "retention_not_expired" | "series_in_use" | "service_unavailable" | "setup_token_invalid" | "storage_quota_exceeded" | "suggestion_decided" | "suggestion_stale" | "tax_period_overlap" | "tenant_required" | "too_many_requests" | "unauthorized" | "unsupported_media_type" | "upload_interrupted" | "validation_failed";
             detail?: string;
             request_id: string;
             errors?: components["schemas"]["FieldError"][];
@@ -2658,6 +2866,187 @@ export interface components {
             /** @default true */
             enabled: boolean;
         };
+        InvoiceSettings: {
+            /** @description false, solange nichts gespeichert wurde (Standardwerte) */
+            configured: boolean;
+            sender_name?: string | null;
+            street?: string | null;
+            postal_code?: string | null;
+            city?: string | null;
+            /** @description ISO 3166-1 Alpha-2 */
+            country?: string | null;
+            tax_number?: string | null;
+            vat_id?: string | null;
+            email?: string | null;
+            phone?: string | null;
+            website?: string | null;
+            bank_name?: string | null;
+            /** @description ohne Leerzeichen, Pruefziffer geprueft */
+            iban?: string | null;
+            bic?: string | null;
+            /** @description ISO 4217, Standard EUR */
+            currency: string;
+            /** @description Zahlungsziel in Tagen, Standard 14 */
+            payment_term_days: number;
+            /** @description Kuerzel fuer {ABBR} im Nummernformat */
+            abbreviation?: string | null;
+            footer_text?: string | null;
+            rev: number;
+            /** Format: date-time */
+            updated_at?: string;
+        };
+        InvoiceSettingsInput: {
+            sender_name: string;
+            street?: string | null;
+            postal_code?: string | null;
+            city?: string | null;
+            country?: string | null;
+            tax_number?: string | null;
+            vat_id?: string | null;
+            email?: string | null;
+            phone?: string | null;
+            website?: string | null;
+            bank_name?: string | null;
+            iban?: string | null;
+            bic?: string | null;
+            /** @default EUR */
+            currency: string;
+            /** @default 14 */
+            payment_term_days: number;
+            abbreviation?: string | null;
+            footer_text?: string | null;
+        };
+        InvoiceTaxPeriod: {
+            /** Format: uuid */
+            id: string;
+            /**
+             * @description standard = Regelbesteuerung, small_business = Kleinunternehmer
+             * @enum {string}
+             */
+            regime: "standard" | "small_business";
+            /** Format: date */
+            valid_from: string;
+            /**
+             * Format: date
+             * @description inklusive; null = offen
+             */
+            valid_to: string | null;
+            note: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        InvoiceTaxPeriodInput: {
+            /** @enum {string} */
+            regime: "standard" | "small_business";
+            /** Format: date */
+            valid_from: string;
+            /** Format: date */
+            valid_to?: string | null;
+            note?: string | null;
+        };
+        InvoiceDocumentType: {
+            /** Format: uuid */
+            id: string;
+            code: string;
+            name: string;
+            /** @enum {string} */
+            kind: "quote" | "order_confirmation" | "delivery_note" | "invoice" | "credit_note";
+            /** Format: uuid */
+            default_series_id: string | null;
+            active: boolean;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        InvoiceDocumentTypeInput: {
+            code: string;
+            name: string;
+            /** @enum {string} */
+            kind: "quote" | "order_confirmation" | "delivery_note" | "invoice" | "credit_note";
+            /** Format: uuid */
+            default_series_id?: string | null;
+            /** @default true */
+            active: boolean;
+        };
+        InvoiceSeries: {
+            /** Format: uuid */
+            id: string;
+            code: string;
+            name: string;
+            number_format: string;
+            /**
+             * @description folgt aus dem Format (MM = je Monat, YYYY/YY = je Jahr)
+             * @enum {string}
+             */
+            counter_scope: "continuous" | "per_year" | "per_month";
+            active: boolean;
+            /** @description Der Zaehler hat Nummern vergeben (Format und Loeschen gesperrt) */
+            in_use: boolean;
+            /**
+             * Format: int64
+             * @description naechste Zaehlernummer im laufenden Zeitraum (UTC, Datenbankuhr)
+             */
+            next_number: number;
+            /** @description formatiert; null, wenn CLIENT oder PROJECT Werte brauchen */
+            next_number_preview: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        InvoiceSeriesInput: {
+            code: string;
+            name: string;
+            number_format: string;
+            /** @default true */
+            active: boolean;
+            /**
+             * Format: int64
+             * @description nur beim Anlegen; hebt den Kernzaehler auf start_number - 1 an
+             */
+            start_number?: number;
+        };
+        InvoiceItem: {
+            /** Format: uuid */
+            id: string;
+            sku: string | null;
+            name: string;
+            description: string | null;
+            unit: string | null;
+            /** @description Dezimal-String mit 4 Nachkommastellen, z. B. 19.9900 */
+            unit_price: string;
+            price_includes_tax: boolean;
+            /** @description Prozent als Dezimal-String, z. B. 19.0000 */
+            tax_rate: string;
+            track_stock: boolean;
+            /** @description Dezimal-String; nur mit track_stock (wird nur gespeichert) */
+            stock_quantity: string | null;
+            active: boolean;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        InvoiceItemInput: {
+            sku?: string | null;
+            name: string;
+            description?: string | null;
+            unit?: string | null;
+            /** @description Dezimal-String, kein JSON-Zahlenwert */
+            unit_price: string;
+            /** @default false */
+            price_includes_tax: boolean;
+            /** @description 0 bis 100 */
+            tax_rate: string;
+            /** @default false */
+            track_stock: boolean;
+            stock_quantity?: string | null;
+            /** @default true */
+            active: boolean;
+        };
     };
     responses: {
         /** @description Fehler (RFC 9457) */
@@ -2703,6 +3092,7 @@ export interface components {
         LinkId: string;
         DmsDocument: string;
         DmsMasterId: string;
+        InvoiceMasterId: string;
         DmsRule: string;
         DmsSuggestion: string;
         /** @description Quelle des Mandanten. Fremd oder unbekannt liefert 404. */
@@ -6234,6 +6624,647 @@ export interface operations {
             401: components["responses"]["Problem"];
             403: components["responses"]["Problem"];
             404: components["responses"]["Problem"];
+        };
+    };
+    getInvoiceSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Einstellungen */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceSettings"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    replaceInvoiceSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvoiceSettingsInput"];
+            };
+        };
+        responses: {
+            /** @description Gespeichert */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceSettings"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listInvoiceTaxPeriods: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Eintraege */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["InvoiceTaxPeriod"][];
+                    };
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    createInvoiceTaxPeriods: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvoiceTaxPeriodInput"];
+            };
+        };
+        responses: {
+            /** @description Angelegt */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceTaxPeriod"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getInvoiceTaxPeriods: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                id: components["parameters"]["InvoiceMasterId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Eintrag */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceTaxPeriod"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    deleteInvoiceTaxPeriods: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                id: components["parameters"]["InvoiceMasterId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Geloescht */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+        };
+    };
+    updateInvoiceTaxPeriods: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                id: components["parameters"]["InvoiceMasterId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvoiceTaxPeriodInput"];
+            };
+        };
+        responses: {
+            /** @description Aktualisiert */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceTaxPeriod"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listInvoiceDocumentTypes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Eintraege */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["InvoiceDocumentType"][];
+                    };
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    createInvoiceDocumentTypes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvoiceDocumentTypeInput"];
+            };
+        };
+        responses: {
+            /** @description Angelegt */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceDocumentType"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getInvoiceDocumentTypes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                id: components["parameters"]["InvoiceMasterId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Eintrag */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceDocumentType"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    deleteInvoiceDocumentTypes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                id: components["parameters"]["InvoiceMasterId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Geloescht */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+        };
+    };
+    updateInvoiceDocumentTypes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                id: components["parameters"]["InvoiceMasterId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvoiceDocumentTypeInput"];
+            };
+        };
+        responses: {
+            /** @description Aktualisiert */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceDocumentType"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listInvoiceSeries: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Eintraege */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["InvoiceSeries"][];
+                    };
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    createInvoiceSeries: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvoiceSeriesInput"];
+            };
+        };
+        responses: {
+            /** @description Angelegt */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceSeries"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getInvoiceSeries: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                id: components["parameters"]["InvoiceMasterId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Eintrag */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceSeries"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    deleteInvoiceSeries: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                id: components["parameters"]["InvoiceMasterId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Geloescht */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+        };
+    };
+    updateInvoiceSeries: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                id: components["parameters"]["InvoiceMasterId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvoiceSeriesInput"];
+            };
+        };
+        responses: {
+            /** @description Aktualisiert */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceSeries"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listInvoiceItems: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Eintraege */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["InvoiceItem"][];
+                    };
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    createInvoiceItems: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvoiceItemInput"];
+            };
+        };
+        responses: {
+            /** @description Angelegt */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceItem"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getInvoiceItems: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                id: components["parameters"]["InvoiceMasterId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Eintrag */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceItem"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    deleteInvoiceItems: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                id: components["parameters"]["InvoiceMasterId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Geloescht */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+        };
+    };
+    updateInvoiceItems: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                id: components["parameters"]["InvoiceMasterId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvoiceItemInput"];
+            };
+        };
+        responses: {
+            /** @description Aktualisiert */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceItem"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
         };
     };
 }
