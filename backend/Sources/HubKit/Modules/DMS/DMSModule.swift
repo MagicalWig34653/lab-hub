@@ -60,6 +60,14 @@ public struct DMSModule: HubModule {
     }
 
     public var migrations: [any Migration] { [CreateDMSCore(), CreateDMSIngest(), CreateDMSSearch(), CreateDMSOCR(), CreateDMSRules(), CreateDMSRevision(), CreateDMSSources(), CreateDMSImport(), CreateDMSExtraction(), CreateDMSDocumentSource(), CreateDMSApiTokenTenant()] }
+    /// WP-H12 (Codex-Befund 10): Ein abgeschaltetes DMS beendet die Job-Kette jeder Quelle (die Läufe enden ohne Folgejob). Beim Wiedereinschalten wird die
+    /// Kette für jede aktive Quelle neu angestoßen; `DMSSources.schedule` legt nur dann einen Job an, wenn kein queued/running Job existiert (idempotent).
+    public func onActivate(tenant: UUID, on db: any SQLDatabase) async throws {
+        let ids = try await db.raw("SELECT id FROM dms_sources WHERE tenant_id = \(bind: tenant) AND enabled ORDER BY created_at, id").all()
+            .map { try $0.decode(column: "id", as: UUID.self) }
+        for id in ids { try await DMSSources.schedule(source: id, tenant: tenant, delaySeconds: 0, expedite: false, on: db) }
+    }
+
     public var navigation: [NavigationItem] { [NavigationItem(key: "dms", labelKey: "nav.dms", path: "/dms", permission: "dms.document.read")] }
 
     func makeStore(_ req: Request) throws -> any ObjectStore {

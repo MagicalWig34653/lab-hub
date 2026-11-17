@@ -89,9 +89,35 @@ public struct StoredResponse: Sendable, Equatable { public let status: Int; publ
 public enum IdempotencyError: Error, Equatable { case keyReusedWithDifferentRequest, inProgress }
 
 /// Idempotency-Key: gleicher Schlüssel + gleicher Request-Hash liefert die gespeicherte Antwort, ohne `work` erneut auszuführen.
+/// WP-H12 (Codex-Befund 7): Eine nicht abgeschlossene Zeile (`in_progress`) ist eine Lease (`locked_at`, DB-Zeit). Läuft sie über `leaseSeconds`
+/// hinaus (Prozessabsturz), übernimmt die nächste Wiederholung mit gleichem Hash atomar (`UPDATE ... RETURNING`, genau ein Gewinner) und führt `work` aus.
+/// `work` muss daher wiederholbar sein (nach Absturz kann ein Teil der Fachänderung schon committet sein); `executeAtomic` vermeidet das,
+/// indem Fachänderung und `done` in einer Transaktion liegen. Alte Keys räumt `purgeExpired` ab (gelegentlich nebenbei beim Anlegen).
 public struct IdempotencyService: Sendable {
     let db: any SQLDatabase
-    public init(_ db: any SQLDatabase) { self.db = db }
+    let leaseSeconds: Int
+    public static let defaultLeaseSeconds = 300
+    public static let defaultRetentionSeconds = 7 * 86400
+    public init(_ db: any SQLDatabase, leaseSeconds: Int = IdempotencyService.defaultLeaseSeconds) { self.db = db; self.leaseSeconds = max(1, leaseSeconds) }
+
+    /// Gespeicherte Antwort, Übernahme einer abgelaufenen Lease (`nil`) oder Fehler.
+    private func replayOrTakeover(tenant: UUID, key: String, requestHash: String) async throws -> StoredResponse? {
+        guard let row = try await db.raw("""
+            SELECT request_hash, state, response_status, response_body FROM idempotency_keys
+            WHERE tenant_id = \(bind: tenant) AND key = \(bind: key)
+            """).first() else { throw IdempotencyError.inProgress }   // zwischenzeitlich gelöscht (Fehlerpfad des Gewinners): Client wiederholt
+        if try row.decode(column: "request_hash", as: String.self) != requestHash { throw IdempotencyError.keyReusedWithDifferentRequest }
+        if try row.decode(column: "state", as: String.self) == "done" {
+            return StoredResponse(status: try row.decode(column: "response_status", as: Int.self), body: try row.decode(column: "response_body", as: String.self))
+        }
+        let taken = try await db.raw("""
+            UPDATE idempotency_keys SET locked_at = now()
+            WHERE tenant_id = \(bind: tenant) AND key = \(bind: key) AND request_hash = \(bind: requestHash) AND state <> 'done'
+              AND locked_at < now() - make_interval(secs => \(bind: leaseSeconds)) RETURNING key
+            """).all()
+        if taken.isEmpty { throw IdempotencyError.inProgress }
+        return nil
+    }
 
     public func execute(tenant: UUID, key: String, requestHash: String,
                         work: @Sendable () async throws -> StoredResponse) async throws -> StoredResponse {
@@ -100,14 +126,9 @@ public struct IdempotencyService: Sendable {
             ON CONFLICT DO NOTHING RETURNING key
             """).all()
         if inserted.isEmpty {
-            guard let row = try await db.raw("""
-                SELECT request_hash, state, response_status, response_body FROM idempotency_keys
-                WHERE tenant_id = \(bind: tenant) AND key = \(bind: key)
-                """).first() else { throw IdempotencyError.inProgress }
-            if try row.decode(column: "request_hash", as: String.self) != requestHash { throw IdempotencyError.keyReusedWithDifferentRequest }
-            guard try row.decode(column: "state", as: String.self) == "done" else { throw IdempotencyError.inProgress }
-            return StoredResponse(status: try row.decode(column: "response_status", as: Int.self),
-                                  body: try row.decode(column: "response_body", as: String.self))
+            if let stored = try await replayOrTakeover(tenant: tenant, key: key, requestHash: requestHash) { return stored }
+        } else if Int.random(in: 0..<50) == 0 {
+            _ = try? await purgeExpired()   // Aufräumen nebenbei, nie korrektheitsrelevant
         }
         do {
             let result = try await work()
@@ -120,6 +141,55 @@ public struct IdempotencyService: Sendable {
             try? await db.raw("DELETE FROM idempotency_keys WHERE tenant_id = \(bind: tenant) AND key = \(bind: key)").run()
             throw error
         }
+    }
+
+    /// Wie `execute`, aber `work` läuft in einer Transaktion zusammen mit dem Schreiben von Key und `done`: Absturz oder Fehler rollt beides zurück
+    /// (kein Takeover nötig). Ein paralleler Aufruf wartet auf dem Unique-Index bis zum Commit und liefert dann die gespeicherte Antwort.
+    public func executeAtomic(tenant: UUID, key: String, requestHash: String,
+                              work: @escaping @Sendable (any SQLDatabase) async throws -> StoredResponse) async throws -> StoredResponse {
+        guard let database = db as? any Database else { throw Abort(.internalServerError) }
+        let replay: StoredResponse? = try await database.transaction { tx in
+            let s = try sql(tx)
+            let inserted = try await s.raw("""
+                INSERT INTO idempotency_keys (tenant_id, key, request_hash) VALUES (\(bind: tenant), \(bind: key), \(bind: requestHash))
+                ON CONFLICT DO NOTHING RETURNING key
+                """).all()
+            if inserted.isEmpty { return nil }
+            let result = try await work(s)
+            try await s.raw("""
+                UPDATE idempotency_keys SET state = 'done', response_status = \(bind: result.status), response_body = \(bind: result.body)
+                WHERE tenant_id = \(bind: tenant) AND key = \(bind: key)
+                """).run()
+            return result
+        }
+        if let replay { return replay }
+        // Zeile existierte schon (committed): Wiederholung oder abgelaufene nicht-atomare Zeile aus der Zeit vor WP-H12
+        if let stored = try await replayOrTakeover(tenant: tenant, key: key, requestHash: requestHash) { return stored }
+        return try await executeAtomic(tenant: tenant, key: key, requestHash: requestHash, work: work, afterTakeover: true)
+    }
+
+    private func executeAtomic(tenant: UUID, key: String, requestHash: String, work: @escaping @Sendable (any SQLDatabase) async throws -> StoredResponse,
+                               afterTakeover: Bool) async throws -> StoredResponse {
+        guard let database = db as? any Database else { throw Abort(.internalServerError) }
+        return try await database.transaction { tx in
+            let s = try sql(tx)
+            let result = try await work(s)
+            try await s.raw("""
+                UPDATE idempotency_keys SET state = 'done', response_status = \(bind: result.status), response_body = \(bind: result.body)
+                WHERE tenant_id = \(bind: tenant) AND key = \(bind: key)
+                """).run()
+            return result
+        }
+    }
+
+    /// Löscht Keys, die älter als `retentionSeconds` sind (erledigte und dauerhaft hängende), höchstens `limit` je Aufruf. Rückgabe: Anzahl.
+    @discardableResult
+    public func purgeExpired(retentionSeconds: Int = IdempotencyService.defaultRetentionSeconds, limit: Int = 500) async throws -> Int {
+        try await db.raw("""
+            DELETE FROM idempotency_keys WHERE (tenant_id, key) IN (
+              SELECT tenant_id, key FROM idempotency_keys WHERE created_at < now() - make_interval(secs => \(bind: retentionSeconds)) LIMIT \(bind: limit))
+            RETURNING key
+            """).all().count
     }
 }
 
