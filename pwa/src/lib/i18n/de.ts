@@ -158,6 +158,7 @@ export const de = {
 	'error.status_500': 'Serverfehler.',
 	'error.status_503': 'Der Server ist vorübergehend nicht erreichbar.',
 
+	'error.api_token_unbound': 'Dieses API-Token ist keinem Mandanten zugeordnet. Bitte ein neues Token erstellen.',
 	'error.bad_request': 'Ungültige Anfrage.',
 	'error.conflict': 'Die Änderung steht im Konflikt mit dem aktuellen Stand.',
 	'error.contact_merged': 'Der Kontakt wurde mit einem anderen zusammengeführt.',

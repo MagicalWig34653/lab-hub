@@ -1475,7 +1475,9 @@ export interface paths {
         put?: never;
         /**
          * API-Token mit Scope erstellen; der Klartext steht nur in dieser Antwort (Audit auth.api_token.created)
-         * @description Minimalstand: einziger Scope ist dms.upload (Share-/Scan-API). Pflichtablauf (expires_in_days 1..730, Standard 365). Gespeichert wird nur der SHA-256-Hash.
+         * @description WP-H10b: Das Token wird an genau einen Mandanten gebunden (tenant_id); es gilt nur auf Routen dieses Mandanten (anderer Mandant 404 not_found). Ohne tenant_id gilt der einzige
+         *     Mandant des Nutzers (Kompatibilitaet), bei mehreren Mitgliedschaften 422. tenant_id eines Mandanten, in dem der Nutzer nicht Mitglied ist: 404.
+         *     Minimalstand: einziger Scope ist dms.upload (Share-/Scan-API). Pflichtablauf (expires_in_days 1..730, Standard 365). Gespeichert wird nur der SHA-256-Hash.
          *     Das Token (Praefix lhp_) wird ausschliesslich an Routen mit ausdruecklichem Scope akzeptiert, nie als Sitzung. Unbekannter Scope 422.
          */
         post: operations["createApiToken"];
@@ -1516,7 +1518,8 @@ export interface paths {
          * @description Wie dmsUpload (Body = Dateiinhalt, Magic Bytes, Limits, Quota, gleiche Query-Parameter), aber Authorization: Bearer lhp_... statt Sitzung; Cookies und Sitzungstokens werden hier nicht akzeptiert.
          *     Der Idempotency-Key ist optional (Scanner kennen ihn nicht): ohne ihn gilt ein aus Inhalt und Parametern abgeleiteter Schluessel, dieselbe Datei erzeugt dann kein zweites Dokument,
          *     sondern liefert die Antwort des ersten Aufrufs. Quelle des Eingangsvorgangs ist share_ext, Herkunft api_token:<id>.
-         *     Ungueltiges, widerrufenes, abgelaufenes Token oder falscher Scope 401; Token-Inhaber kein Mitglied des Mandanten 404; Modul aus 404 module_disabled; Rolle ohne Recht 403.
+         *     Ungueltiges, widerrufenes, abgelaufenes Token oder falscher Scope 401; Token ohne Mandantenbindung (vor WP-H10b erstellt, Inhaber mit mehreren Mandanten) 401 api_token_unbound;
+         *     Token an einen anderen Mandanten gebunden oder Token-Inhaber kein Mitglied des Mandanten 404 not_found; Modul aus 404 module_disabled; Rolle ohne Recht 403.
          */
         post: operations["dmsShare"];
         delete?: never;
@@ -1823,7 +1826,7 @@ export interface components {
              * @description Stabiler maschinenlesbarer Code
              * @enum {string}
              */
-            code: "bad_request" | "conflict" | "contact_merged" | "csrf_invalid" | "document_linked" | "document_not_trashed" | "document_trashed" | "forbidden" | "handle_taken" | "idempotency_in_progress" | "idempotency_key_required" | "idempotency_key_reused" | "ingest_not_failed" | "internal_error" | "invalid_cursor" | "invalid_limit" | "invitation_invalid" | "last_owner" | "last_passkey" | "legal_hold" | "login_failed" | "method_not_allowed" | "module_disabled" | "module_required_by" | "module_requires" | "module_unavailable" | "not_found" | "passkey_invalid" | "payload_too_large" | "precondition_failed" | "recovery_session_restricted" | "retention_not_expired" | "service_unavailable" | "setup_token_invalid" | "storage_quota_exceeded" | "suggestion_decided" | "suggestion_stale" | "tenant_required" | "too_many_requests" | "unauthorized" | "unsupported_media_type" | "upload_interrupted" | "validation_failed";
+            code: "api_token_unbound" | "bad_request" | "conflict" | "contact_merged" | "csrf_invalid" | "document_linked" | "document_not_trashed" | "document_trashed" | "forbidden" | "handle_taken" | "idempotency_in_progress" | "idempotency_key_required" | "idempotency_key_reused" | "ingest_not_failed" | "internal_error" | "invalid_cursor" | "invalid_limit" | "invitation_invalid" | "last_owner" | "last_passkey" | "legal_hold" | "login_failed" | "method_not_allowed" | "module_disabled" | "module_required_by" | "module_requires" | "module_unavailable" | "not_found" | "passkey_invalid" | "payload_too_large" | "precondition_failed" | "recovery_session_restricted" | "retention_not_expired" | "service_unavailable" | "setup_token_invalid" | "storage_quota_exceeded" | "suggestion_decided" | "suggestion_stale" | "tenant_required" | "too_many_requests" | "unauthorized" | "unsupported_media_type" | "upload_interrupted" | "validation_failed";
             detail?: string;
             request_id: string;
             errors?: components["schemas"]["FieldError"][];
@@ -2479,6 +2482,11 @@ export interface components {
             /** Format: uuid */
             id: string;
             name: string;
+            /**
+             * Format: uuid
+             * @description Mandant der Bindung (WP-H10b); null: Token ohne Bindung wird abgewiesen (401 api_token_unbound) und muss neu erstellt werden
+             */
+            tenant_id: string | null;
             scopes: "dms.upload"[];
             /** Format: date-time */
             expires_at: string;
@@ -5745,6 +5753,11 @@ export interface operations {
                 "application/json": {
                     name: string;
                     scopes: "dms.upload"[];
+                    /**
+                     * Format: uuid
+                     * @description Mandant, an den das Token gebunden wird (WP-H10b); optional nur, wenn der Nutzer genau einen Mandanten hat
+                     */
+                    tenant_id?: string;
                     expires_in_days?: number;
                 };
             };
@@ -5761,6 +5774,7 @@ export interface operations {
             };
             401: components["responses"]["Problem"];
             403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
         };
     };

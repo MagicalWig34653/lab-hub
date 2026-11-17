@@ -160,6 +160,7 @@ export const en: Record<MessageKey, string> = {
 	'error.status_500': 'Server error.',
 	'error.status_503': 'The server is temporarily unavailable.',
 
+	'error.api_token_unbound': 'This API token is not bound to a tenant. Please create a new token.',
 	'error.bad_request': 'Invalid request.',
 	'error.conflict': 'The change conflicts with the current state.',
 	'error.contact_merged': 'The contact was merged into another one.',

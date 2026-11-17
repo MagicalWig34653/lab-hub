@@ -2160,6 +2160,8 @@ paths:
       operationId: createApiToken
       summary: API-Token mit Scope erstellen; der Klartext steht nur in dieser Antwort (Audit auth.api_token.created)
       description: |
+        WP-H10b: Das Token wird an genau einen Mandanten gebunden (tenant_id); es gilt nur auf Routen dieses Mandanten (anderer Mandant 404 not_found). Ohne tenant_id gilt der einzige
+        Mandant des Nutzers (Kompatibilitaet), bei mehreren Mitgliedschaften 422. tenant_id eines Mandanten, in dem der Nutzer nicht Mitglied ist: 404.
         Minimalstand: einziger Scope ist dms.upload (Share-/Scan-API). Pflichtablauf (expires_in_days 1..730, Standard 365). Gespeichert wird nur der SHA-256-Hash.
         Das Token (Praefix lhp_) wird ausschliesslich an Routen mit ausdruecklichem Scope akzeptiert, nie als Sitzung. Unbekannter Scope 422.
       security: [{ bearer: [] }, { cookie: [] }]
@@ -2173,6 +2175,7 @@ paths:
               properties:
                 name: { type: string, minLength: 1, maxLength: 80 }
                 scopes: { type: array, minItems: 1, items: { type: string, enum: [dms.upload] } }
+                tenant_id: { type: string, format: uuid, description: "Mandant, an den das Token gebunden wird (WP-H10b); optional nur, wenn der Nutzer genau einen Mandanten hat" }
                 expires_in_days: { type: integer, minimum: 1, maximum: 730 }
       responses:
         "201":
@@ -2182,6 +2185,7 @@ paths:
               schema: { $ref: "#/components/schemas/ApiToken" }
         "401": { $ref: "#/components/responses/Problem" }
         "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
         "422": { $ref: "#/components/responses/Problem" }
   /api/v1/auth/api-tokens/{token}:
     delete:
@@ -2203,7 +2207,8 @@ paths:
         Wie dmsUpload (Body = Dateiinhalt, Magic Bytes, Limits, Quota, gleiche Query-Parameter), aber Authorization: Bearer lhp_... statt Sitzung; Cookies und Sitzungstokens werden hier nicht akzeptiert.
         Der Idempotency-Key ist optional (Scanner kennen ihn nicht): ohne ihn gilt ein aus Inhalt und Parametern abgeleiteter Schluessel, dieselbe Datei erzeugt dann kein zweites Dokument,
         sondern liefert die Antwort des ersten Aufrufs. Quelle des Eingangsvorgangs ist share_ext, Herkunft api_token:<id>.
-        Ungueltiges, widerrufenes, abgelaufenes Token oder falscher Scope 401; Token-Inhaber kein Mitglied des Mandanten 404; Modul aus 404 module_disabled; Rolle ohne Recht 403.
+        Ungueltiges, widerrufenes, abgelaufenes Token oder falscher Scope 401; Token ohne Mandantenbindung (vor WP-H10b erstellt, Inhaber mit mehreren Mandanten) 401 api_token_unbound;
+        Token an einen anderen Mandanten gebunden oder Token-Inhaber kein Mitglied des Mandanten 404 not_found; Modul aus 404 module_disabled; Rolle ohne Recht 403.
       security: [{ apiToken: [] }]
       parameters:
         - { $ref: "#/components/parameters/Tenant" }
@@ -2722,6 +2727,7 @@ components:
           type: string
           description: Stabiler maschinenlesbarer Code
           enum:
+            - api_token_unbound
             - bad_request
             - conflict
             - contact_merged
@@ -3315,10 +3321,11 @@ components:
         total: { type: [integer, "null"] }
     ApiToken:
       type: object
-      required: [id, name, scopes, expires_at, created_at]
+      required: [id, name, tenant_id, scopes, expires_at, created_at]
       properties:
         id: { type: string, format: uuid }
         name: { type: string }
+        tenant_id: { type: [string, "null"], format: uuid, description: "Mandant der Bindung (WP-H10b); null: Token ohne Bindung wird abgewiesen (401 api_token_unbound) und muss neu erstellt werden" }
         scopes: { type: array, items: { type: string, enum: [dms.upload] } }
         expires_at: { type: string, format: date-time }
         created_at: { type: string, format: date-time }

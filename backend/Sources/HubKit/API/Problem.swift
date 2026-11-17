@@ -73,6 +73,7 @@ public enum ProblemCatalog {
         "last_passkey": "Der letzte Passkey kann nicht entfernt werden.",
         "csrf_invalid": "Das CSRF-Token fehlt oder ist ungültig.",
         "recovery_session_restricted": "Diese Aktion ist in einer Notfall-Sitzung nicht erlaubt.",
+        "api_token_unbound": "Dieses API-Token ist keinem Mandanten zugeordnet. Bitte ein neues Token erstellen.",
         "too_many_requests": "Zu viele Anfragen. Bitte später erneut versuchen.",
         "service_unavailable":"Der Dienst ist vorübergehend nicht verfügbar.",
         "internal_error": "Interner Fehler. Bitte später erneut versuchen."

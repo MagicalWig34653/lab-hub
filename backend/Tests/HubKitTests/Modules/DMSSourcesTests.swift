@@ -285,6 +285,100 @@ final class ApiTokenTests: DMSSourceTestBase {
         return TestSession(token: token, userID: userID.uuidString, csrf: AuthSecrets.csrf(token), handle: "bob")
     }
 
+    private func makeBoundToken(_ s: TestSession, tenant: String, via: Application? = nil) async throws -> (id: String, token: String) {
+        let r = try await call(via ?? app1, .POST, "api/v1/auth/api-tokens", json: ["name": "Gebunden", "scopes": ["dms.upload"], "tenant_id": tenant], token: s.token)
+        XCTAssertEqual(r.status, .created, "\(r.json)")
+        XCTAssertEqual((r.json["tenant_id"] as? String)?.lowercased(), tenant.lowercased())
+        return (r.json["id"] as? String ?? "", r.json["token"] as? String ?? "")
+    }
+
+    /// AK-H10b-1: Ein Token gilt nur im Mandanten, an den es gebunden ist, auch wenn der Inhaber in einem zweiten Mandanten Mitglied mit Recht ist (404 `not_found`,
+    /// nichts angelegt); die Prüfung läuft bei jeder Nutzung auf beiden Instanzen. Erlaubt: eigener Mandant. Verboten: fremder Mandant.
+    func testAKH10b_1_tokenOnlyWorksInBoundTenant() async throws {
+        let w = try await world()
+        let bob = try await bootstrapSecondUser()
+        let bobTenant = try await scalar("SELECT tenant_id::text AS v FROM memberships WHERE user_id = '\(bob.userID)'", as: String.self)
+        try await setModule(bobTenant, true, by: bob)
+        try await db.raw("INSERT INTO memberships (tenant_id, user_id, role) VALUES (\(bind: UUID(uuidString: bobTenant)!), \(bind: UUID(uuidString: w.alice.userID)!), 'owner')").run()
+        let (_, tokenA) = try await makeBoundToken(w.alice, tenant: w.tenantA)
+        let (_, tokenB) = try await makeBoundToken(w.alice, tenant: bobTenant, via: app2)
+        for app in [app1!, app2!] {
+            try await aEq((try await share(tokenA, w.tenantA, pdf("a-in-a-\(app === app1)"), via: app)).status, .created)
+            let foreign = try await share(tokenA, bobTenant, pdf("a-in-b-\(app === app1)"), via: app)
+            XCTAssertEqual(foreign.status, .notFound)
+            XCTAssertEqual(foreign.problemCode, "not_found")
+            try await aEq((try await share(tokenB, bobTenant, pdf("b-in-b-\(app === app1)"), via: app)).status, .created)
+            let foreignB = try await share(tokenB, w.tenantA, pdf("b-in-a-\(app === app1)"), via: app)
+            XCTAssertEqual(foreignB.status, .notFound)
+            XCTAssertEqual(foreignB.problemCode, "not_found")
+        }
+        try await aEq(try await count("dms_documents", where: "tenant_id = '\(w.tenantA)'"), 2)
+        try await aEq(try await count("dms_documents", where: "tenant_id = '\(bobTenant)'"), 2)
+        // Bindung steht in der Liste; Mitgliedschaft entfernt: weiterhin 404
+        let list = try await call(app2, .GET, "api/v1/auth/api-tokens", token: w.alice.token)
+        XCTAssertEqual(Set(items(list).compactMap { ($0["tenant_id"] as? String)?.lowercased() }), Set([w.tenantA.lowercased(), bobTenant.lowercased()]))
+        try await db.raw("DELETE FROM memberships WHERE tenant_id = \(bind: UUID(uuidString: bobTenant)!) AND user_id = \(bind: UUID(uuidString: w.alice.userID)!)").run()
+        try await aEq((try await share(tokenB, bobTenant, pdf("b-no-member"), via: app2)).status, .notFound)
+    }
+
+    /// AK-H10b-2: Erstellen: `tenant_id` nur für eigene Mandanten (fremd 404), ungültig 422; ohne Angabe gilt der einzige Mandant, bei mehreren 422.
+    func testAKH10b_2_createRequiresMembershipAndUnambiguousTenant() async throws {
+        let w = try await world()
+        let bob = try await bootstrapSecondUser()
+        let bobTenant = try await scalar("SELECT tenant_id::text AS v FROM memberships WHERE user_id = '\(bob.userID)'", as: String.self)
+        func create(_ extra: [String: Any]) async throws -> (status: HTTPResponseStatus, json: [String: Any]) {
+            var body: [String: Any] = ["name": "x", "scopes": ["dms.upload"]]
+            for (k, v) in extra { body[k] = v }
+            let r = try await call(app1, .POST, "api/v1/auth/api-tokens", json: body, token: w.alice.token)
+            return (r.status, r.json)
+        }
+        let foreign = try await create(["tenant_id": bobTenant])
+        XCTAssertEqual(foreign.status, .notFound)
+        try await aEq(try await count("api_tokens"), 0)
+        for bad: Any in ["nicht-uuid", 5, NSNull()] {
+            try await aEq((try await create(["tenant_id": bad])).status, .unprocessableEntity, "\(bad)")
+        }
+        let implicit = try await create([:])
+        XCTAssertEqual(implicit.status, .created)
+        XCTAssertEqual((implicit.json["tenant_id"] as? String)?.lowercased(), w.tenantA.lowercased())
+        try await db.raw("INSERT INTO memberships (tenant_id, user_id, role) VALUES (\(bind: UUID(uuidString: bobTenant)!), \(bind: UUID(uuidString: w.alice.userID)!), 'member')").run()
+        try await aEq((try await create([:])).status, .unprocessableEntity)
+        try await aEq((try await create(["tenant_id": bobTenant])).status, .created)
+        try await aEq(try await count("api_tokens"), 2)
+    }
+
+    /// AK-H10b-3: Migration (Expand): Backfill bindet Tokens von Nutzern mit genau einem Mandanten, Tokens mehrdeutiger Nutzer bleiben ungebunden und werden
+    /// abgewiesen (401 `api_token_unbound`, auch im eigenen Mandanten); Revert entfernt Spalte und Index, erneutes Anwenden geht.
+    func testAKH10b_3_migrationBackfillAndUnboundTokensAreRejected() async throws {
+        let w = try await world()
+        let bob = try await bootstrapSecondUser()
+        let bobTenant = try await scalar("SELECT tenant_id::text AS v FROM memberships WHERE user_id = '\(bob.userID)'", as: String.self)
+        try await setModule(bobTenant, true, by: bob)
+        let migration = CreateDMSApiTokenTenant()
+        try await migration.revert(on: app1.db(.psql))
+        try await aEq(try await count("information_schema.columns", where: "table_name = 'api_tokens' AND column_name = 'tenant_id'"), 0)
+        try await db.raw("INSERT INTO memberships (tenant_id, user_id, role) VALUES (\(bind: UUID(uuidString: w.tenantA)!), \(bind: UUID(uuidString: bob.userID)!), 'member')").run()
+        let legacyAlice = ApiTokens.newToken(), legacyBob = ApiTokens.newToken()
+        for (user, token) in [(w.alice.userID, legacyAlice), (bob.userID, legacyBob)] {
+            try await db.raw("""
+                INSERT INTO api_tokens (user_id, name, token_hash, scopes, expires_at)
+                VALUES (\(bind: UUID(uuidString: user)!), 'alt', \(bind: AuthSecrets.hash(token)), ARRAY['dms.upload'], now() + interval '1 day')
+                """).run()
+        }
+        try await migration.prepare(on: app1.db(.psql))
+        try await aEq(try await scalar("SELECT tenant_id::text AS v FROM api_tokens WHERE token_hash = '\(AuthSecrets.hash(legacyAlice))'", as: String.self), w.tenantA.lowercased())
+        try await aEq(try await count("api_tokens", where: "tenant_id IS NULL"), 1)
+        try await aEq((try await share(legacyAlice, w.tenantA, pdf("legacy-ok"), via: app2)).status, .created)
+        try await aEq((try await share(legacyAlice, bobTenant, pdf("legacy-foreign"))).status, .notFound)
+        for tenant in [w.tenantA, bobTenant] {
+            let unbound = try await share(legacyBob, tenant, pdf("legacy-bob-\(tenant)"), via: app2)
+            XCTAssertEqual(unbound.status, .unauthorized)
+            XCTAssertEqual(unbound.problemCode, "api_token_unbound")
+        }
+        try await aEq(try await count("dms_documents"), 1)
+        try await aEq(try await count("pg_indexes", where: "indexname = 'api_tokens_tenant'"), 1)
+    }
+
     /// AK-D4-4: Share-API legt Dokument mit Quelle share_ext an, Eingang auditiert; ohne Idempotency-Key erzeugt dieselbe Datei kein zweites Dokument,
     /// mit anderem Titel entsteht ein neues; unbekannter Typ 415, zu groß 413; mit Idempotency-Key gilt dessen Semantik; Eingangsvorgang trägt den Token als Herkunft.
     func testAKD4_4_shareUploadIdempotentAndValidated() async throws {
@@ -496,9 +590,11 @@ final class DMSSourceAdminTests: DMSSourceTestBase {
         let before = try await count("information_schema.tables", where: "table_name IN ('dms_sources', 'dms_source_items', 'dms_folder_observations', 'api_tokens')")
         XCTAssertEqual(before, 4)
         try await CreateDMSSources().revert(on: app1.db(.psql))
+        try await CreateDMSApiTokenTenant().revert(on: app1.db(.psql))
         try await CreateApiTokens().revert(on: app1.db(.psql))
         try await aEq(try await count("information_schema.tables", where: "table_name IN ('dms_sources', 'dms_source_items', 'dms_folder_observations', 'api_tokens')"), 0)
         try await CreateApiTokens().prepare(on: app1.db(.psql))
+        try await CreateDMSApiTokenTenant().prepare(on: app1.db(.psql))
         try await CreateDMSSources().prepare(on: app1.db(.psql))
         try await aEq(try await count("information_schema.tables", where: "table_name IN ('dms_sources', 'dms_source_items', 'dms_folder_observations', 'api_tokens')"), 4)
     }

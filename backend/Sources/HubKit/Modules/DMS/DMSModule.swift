@@ -59,7 +59,7 @@ public struct DMSModule: HubModule {
          PermissionDefinition("dms.import.manage", roles: [.accountant])] + Self.rulePermissions   // WP-D3: dms.rule.*, dms.suggestion.*
     }
 
-    public var migrations: [any Migration] { [CreateDMSCore(), CreateDMSIngest(), CreateDMSSearch(), CreateDMSOCR(), CreateDMSRules(), CreateDMSRevision(), CreateDMSSources(), CreateDMSImport(), CreateDMSExtraction(), CreateDMSDocumentSource()] }
+    public var migrations: [any Migration] { [CreateDMSCore(), CreateDMSIngest(), CreateDMSSearch(), CreateDMSOCR(), CreateDMSRules(), CreateDMSRevision(), CreateDMSSources(), CreateDMSImport(), CreateDMSExtraction(), CreateDMSDocumentSource(), CreateDMSApiTokenTenant()] }
     public var navigation: [NavigationItem] { [NavigationItem(key: "dms", labelKey: "nav.dms", path: "/dms", permission: "dms.document.read")] }
 
     func makeStore(_ req: Request) throws -> any ObjectStore {
