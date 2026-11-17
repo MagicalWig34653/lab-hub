@@ -21,6 +21,9 @@ export type DmsProcessing = Schemas['DmsProcessing'];
 export type DmsExtraction = Schemas['DmsExtraction'];
 export type DmsFact = Schemas['DmsFact'];
 export type DmsDocumentKind = Schemas['DmsDocumentKind'];
+export type DmsDocumentSource = Schemas['DmsDocumentSource'];
+export type DmsCurrencyTotal = Schemas['DmsCurrencyTotal'];
+export type DmsStats = Schemas['DmsStats'];
 export type Link = Schemas['Link'];
 export type Contact = Schemas['Contact'];
 export type DmsRule = Schemas['DmsRule'];
@@ -150,6 +153,8 @@ export interface DocumentPage {
 	items: DmsDocument[];
 	next_cursor?: string | null;
 	total?: number | null;
+	/** Only with `totals=true`: sum per currency of the whole filtered set (decimal strings). */
+	totals?: DmsCurrencyTotal[];
 }
 
 export interface DocumentListQuery {
@@ -176,6 +181,10 @@ export interface DocumentListQuery {
 	reference?: string;
 	sort?: 'created_at' | 'amount' | 'extracted_date' | 'due_date';
 	order?: 'asc' | 'desc';
+	// WP-D9
+	source?: DmsDocumentSource;
+	has_open_suggestions?: boolean;
+	totals?: boolean;
 }
 
 export interface SearchQuery {
@@ -190,6 +199,22 @@ export interface SearchQuery {
 	tag_id?: string;
 	date_from?: string;
 	date_to?: string;
+	// WP-D9: same extraction filters, source, open suggestions and sorting as the list
+	kind?: DmsDocumentKind;
+	kind_certain?: boolean;
+	currency?: string;
+	amount_min?: string;
+	amount_max?: string;
+	extracted_from?: string;
+	extracted_to?: string;
+	due_from?: string;
+	due_to?: string;
+	reference?: string;
+	source?: DmsDocumentSource;
+	has_open_suggestions?: boolean;
+	/** `relevance` is the default (cursor on the score). */
+	sort?: 'relevance' | 'created_at' | 'amount' | 'extracted_date' | 'due_date';
+	order?: 'asc' | 'desc';
 }
 
 export interface UploadOptions {
@@ -247,6 +272,8 @@ export const dmsApi = {
 		request<DocumentPage>('GET', withQuery(`/tenants/${tenant}/dms/documents`, { ...query })),
 	search: (tenant: string, query: SearchQuery) =>
 		request<DmsSearchPage>('GET', withQuery(`/tenants/${tenant}/dms/search`, { ...query })),
+	/** Counters of the dashboard card (WP-D9); `today` = local day of the client (yyyy-MM-dd). */
+	stats: (tenant: string, today?: string) => request<DmsStats>('GET', withQuery(`/tenants/${tenant}/dms/stats`, { today })),
 	document: (tenant: string, id: string) => request<DmsDocument>('GET', `/tenants/${tenant}/dms/documents/${id}`),
 	processing: (tenant: string, id: string) => request<DmsProcessing>('GET', `/tenants/${tenant}/dms/documents/${id}/processing`),
 	/** Document kind and facts (WP-D7); 404 while nothing was extracted. */

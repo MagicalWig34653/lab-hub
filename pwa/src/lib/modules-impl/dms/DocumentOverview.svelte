@@ -4,7 +4,7 @@
 	import { page } from '$app/state';
 	import ArrowDown from '@lucide/svelte/icons/arrow-down';
 	import ArrowUp from '@lucide/svelte/icons/arrow-up';
-	import { dmsAdminApi, dmsApi, type DmsDocument, type DmsExtraction, type DmsFacets, type DmsProcessing, type DmsSearchHit } from '#lib/api/client';
+	import { dmsApi, type DmsCurrencyTotal, type DmsDocument, type DmsDocumentSource, type DmsExtraction, type DmsFacets, type DmsProcessing, type DmsSearchHit } from '#lib/api/client';
 	import ErrorBanner from '#lib/components/app/ErrorBanner.svelte';
 	import { Button } from '#lib/components/ui/button';
 	import { Input } from '#lib/components/ui/input';
@@ -16,6 +16,8 @@
 	import {
 		KIND_LABEL,
 		KINDS,
+		SOURCES,
+		SOURCE_LABEL,
 		activePreset,
 		defaultOrder,
 		formatMoney,
@@ -27,6 +29,7 @@
 		presetRange,
 		toListQuery,
 		toSearchQuery,
+		toTotalsQuery,
 		usesListRoute,
 		type DatePreset,
 		type SortKey
@@ -37,9 +40,9 @@
 	import UploadPanel from './UploadPanel.svelte';
 
 	/**
-	 * Central document table (WP-F4c): one calm overview for all document kinds. Filters, sorting and the search term live in the URL.
-	 * Default and full-text search run on `GET …/search` (snippets, facets, several tags, document date); extraction filters, sorting by
-	 * date/amount/due date and the trash run on `GET …/documents` (the contract offers these filters only there).
+	 * Central document table (WP-F4c, WP-F4d): one calm overview for all document kinds. Filters, sorting and the search term live in the URL.
+	 * Everything runs on `GET …/search` (snippets, facets, several tags, extraction filters, source, open suggestions, sorting; WP-D9); only the
+	 * trash runs on `GET …/documents`. The sum per currency of the whole filtered set comes from `GET …/documents?totals=true`.
 	 */
 	let { tenant }: { tenant: string } = $props();
 	// The page is re-keyed on tenant switch, so the tenant is fixed for the lifetime of this component.
@@ -56,12 +59,14 @@
 		status: DmsDocument['status'];
 		snippet?: string | null;
 		created_at: string;
-		/** From the list route; search hits carry none (loaded afterwards). */
 		extraction?: DmsExtraction | null;
+		source?: DmsDocumentSource;
+		/** Open suggestions of the document (server count). */
+		open_suggestions?: number;
 	}
 
 	const fromDoc = (d: DmsDocument): Row => ({ ...d, extraction: d.extraction ?? null });
-	const fromHit = (h: DmsSearchHit): Row => ({ ...h });
+	const fromHit = (h: DmsSearchHit): Row => ({ ...h, extraction: h.extraction ?? null });
 
 	// --- filter state lives in the URL (reload, back button, shareable) ---
 	const f = $derived(parseFilters(new URLSearchParams(page.url.searchParams.toString())));
@@ -111,37 +116,32 @@
 
 	void loadMasters(tenantId).then((m) => (masters = m));
 
-	// --- open suggestions per document (for the status column and the "only open suggestions" filter) ---
-	let suggestionCount = $state<Record<string, number>>({});
-	let suggestionsCapped = $state(false);
 	const canSuggestions = $derived(workspace.can(P.suggestionRead));
 
-	async function loadSuggestionCounts() {
-		if (!canSuggestions) return;
-		const counts: Record<string, number> = {};
-		let cursor: string | null = null;
+	// --- sum per currency of the whole filtered set (never of the loaded rows only) ---
+	let totals = $state<DmsCurrencyTotal[]>([]);
+	let totalsSeq = 0;
+	async function loadTotals() {
+		const mine = ++totalsSeq;
+		if (f.q && !f.trash) {
+			totals = [];
+			return;
+		}
 		try {
-			for (let i = 0; i < 5; i++) {
-				const result = await dmsAdminApi.suggestions(tenantId, { state: 'open', limit: 200, cursor });
-				for (const s of result.items) counts[s.document_id] = (counts[s.document_id] ?? 0) + 1;
-				cursor = result.next_cursor;
-				if (!cursor) break;
-			}
-			suggestionsCapped = cursor !== null;
-			suggestionCount = counts;
+			const result = await dmsApi.documents(tenantId, toTotalsQuery(f, today));
+			if (mine === totalsSeq) totals = result.totals ?? [];
 		} catch {
-			// the marker is a convenience; the table works without it
+			if (mine === totalsSeq) totals = []; // the sum is a convenience; the table works without it
 		}
 	}
-	void loadSuggestionCounts();
+	const showTotals = $derived(!(f.q && !f.trash) && totals.length > 0);
 
-	const visibleRows = $derived(f.open ? rows.filter((r) => (suggestionCount[r.id] ?? 0) > 0) : rows);
-
-	async function load(reset: boolean, fills = 0) {
+	async function load(reset: boolean) {
 		const mine = ++seq;
 		loading = true;
 		error = null;
 		const cursor = reset ? null : nextCursor;
+		if (reset) void loadTotals();
 		try {
 			let items: Row[];
 			let next: string | null | undefined;
@@ -151,7 +151,7 @@
 				next = result.next_cursor;
 				if (mine === seq) facets = null;
 			} else {
-				const result = await dmsApi.search(tenantId, toSearchQuery(f, cursor));
+				const result = await dmsApi.search(tenantId, toSearchQuery(f, cursor, 25, today));
 				items = result.items.map(fromHit);
 				next = result.next_cursor;
 				if (mine === seq) facets = result.facets ?? null;
@@ -160,12 +160,7 @@
 			rows = reset ? items : [...rows, ...items];
 			nextCursor = next ?? null;
 			void loadProcessing(items);
-			if (!listRoute) void loadExtractions(items);
 			if (reset) active = 0;
-			// "Only open suggestions" narrows the loaded pages on the client: keep paging until a page's worth is visible.
-			if (f.open && nextCursor && fills < 8 && rows.filter((r) => (suggestionCount[r.id] ?? 0) > 0).length < 25) {
-				await load(false, fills + 1);
-			}
 		} catch (e) {
 			if (mine === seq) error = errorMessage(e);
 		} finally {
@@ -197,13 +192,7 @@
 		await parallel(wanted, async (row) => void (processing[row.id] = await dmsApi.processing(tenantId, row.id)), 3);
 	}
 
-	// Search hits carry no extraction: kind, amount and due date are fetched per row (the contract's hit has no such fields).
-	let fetched = $state<Record<string, DmsExtraction | null>>({});
-	async function loadExtractions(items: Row[]) {
-		const wanted = items.filter((r) => !(r.id in fetched));
-		await parallel(wanted, async (row) => void (fetched[row.id] = (await dmsApi.document(tenantId, row.id)).extraction ?? null), 4);
-	}
-	const extractionOf = (row: Row): DmsExtraction | null => (listRoute ? (row.extraction ?? null) : (fetched[row.id] ?? null));
+	const extractionOf = (row: Row): DmsExtraction | null => row.extraction ?? null;
 
 	$effect(() => {
 		void filterKey;
@@ -213,7 +202,6 @@
 	/** Documents uploaded in this session appear (and processing results update) without a manual reload. */
 	function refreshAfterUpload() {
 		if (!f.trash) void load(true);
-		void loadSuggestionCounts();
 	}
 
 	// --- keyboard: arrows/j/k/Home/End move between rows, Enter opens, "/" focuses the search ---
@@ -337,7 +325,7 @@
 		archived: 'dms.status.archived'
 	} as const;
 
-	const detailsOpen = $derived(Boolean(f.type || f.corr || f.tags.length || f.from || f.to || f.trash || f.open || f.cur));
+	const detailsOpen = $derived(Boolean(f.type || f.corr || f.tags.length || f.from || f.to || f.trash || f.open || f.cur || f.source));
 	const selectClass = 'border-input bg-background h-8 w-full rounded-lg border px-2 text-sm';
 	const presetClass = 'hover:bg-muted aria-pressed:bg-primary aria-pressed:text-primary-foreground focus-visible:ring-ring/50 rounded-full border px-3 py-1 text-xs focus-visible:ring-3 focus-visible:outline-none';
 	const thClass = 'px-3 py-2 text-left font-medium';
@@ -382,7 +370,7 @@
 				variant="ghost"
 				size="sm"
 				class="ml-auto"
-				onclick={() => setParams({ q: null, type: null, corr: null, tags: null, from: null, to: null, trash: null, kind: null, min: null, max: null, cur: null, due: null, sort: null, order: null, open: null })}
+				onclick={() => setParams({ q: null, type: null, corr: null, tags: null, from: null, to: null, trash: null, kind: null, min: null, max: null, cur: null, due: null, sort: null, order: null, open: null, source: null })}
 				data-testid="dms-filter-reset"
 			>
 				{tx('dms.filter.reset')}
@@ -444,6 +432,13 @@
 				</select>
 			</label>
 			<label class="text-sm">
+				<span class="mb-1 block">{tx('dms.filter.source')}</span>
+				<select class={selectClass} value={f.source} onchange={(e) => setParams({ source: e.currentTarget.value })} data-testid="dms-filter-source">
+					<option value="">{tx('dms.filter.all')}</option>
+					{#each SOURCES as source (source)}<option value={source}>{tx(SOURCE_LABEL[source])}</option>{/each}
+				</select>
+			</label>
+			<label class="text-sm">
 				<span class="mb-1 block">{tx('dms.filter.currency')}</span>
 				<Input type="text" maxlength={3} value={f.cur} placeholder="EUR" onchange={(e) => setParams({ cur: e.currentTarget.value.trim().toUpperCase() })} data-testid="dms-filter-cur" />
 			</label>
@@ -484,11 +479,11 @@
 				</label>
 			</div>
 		</div>
-		{#if f.open && suggestionsCapped}<p class="text-muted-foreground mt-2 text-xs">{tx('dms.filter.openCapped')}</p>{/if}
+
 	</details>
 
 	{#if listRoute}
-		<p class="text-muted-foreground text-xs" data-testid="dms-list-route-hint">{tx(f.q ? 'dms.filter.listRouteQ' : 'dms.filter.listRoute')}</p>
+		<p class="text-muted-foreground text-xs" data-testid="dms-list-route-hint">{tx('dms.filter.listRouteTrash')}</p>
 	{/if}
 
 	{#if facetGroups.length > 0}
@@ -515,22 +510,38 @@
 	<ErrorBanner message={error} />
 
 	<p role="status" aria-live="polite" class="text-muted-foreground text-sm" data-testid="dms-count">
-		{#if loading && visibleRows.length === 0}
+		{#if loading && rows.length === 0}
 			{tx('common.loading')}
 		{:else if f.trash}
-			{tx('dms.list.countTrash', { count: visibleRows.length })}
+			{tx('dms.list.countTrash', { count: rows.length })}
 		{:else}
-			{tx(searching ? 'dms.list.countHits' : 'dms.list.count', { count: visibleRows.length })}
+			{tx(searching ? 'dms.list.countHits' : 'dms.list.count', { count: rows.length })}
 		{/if}
 	</p>
 
-	{#if !loading && visibleRows.length === 0 && !error}
+	{#if showTotals}
+		<div class="rounded-md border px-3 py-2 text-sm" data-testid="dms-totals">
+			<p class="text-muted-foreground text-xs">{tx('dms.totals.title')}</p>
+			<ul class="mt-1 flex flex-wrap gap-x-6 gap-y-1">
+				{#each totals as total (total.currency ?? '')}
+					<li class="font-medium tabular-nums" data-testid="dms-total" data-currency={total.currency ?? ''}>
+						{#if total.currency}{tx('dms.totals.item', { sum: formatMoney(total.sum, total.currency, i18n.locale), count: total.count })}{:else}{tx('dms.totals.noCurrency', { sum: total.sum, count: total.count })}{/if}
+					</li>
+				{/each}
+			</ul>
+			<p class="text-muted-foreground mt-1 text-xs">{tx('dms.totals.scope')}</p>
+		</div>
+	{:else if f.q && !f.trash}
+		<p class="text-muted-foreground text-xs" data-testid="dms-totals-hint">{tx('dms.totals.hintQ')}</p>
+	{/if}
+
+	{#if !loading && rows.length === 0 && !error}
 		<p class="text-muted-foreground rounded-md border p-6 text-center" data-testid="dms-empty">
 			{#if searching}{tx('dms.list.noHits', { query: f.q })}{:else if f.trash}{tx('dms.list.trashEmpty')}{:else if hasAnyFilter(f)}{tx('dms.list.noMatch')}{:else}{tx('dms.list.empty')}{/if}
 		</p>
 	{/if}
 
-	{#if visibleRows.length > 0}
+	{#if rows.length > 0}
 		<div class="overflow-x-auto rounded-lg border">
 			<!-- Roving tabindex: one tab stop for the table, arrow keys inside (AK-F4-3). -->
 			<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
@@ -550,11 +561,12 @@
 							</th>
 						{/each}
 						<th scope="col" class="{thClass} hidden lg:table-cell">{tx('dms.col.reference')}</th>
+						<th scope="col" class="{thClass} hidden xl:table-cell">{tx('dms.col.source')}</th>
 						<th scope="col" class={thClass}>{tx('dms.col.status')}</th>
 					</tr>
 				</thead>
 				<tbody>
-					{#each visibleRows as row, index (row.id)}
+					{#each rows as row, index (row.id)}
 						{@const ex = extractionOf(row)}
 						{@const date = row.doc_date ?? ex?.extracted_date}
 						{@const money = formatMoney(ex?.amount, ex?.currency, i18n.locale)}
@@ -600,6 +612,7 @@
 								{:else}–{/if}
 							</td>
 							<td class="hidden px-3 py-2 break-all lg:table-cell" data-testid="dms-row-reference">{ex?.reference || '–'}</td>
+							<td class="hidden px-3 py-2 whitespace-nowrap xl:table-cell" data-testid="dms-row-source">{row.source ? tx(SOURCE_LABEL[row.source]) : '–'}</td>
 							<td class="px-3 py-2">
 								{#if isQuarantined(processing[row.id])}
 									<span class="text-destructive font-medium" data-testid="dms-row-quarantine">{tx('dms.status.quarantine')}</span>
@@ -608,9 +621,9 @@
 								{:else}
 									<span data-testid="dms-row-status">{tx(statusText[row.status])}</span>
 								{/if}
-								{#if (suggestionCount[row.id] ?? 0) > 0}
+								{#if (row.open_suggestions ?? 0) > 0}
 									<span class="bg-secondary text-secondary-foreground mt-1 block w-fit rounded-md px-1.5 py-0.5 text-xs" data-testid="dms-row-suggestions">
-										{tx('dms.row.suggestions', { count: suggestionCount[row.id] })}
+										{tx('dms.row.suggestions', { count: row.open_suggestions })}
 									</span>
 								{/if}
 							</td>

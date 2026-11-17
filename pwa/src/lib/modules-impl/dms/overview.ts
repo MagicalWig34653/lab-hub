@@ -1,4 +1,5 @@
-import type { DocumentListQuery, DmsDocumentKind, SearchQuery } from '#lib/api/client';
+import type { DocumentListQuery, DmsDocumentKind, DmsDocumentSource, SearchQuery } from '#lib/api/client';
+import { formatDate } from '#lib/format';
 import type { Locale } from '#lib/i18n/index.svelte';
 
 /** Document kinds of the extractor (contract `DmsDocumentKind`), with their text keys (literal keys so the unused-text test sees them). */
@@ -29,10 +30,98 @@ export const FACT_LABEL = {
 	iban: 'dms.fact.iban',
 	vat_id: 'dms.fact.vat_id',
 	seller: 'dms.fact.seller',
-	title: 'dms.fact.title'
+	title: 'dms.fact.title',
+	// WP-D8
+	counterparty: 'dms.fact.counterparty',
+	contract_number: 'dms.fact.contract_number',
+	period_start: 'dms.fact.period_start',
+	period_end: 'dms.fact.period_end',
+	term: 'dms.fact.term',
+	notice_period: 'dms.fact.notice_period',
+	auto_renewal: 'dms.fact.auto_renewal',
+	recurring_amount: 'dms.fact.recurring_amount',
+	payment_interval: 'dms.fact.payment_interval',
+	policy_number: 'dms.fact.policy_number',
+	premium: 'dms.fact.premium',
+	notice_type: 'dms.fact.notice_type',
+	tax_number: 'dms.fact.tax_number',
+	tax_id: 'dms.fact.tax_id',
+	objection_deadline: 'dms.fact.objection_deadline',
+	settlement_amount: 'dms.fact.settlement_amount',
+	balance_opening: 'dms.fact.balance_opening',
+	balance_closing: 'dms.fact.balance_closing',
+	amount_tax_7: 'dms.fact.amount_tax_7',
+	amount_tax_19: 'dms.fact.amount_tax_19',
+	payment_method: 'dms.fact.payment_method',
+	insurer: 'dms.fact.insurer',
+	authority: 'dms.fact.authority'
 } as const;
-export const AMOUNT_FACTS = new Set(['amount', 'amount_gross', 'amount_net', 'amount_tax']);
-export const DATE_FACTS = new Set(['date', 'due_date', 'deadline']);
+export const AMOUNT_FACTS = new Set(['amount', 'amount_gross', 'amount_net', 'amount_tax', 'recurring_amount', 'premium', 'settlement_amount', 'balance_opening', 'balance_closing', 'amount_tax_7', 'amount_tax_19']);
+export const DATE_FACTS = new Set(['date', 'due_date', 'deadline', 'period_start', 'period_end', 'objection_deadline']);
+const DURATION_FACTS = new Set(['term', 'notice_period']);
+
+/** Value texts of the enumerated facts (literal keys). */
+const INTERVAL_LABEL: Record<string, string> = {
+	monthly: 'dms.interval.monthly',
+	quarterly: 'dms.interval.quarterly',
+	semiannual: 'dms.interval.semiannual',
+	yearly: 'dms.interval.yearly'
+};
+const NOTICE_TYPE_LABEL: Record<string, string> = {
+	tax_assessment: 'dms.noticeType.tax_assessment',
+	tax_prepayment: 'dms.noticeType.tax_prepayment',
+	fee_notice: 'dms.noticeType.fee_notice',
+	fine: 'dms.noticeType.fine',
+	hearing: 'dms.noticeType.hearing',
+	summons: 'dms.noticeType.summons',
+	reminder: 'dms.noticeType.reminder',
+	request: 'dms.noticeType.request',
+	notice: 'dms.noticeType.notice'
+};
+const PAYMENT_METHOD_LABEL: Record<string, string> = {
+	cash: 'dms.paymentMethod.cash',
+	debit_card: 'dms.paymentMethod.debit_card',
+	credit_card: 'dms.paymentMethod.credit_card',
+	paypal: 'dms.paymentMethod.paypal',
+	card: 'dms.paymentMethod.card'
+};
+const DURATION_UNIT = { Y: 'year', M: 'month', W: 'week', D: 'day' } as const;
+
+/** ISO 8601 duration of the extractor (`P3M`, `P4W`, `P30D`, `P1Y`) as a localised text; anything else is returned unchanged. */
+function formatDuration(value: string, locale: Locale): string {
+	const m = /^P(\d{1,4})([YMWD])$/.exec(value);
+	if (!m) return value;
+	try {
+		return new Intl.NumberFormat(locale, { style: 'unit', unit: DURATION_UNIT[m[2] as keyof typeof DURATION_UNIT], unitDisplay: 'long' }).format(Number(m[1]));
+	} catch {
+		return value;
+	}
+}
+
+/** Display text of a fact value: amounts with currency (negative = refund or debit balance), dates, durations, enumerations, grouped IBAN. */
+export function factValue(type: string, value: string, currency: string | null | undefined, locale: Locale, t: (key: string) => string): string {
+	if (AMOUNT_FACTS.has(type)) return formatMoney(value, currency, locale) || value;
+	if (DATE_FACTS.has(type)) return formatDate(value, locale) || value;
+	if (DURATION_FACTS.has(type)) return value === 'indefinite' ? t('dms.term.indefinite') : formatDuration(value, locale);
+	if (type === 'payment_interval') return value in INTERVAL_LABEL ? t(INTERVAL_LABEL[value]) : value;
+	if (type === 'notice_type') return value in NOTICE_TYPE_LABEL ? t(NOTICE_TYPE_LABEL[value]) : value;
+	if (type === 'payment_method') return value in PAYMENT_METHOD_LABEL ? t(PAYMENT_METHOD_LABEL[value]) : value;
+	if (type === 'auto_renewal') return value === 'true' ? t('dms.bool.yes') : value === 'false' ? t('dms.bool.no') : value;
+	if (type === 'iban') return value.replace(/\s+/g, '').replace(/(.{4})/g, '$1 ').trim();
+	return value;
+}
+
+/** Origin of a document (contract `DmsDocumentSource`) with text keys. */
+export const SOURCE_LABEL = {
+	upload: 'dms.source.upload',
+	mail: 'dms.source.mail',
+	folder: 'dms.source.folder',
+	share: 'dms.source.share',
+	import: 'dms.source.import',
+	api: 'dms.source.api',
+	unknown: 'dms.source.unknown'
+} as const satisfies Record<DmsDocumentSource, string>;
+export const SOURCES = Object.keys(SOURCE_LABEL) as DmsDocumentSource[];
 
 export type SortKey = 'received' | 'date' | 'amount' | 'due';
 export type SortOrder = 'asc' | 'desc';
@@ -55,8 +144,9 @@ export interface OverviewFilters {
 	due: DueFilter;
 	sort: SortKey;
 	order: SortOrder;
-	/** Only documents with open suggestions (filtered on the client from the suggestion list). */
+	/** Only documents with open suggestions (server filter `has_open_suggestions`). */
 	open: boolean;
+	source: DmsDocumentSource | '';
 }
 
 const SORTS: SortKey[] = ['received', 'date', 'amount', 'due'];
@@ -92,20 +182,21 @@ export function parseFilters(sp: URLSearchParams): OverviewFilters {
 		due,
 		sort,
 		order,
-		open: sp.get('open') === '1'
+		open: sp.get('open') === '1',
+		source: (SOURCES as string[]).includes(sp.get('source') ?? '') ? (sp.get('source') as DmsDocumentSource) : ''
 	};
 }
 
 /**
- * The list route (`GET …/documents`) is needed for extraction filters (kind, amount, due date), for sorting by date/amount/due date and
- * for the trash. Everything else runs on the search route (snippets, facets, several tags, document date).
+ * Since WP-D9 the search route takes the same filters and sorting as the list. Only the trash stays on the list route
+ * (`GET …/documents?trashed=true`); everything else runs on the search route (snippets, facets, several tags, document date).
  */
 export function usesListRoute(f: OverviewFilters): boolean {
-	return f.trash || extendedActive(f);
+	return f.trash;
 }
 
 export function extendedActive(f: OverviewFilters): boolean {
-	return Boolean(f.kind || f.min || f.max || f.cur || f.due) || f.sort !== 'received' || f.order !== 'desc';
+	return Boolean(f.kind || f.min || f.max || f.cur || f.due || f.source) || f.sort !== 'received' || f.order !== 'desc';
 }
 
 export function hasAnyFilter(f: OverviewFilters): boolean {
@@ -171,13 +262,22 @@ export function toListQuery(f: OverviewFilters, today: string, cursor: string | 
 		extracted_from: f.from || undefined,
 		extracted_to: f.to || undefined,
 		...dueRange(f.due, today),
+		source: f.source || undefined,
+		has_open_suggestions: f.open ? true : undefined,
 		sort: apiSort[f.sort],
 		order: f.order
 	};
 }
 
-/** Parameters of `GET …/search`; the date range applies to the document date (`doc_date`). */
-export function toSearchQuery(f: OverviewFilters, cursor: string | null, limit = 25): SearchQuery {
+/** Sums per currency of the whole filtered set: the list query without cursor, one row, with `totals`. The search term only applies in the trash (title search). */
+export function toTotalsQuery(f: OverviewFilters, today: string): DocumentListQuery {
+	return { ...toListQuery({ ...f, q: f.trash ? f.q : '' }, today, null, 1), totals: true };
+}
+
+/** Parameters of `GET …/search`; the date range applies to the document date (`doc_date`). The default order (newest received first) keeps the server default (relevance). */
+export function toSearchQuery(f: OverviewFilters, cursor: string | null, limit = 25, today: string = localToday()): SearchQuery {
+	const apiSort = { received: 'created_at', date: 'extracted_date', amount: 'amount', due: 'due_date' } as const;
+	const defaultSort = f.sort === 'received' && f.order === 'desc';
 	return {
 		q: f.q,
 		cursor,
@@ -187,7 +287,16 @@ export function toSearchQuery(f: OverviewFilters, cursor: string | null, limit =
 		correspondent_id: f.corr || undefined,
 		tag_id: f.tags.join(',') || undefined,
 		date_from: f.from || undefined,
-		date_to: f.to || undefined
+		date_to: f.to || undefined,
+		kind: f.kind || undefined,
+		currency: f.cur || undefined,
+		amount_min: f.min || undefined,
+		amount_max: f.max || undefined,
+		...dueRange(f.due, today),
+		source: f.source || undefined,
+		has_open_suggestions: f.open ? true : undefined,
+		sort: defaultSort ? undefined : apiSort[f.sort],
+		order: defaultSort ? undefined : f.order
 	};
 }
 

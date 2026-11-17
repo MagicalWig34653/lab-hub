@@ -2,10 +2,9 @@
 	import { ApiError, dmsApi, type DmsExtraction } from '#lib/api/client';
 	import ErrorBanner from '#lib/components/app/ErrorBanner.svelte';
 	import { Button } from '#lib/components/ui/button';
-	import { formatDate } from '#lib/format';
-	import { errorMessage, i18n, tx } from '#lib/i18n/index.svelte';
+		import { errorMessage, i18n, tx } from '#lib/i18n/index.svelte';
 	import KindBadge from './KindBadge.svelte';
-	import { AMOUNT_FACTS, DATE_FACTS, FACT_LABEL, formatMoney } from './overview';
+	import { FACT_LABEL, factValue } from './overview';
 
 	/**
 	 * Recognised document kind and facts of one document (WP-D7 routes). Each fact shows value, confidence, the reason and the
@@ -52,8 +51,7 @@
 		}
 	}
 
-	const valueText = (type: string, value: string, currency?: string | null) =>
-		AMOUNT_FACTS.has(type) ? formatMoney(value, currency, i18n.locale) : DATE_FACTS.has(type) ? formatDate(value, i18n.locale) || value : value;
+	const valueText = (type: string, value: string, currency?: string | null) => factValue(type, value, currency, i18n.locale, tx);
 	const labelOf = (type: string) => (type in FACT_LABEL ? tx(FACT_LABEL[type as keyof typeof FACT_LABEL]) : type);
 </script>
 

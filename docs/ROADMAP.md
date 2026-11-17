@@ -40,6 +40,7 @@ Ausgangsstand (vorhanden, getestet laut `deploy/README.md`/Tests): `migrate`, `s
 | | F5 | DMS-UI: Prüfen, Regeln, Stammdaten, Papierkorb | F4, D3, D5 | M | | offen |
 | | F5b | DMS-UI: Quellen-Verwaltung, API-Tokens, Scanner-Hinweis, Dashboard-Karte | F5, D4 | S | | umgesetzt (Branch wp-F5b, `docs/handoff/WP-F5b.md`) |
 | | F4c | Dokumentübersicht (alle Dokumentarten), Eingang, gegliederte Seitenleiste der App-Shell | F4, F5, F5b, D7 | M | | umgesetzt (Branch wp-F4c, `docs/handoff/WP-F4c.md`) |
+| | F4d | PWA an D8/D9: Summenzeile je Währung, Quelle (Spalte/Filter), Dashboard-Zähler aus `dms/stats`, serverseitiger Filter offene Vorschläge, Fakten je Art, Suchtreffer mit Art/Betrag | F4c, D8, D9 | S | | umgesetzt, Gate siehe Handoff (Branch wp-F4d, `docs/handoff/WP-F4d.md`) |
 | 4 Rechnung | R0 | Spike: Linux-Build Rechenkern, Testvektoren | K0 | S | P ab Phase 0 | umgesetzt (Branch wp-R0, `docs/handoff/WP-R0.md`) |
 | | R1 | Stammdaten Rechnung | K3, K5, R0 | M | | offen |
 | | R2 | Belege, Berechnung, Finalisieren mit Hub-Zähler | R1, K6 | L | | offen |

@@ -117,9 +117,9 @@ test('overview: kind badges, filters kind + amount + due date, sorting, search (
 	await expect(page).toHaveURL(/q=Gamma/);
 	await expect(page.getByTestId('dms-row')).toHaveCount(1);
 	await expect(page.getByTestId('dms-row')).toContainText('Vertrag Gamma');
-	// kind + search runs on the list route and says so
+	// since WP-D9 kind + search stay on the search route (no route hint, snippets and facets remain)
 	await page.getByTestId('dms-filter-kind').selectOption('contract');
-	await expect(page.getByTestId('dms-list-route-hint')).toBeVisible();
+	await expect(page.getByTestId('dms-list-route-hint')).toHaveCount(0);
 	await expect(page.getByTestId('dms-row')).toHaveCount(1);
 });
 

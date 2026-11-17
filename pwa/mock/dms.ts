@@ -60,6 +60,8 @@ export interface MockDoc {
 	storage_path_id: string | null;
 	legal_hold: boolean;
 	retention_override: string | null;
+	/** Origin (contract `DmsDocumentSource`). */
+	source: string;
 	/** Recognition result (WP-D7 shape); visible once processing is done. */
 	extraction?: MockExtraction | null;
 	/** Mail document: the original is `message/rfc822`, the protected HTML part is a derivative. */
@@ -91,7 +93,10 @@ export interface MockExtraction {
 	facts: MockFact[];
 }
 /** Seed input: a recognition result with only the overview values; facts are derived. */
-export type SeedExtraction = Partial<Pick<MockExtraction, 'kind' | 'kind_certain' | 'amount' | 'currency' | 'extracted_date' | 'due_date' | 'reference'>>;
+export type SeedExtraction = Partial<Pick<MockExtraction, 'kind' | 'kind_certain' | 'amount' | 'currency' | 'extracted_date' | 'due_date' | 'reference'>> & {
+	/** Additional facts of the kind (WP-D8), e.g. `{ type: 'notice_period', value: 'P3M' }`. */
+	facts?: { type: string; value: string; currency?: string | null }[];
+};
 
 /**
  * Tiny stand-in for the real extractor: "Rechnung"/"Invoice" in the text = invoice, then amount ("Betrag: 119,00 EUR"),
@@ -197,6 +202,10 @@ export function createDmsMock() {
 		if (doc.status === 'processing' && Date.now() >= doc.processingUntil) doc.status = 'needs_review';
 	}
 
+	function openSuggestions(d: TenantData, documentId: string): number {
+		return d.admin.suggestions.filter((x) => x.document_id === documentId && x.state === 'open').length;
+	}
+
 	function publicDoc(d: TenantData, doc: MockDoc, detail: boolean) {
 		settle(doc);
 		const out: Record<string, unknown> = {
@@ -213,7 +222,9 @@ export function createDmsMock() {
 			trash_reason: doc.trash_reason,
 			created_at: doc.created_at,
 			updated_at: doc.updated_at,
-			rev: doc.rev
+			rev: doc.rev,
+			source: doc.source,
+			open_suggestions: openSuggestions(d, doc.id)
 		};
 		const ex = doc.extraction && doc.status !== 'processing' && !doc.quarantined ? doc.extraction : null;
 		if (ex) {
@@ -280,7 +291,8 @@ export function createDmsMock() {
 		const corr = ctx.query.get('correspondent_id');
 		const from = ctx.query.get('date_from');
 		const to = ctx.query.get('date_to');
-		const hits: { doc: MockDoc; snip: string | null }[] = [];
+		const snippets = new Map<string, string | null>();
+		const matched: MockDoc[] = [];
 		for (const doc of d.docs) {
 			settle(doc);
 			if (doc.trashed_at) continue;
@@ -293,23 +305,32 @@ export function createDmsMock() {
 			if (!tagIds.every((t) => doc.tag_ids.includes(t))) continue;
 			if (from && (!doc.doc_date || doc.doc_date < from)) continue;
 			if (to && (!doc.doc_date || doc.doc_date > to)) continue;
-			hits.push({ doc, snip: tokens.length === 0 ? null : snippet(body || doc.title, tokens) });
+			snippets.set(doc.id, tokens.length === 0 ? null : snippet(body || doc.title, tokens));
+			matched.push(doc);
 		}
-		hits.sort((a, b) => b.doc.created_at.localeCompare(a.doc.created_at));
+		const newestFirst = [...matched].sort((a, b) => b.created_at.localeCompare(a.created_at) || b.id.localeCompare(a.id));
+		// WP-D9: same extraction/source/suggestion filters and sorting as the list; `relevance` (default) = newest first in the mock.
+		const sorted = sortList(docFilter(d, extractionFilter(newestFirst, ctx), ctx), ctx);
 		const result = page(
-			hits.map(({ doc, snip }) => ({
-				id: doc.id,
-				title: doc.title,
-				doc_date: doc.doc_date,
-				document_type_id: doc.document_type_id,
-				storage_path_id: null,
-				correspondent_id: doc.correspondent_id,
-				asn: doc.asn,
-				status: doc.status,
-				created_at: doc.created_at,
-				score: tokens.length === 0 ? Date.parse(doc.created_at) / 1000 : 1.5,
-				snippet: snip
-			})),
+			sorted.map((doc) => {
+				const pub = publicDoc(d, doc, false);
+				return {
+					id: doc.id,
+					title: doc.title,
+					doc_date: doc.doc_date,
+					document_type_id: doc.document_type_id,
+					storage_path_id: null,
+					correspondent_id: doc.correspondent_id,
+					asn: doc.asn,
+					status: doc.status,
+					created_at: doc.created_at,
+					score: tokens.length === 0 ? Date.parse(doc.created_at) / 1000 : 1.5,
+					snippet: snippets.get(doc.id) ?? null,
+					source: doc.source,
+					open_suggestions: pub.open_suggestions,
+					...(pub.extraction ? { extraction: pub.extraction } : {})
+				};
+			}),
 			ctx.query
 		);
 		if (ctx.query.get('facets') !== 'true') return result;
@@ -321,12 +342,51 @@ export function createDmsMock() {
 		return {
 			...result,
 			facets: {
-				document_type: count(hits.map((h) => h.doc.document_type_id)),
-				tag: count(hits.flatMap((h) => h.doc.tag_ids)),
-				correspondent: count(hits.map((h) => h.doc.correspondent_id)),
+				document_type: count(sorted.map((x) => x.document_type_id)),
+				tag: count(sorted.flatMap((x) => x.tag_ids)),
+				correspondent: count(sorted.map((x) => x.correspondent_id)),
 				storage_path: [],
-				year: count(hits.map((h) => h.doc.doc_date?.slice(0, 4) ?? null))
+				year: count(sorted.map((x) => x.doc_date?.slice(0, 4) ?? null))
 			}
+		};
+	}
+
+	/** WP-D9 filters shared by list and search: `source` (validated) and `has_open_suggestions`. */
+	function docFilter(d: TenantData, list: MockDoc[], ctx: DmsContext): MockDoc[] {
+		const source = ctx.query.get('source');
+		if (source && !['upload', 'mail', 'folder', 'share', 'import', 'api', 'unknown'].includes(source)) ctx.fail(422, 'validation_failed', 'Eingabe ungueltig: source');
+		const open = ctx.query.get('has_open_suggestions');
+		return list.filter((x) => (!source || x.source === source) && (open === null || open === '' || (openSuggestions(d, x.id) > 0) === (open === 'true')));
+	}
+
+	/** Sum per currency of the filtered set (decimal strings from integer cents; amount without currency = `null` group). */
+	function totalsOf(list: MockDoc[]) {
+		const groups = new Map<string, { currency: string | null; cents: number; count: number }>();
+		for (const x of list) {
+			const e = x.extraction;
+			const c = cents(e?.amount);
+			if (!e || c === null || x.status === 'processing' || x.quarantined) continue;
+			const key = e.currency ?? '';
+			const g = groups.get(key) ?? { currency: e.currency, cents: 0, count: 0 };
+			g.cents += c;
+			g.count++;
+			groups.set(key, g);
+		}
+		return [...groups.values()].map((g) => ({ currency: g.currency, sum: `${g.cents < 0 ? '-' : ''}${Math.floor(Math.abs(g.cents) / 100)}.${String(Math.abs(g.cents) % 100).padStart(2, '0')}`, count: g.count }));
+	}
+
+	/** `GET dms/stats` (WP-D9): in processing, quarantine, documents with open suggestions, overdue (not contracts), new in 7 days. */
+	function stats(d: TenantData, ctx: DmsContext) {
+		const today = ctx.query.get('today') ?? new Date().toISOString().slice(0, 10);
+		if (!/^\d{4}-\d{2}-\d{2}$/.test(today)) ctx.fail(422, 'validation_failed', 'Eingabe ungueltig: today');
+		const live = d.docs.filter((x) => (settle(x), x.trashed_at === null));
+		const week = Date.now() - 7 * 86400000;
+		return {
+			queued: live.filter((x) => x.status === 'processing' && !x.quarantined).length,
+			failed: live.filter((x) => x.quarantined).length,
+			open_suggestions: live.filter((x) => openSuggestions(d, x.id) > 0).length,
+			overdue: live.filter((x) => x.extraction && x.extraction.kind !== 'contract' && x.extraction.due_date && x.extraction.due_date < today).length,
+			new_last_7_days: live.filter((x) => Date.parse(x.created_at) >= week).length
 		};
 	}
 
@@ -362,7 +422,7 @@ export function createDmsMock() {
 	/** Sorting like the contract: documents without the sorted value stay at the end, whatever the direction. Default: newest first (the mock's own order). */
 	function sortList(list: MockDoc[], ctx: DmsContext): MockDoc[] {
 		const sort = ctx.query.get('sort');
-		if (!sort || sort === 'created_at') return (ctx.query.get('order') ?? '') === 'asc' ? [...list].reverse() : list;
+		if (!sort || sort === 'created_at' || sort === 'relevance') return (ctx.query.get('order') ?? '') === 'asc' ? [...list].reverse() : list;
 		const dir = (ctx.query.get('order') ?? 'asc') === 'desc' ? -1 : 1;
 		const key = (x: MockDoc): number | string | null =>
 			sort === 'amount' ? cents(x.extraction?.amount) : sort === 'extracted_date' ? (x.extraction?.extracted_date ?? x.doc_date) : (x.extraction?.due_date ?? null);
@@ -435,6 +495,7 @@ export function createDmsMock() {
 			storage_path_id: null,
 			legal_hold: false,
 			retention_override: null,
+			source: 'upload',
 			extraction: mockExtract(text)
 		};
 		d.docs.push(doc);
@@ -453,6 +514,7 @@ export function createDmsMock() {
 		if (handleSources(d, ctx)) return true;
 
 		if (m === 'POST' && resource === 'uploads') return upload(d, ctx), true;
+		if (m === 'GET' && resource === 'stats' && !id) return need(ctx, 'dms.document.read'), ctx.send(200, stats(d, ctx)), true;
 		if (m === 'GET' && resource === 'search') return need(ctx, 'dms.document.read'), ctx.send(200, search(d, ctx)), true;
 
 		if (resource === 'documents' && !id && m === 'GET') {
@@ -471,8 +533,9 @@ export function createDmsMock() {
 				.filter((x) => !q || x.title.toLowerCase().includes(q))
 				.filter((x) => !status || (settle(x), x.status === status))
 				.sort((a, b) => b.created_at.localeCompare(a.created_at) || b.id.localeCompare(a.id));
-			const result = page(sortList(extractionFilter(list, ctx), ctx), ctx.query);
-			return ctx.send(200, { ...result, items: result.items.map((x) => publicDoc(d, x, false)) }), true;
+			const filtered = sortList(docFilter(d, extractionFilter(list, ctx), ctx), ctx);
+			const result = page(filtered, ctx.query);
+			return ctx.send(200, { ...result, items: result.items.map((x) => publicDoc(d, x, false)), ...(ctx.query.get('totals') === 'true' ? { totals: totalsOf(filtered) } : {}) }), true;
 		}
 		if (resource === 'documents' && id) {
 			if (m === 'GET' && !action) return need(ctx, 'dms.document.read'), ctx.send(200, publicDoc(d, find(d, ctx, id), true)), true;
@@ -610,11 +673,11 @@ export function createDmsMock() {
 	function seed(
 		tenantId: string,
 		count: number,
-		options: { trashed?: boolean; doc_date?: string; title?: string; tamper?: boolean; extraction?: SeedExtraction; suggest?: boolean; mail?: boolean; type_name?: string } = {}
+		options: { trashed?: boolean; doc_date?: string; title?: string; tamper?: boolean; extraction?: SeedExtraction; suggest?: boolean; mail?: boolean; type_name?: string; source?: string; suggestions?: number; created_days_ago?: number } = {}
 	) {
 		const d = tenantData(tenantId);
 		const base = (i: number, title: string, extra: Partial<MockDoc> = {}): MockDoc => {
-			const at = new Date(Date.now() - i * 1000).toISOString();
+			const at = new Date(Date.now() - i * 1000 - (options.created_days_ago ?? 0) * 86400000).toISOString();
 			const ex = options.extraction;
 			return {
 				id: randomUUID(),
@@ -640,6 +703,7 @@ export function createDmsMock() {
 				storage_path_id: null,
 				legal_hold: false,
 				retention_override: null,
+				source: options.source ?? 'upload',
 				extraction: ex
 					? {
 							kind: ex.kind ?? 'invoice',
@@ -656,6 +720,7 @@ export function createDmsMock() {
 							facts: [
 								...(ex.amount ? [{ type: 'amount_gross', value: ex.amount, currency: ex.currency ?? 'EUR', confidence: 0.9, reason: 'Beschriftung "Betrag"', source: { offset: 0, length: 12, excerpt: `Betrag: ${ex.amount}` } }] : []),
 								...(ex.due_date ? [{ type: 'due_date', value: ex.due_date, currency: null, confidence: 0.85, reason: 'Beschriftung "Fällig"', source: { offset: 20, length: 18, excerpt: `Fällig: ${ex.due_date}` } }] : []),
+								...(ex.facts ?? []).map((f) => ({ type: f.type, value: f.value, currency: f.currency ?? null, confidence: 0.8, reason: `Beschriftung "${f.type}"`, source: { offset: 60, length: f.value.length, excerpt: f.value } })),
 								...(ex.reference ? [{ type: 'invoice_number', value: ex.reference, currency: null, confidence: 0.9, reason: 'Beschriftung "Rechnungsnummer"', source: { offset: 40, length: 20, excerpt: `Rechnungsnummer: ${ex.reference}` } }] : [])
 							]
 						}
@@ -668,6 +733,7 @@ export function createDmsMock() {
 			if (options.mail) {
 				const mail = base(i, `${doc.title} (Mail)`, {
 					file: { mime: 'message/rfc822', bytes: Buffer.from('From: a@example.org\r\nSubject: Synthetic\r\n\r\nSynthetic mail'), sha256: randomUUID(), name: 'mail.eml' },
+					source: 'mail',
 					html: '<p>Synthetische Mail <script>window.__mailxss=1</script></p>',
 					extraction: null
 				});
@@ -676,7 +742,8 @@ export function createDmsMock() {
 			}
 			d.docs.push(doc);
 			const type = d.types.find((t) => t.name === 'Rechnung');
-			if (options.suggest && doc.extraction && type) {
+			for (let n = 0; n < (options.suggestions ?? (options.suggest ? 1 : 0)); n++) {
+				if (!doc.extraction || !type) break;
 				d.admin.suggestions.push({
 					id: randomUUID(),
 					document_id: doc.id,
@@ -691,7 +758,7 @@ export function createDmsMock() {
 					state: 'open',
 					applied_automatically: false,
 					decided_at: null,
-					created_at: new Date(Date.now() + i).toISOString()
+					created_at: new Date(Date.now() + i + n).toISOString()
 				});
 			}
 		}

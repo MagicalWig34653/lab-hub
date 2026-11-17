@@ -184,7 +184,9 @@ export const sourcesDe: Record<string, string> = {
 	'dms.card.needsReview': 'Zu prüfen',
 	'dms.card.suggestions': 'Offene Vorschläge',
 	'dms.card.sourcesFailed': 'Quellen mit Fehler',
-	'dms.card.note': 'Dauerhaft fehlgeschlagene Verarbeitungen (Quarantäne) lassen sich noch nicht zählen und stehen hier unter „In Verarbeitung“.'
+	'dms.card.failed': 'Quarantäne',
+	'dms.card.overdue': 'Überfällig',
+	'dms.card.new': 'Neu in 7 Tagen'
 };
 
 export const sourcesEn: Record<string, string> = {
@@ -372,5 +374,7 @@ export const sourcesEn: Record<string, string> = {
 	'dms.card.needsReview': 'To review',
 	'dms.card.suggestions': 'Open suggestions',
 	'dms.card.sourcesFailed': 'Sources with an error',
-	'dms.card.note': 'Permanently failed processing (quarantine) cannot be counted yet and is included under “In processing”.'
+	'dms.card.failed': 'Quarantine',
+	'dms.card.overdue': 'Overdue',
+	'dms.card.new': 'New in 7 days'
 };
