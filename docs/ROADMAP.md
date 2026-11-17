@@ -202,3 +202,22 @@ Beim Start eines WP: Status auf „in Arbeit“ mit Agent/Branch. Beim Abschluss
 ## Security-Review 07.11.2026 (WP-H6)
 
 Statischer Review (Skill `security-audit`) von K1, K2, K3, K4, K5, D1, D2: keine kritischen, hohen oder mittleren Befunde, alle WPs pass. Offene Punkte für WP-H6: (1) D2 Upload: Mandanten-Quota, Idempotency-Key vor `store.put` reservieren oder GC für unreferenzierte Blobs (`DMSUpload.swift`); (2) K5/D2: `ContactService.exists` um `merged_into IS NULL` ergänzen, damit nach einem Merge keine Links auf den Quellkontakt entstehen; (3) K4: Idempotency-Middleware hasht bei Stream-Routen den Body nicht, vor Einsatz auf Stream-Routen Inhalts-Hash ergänzen; (4) K1: Rate-Limit nutzt `remoteAddress`, Trusted-Proxy-Konfiguration fehlt; (5) K1: DB-Rolle darf Audit-Trigger evtl. deaktivieren (Rollenverteilung/REVOKE im Betrieb klären). Kein Review der PWA (F1).
+
+## Ideen aus Vergleich mit „haben“ (17.11.2026, Planung)
+
+Quelle: Funktionsvergleich (Codex-Review, extern). „haben“ steht unter AGPL-3.0: nur Funktionsideen eigenständig umsetzen, keinen Code, keine Vorlagen, Texte oder Testdaten übernehmen. Nutzerhinweis: Strom sparen, Builds/Tests/Docker/Simulator nur nachts 22–6 Uhr.
+
+| Idee | Bezug | Anmerkung |
+| --- | --- | --- |
+| Durchgängiger Weg Beleg → Rechnung → Zahlung; jede Kennzahl bis zum Beleg aufklappbar | R2, R3, R7, X1 | R7-API liefert Herkunftsposten und Rechenweg; `Decimal`/`numeric` |
+| Bankimport CAMT/CSV mit begründeten Zuordnungsvorschlägen (nie still zuordnen) | neu nach R3 (R3b) | dedupliziert, lokal, Bestätigung durch Nutzer |
+| Server-PDF mit Livevorschau; Typst im R6a-Spike ernsthaft prüfen (Layouttreue, PDF/A-3, Reproduzierbarkeit, isolierter Kindprozess ohne Netz) | R6a, R6, F6, F7 | Entscheidung erst nach Spike |
+| CSV-Import mit Spaltenzuordnung, Trockenlauf, Fehlerbericht (zuerst Kontakte) | neu (K-Import) | ergänzt D6 |
+| Globale Schnellsuche und Befehlspalette, Tastaturführung | S2, F2 | |
+| Serienrechnungen, Mahnworkflow | nach R3 | Jobs/Leases, idempotent |
+| Backup mit regelmäßigem Test-Restore (DB, Objekte, Schlüssel) | H2 | |
+| Jahresabgleich nach Fremdimport | R4, R7 | später |
+
+Offen (an Nutzer): Reihenfolge nach Rechnungskern – Bankimport vor oder nach Server-PDF? Annahme bis dahin: R2 → R6a-Spike → R3 → Bankimport → R7.
+
+**Swarm-Zuschnitt (Prüfung):** Zwei Anwendungsservices (Backend inkl. PWA, Worker) mit externem PostgreSQL passen zur Architektur (ADR 0003; `deploy/swarm/stack.yaml` hat bereits diesen Zuschnitt, Migration als einmaliger Job). Mit PostgreSQL als drittem Service wären es drei; ein Einzelservice bräuchte eine gesondert zu prüfende Web+Worker-Zusammenlegung. Realer Swarm-Test bleibt H4 (offen).
