@@ -19,7 +19,7 @@ Vitest `overview.test.ts` erweitert (Test „extraction filters … list route�
 - Keine Summe bei Suchbegriff (nur Hinweis).
 - Echter E2E gegen Backend (`test:e2e:dms`) nicht ausgeführt.
 
-## Ergebnisse (tatsächlich ausgeführt, 17.11.2026)
-- `npm run check`: grün. `npm test`: 104 Tests grün.
-- `npm run test:e2e:mock`: erster Lauf 22 Timeouts bei Systemlast (Load 48 bis 100, auch unveränderte Specs); Wiederholung 55 von 57 grün, die 2 Fehler waren echt und in `dms-d9.spec.ts` behoben (Quellfilter liegt unter dem eingeklappten „Weitere Filter“; Fälligkeitsfilter der Liste findet auch das Vertragsende, daher 3 statt 2 Zeilen, der Zähler `overdue` zählt Verträge nicht). Danach `dms-d9.spec.ts` einzeln 4 von 4 grün. Der Gesamtlauf mit den Korrekturen wurde nicht wiederholt.
-- `TEST_DB_NAME=labhub_f4d scripts/ci.sh`: shellcheck, OpenAPI, PWA-Prüfung, Build ok; Swift 379 Tests, 14 übersprungen, 1 Fehler: `ExtractionTests.testHugeInputIsBounded` (Backend, unverändert; 10-s-Laufzeitgrenze bei Load ~100, Ergebnis `other` statt `invoice`). Einzelwiederholung `--filter ExtractionTests`: 22 Tests, 0 Fehler. Das Gate endete damit formal mit Exit 1; ein sauberer Gesamtlauf bei normaler Last steht aus.
+## Ergebnisse (tatsächlich ausgeführt, 17.11.2026, rebased auf main mit H10b/H11/H12, keine Konflikte, types.ts unverändert aktuell)
+- `npm run check` grün, `npm test` 104 Tests grün.
+- `npm run test:e2e:mock`: 57 von 57 grün. Frühere Timeouts bei Systemlast (Load 48 bis 100) und zwei echte Spec-Fehler in `dms-d9.spec.ts` (Quellfilter im eingeklappten Bereich; Listenfilter findet auch Vertragsende) sind behoben.
+- `TEST_DB_NAME=labhub_f4d scripts/ci.sh`: Exit 0, 393 Tests, 14 übersprungen, 0 Fehler (letzter Lauf, Postgres lief). Zwei frühere Läufe waren nicht gültig: Lauf 1 scheiterte an `ExtractionTests.testHugeInputIsBounded` (Lasttest bei Load ~100; Einzelwiederholung 22 Tests grün, Test unverändert), Lauf 2 an `ApiPostgresTests.testIdempotencyMiddlewareParallelRunsWorkOnce` (Datenbank zeitweise aus; Einzelwiederholung 5 Tests grün).
