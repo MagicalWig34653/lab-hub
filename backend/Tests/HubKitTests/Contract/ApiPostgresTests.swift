@@ -26,7 +26,9 @@ final class ApiPostgresTests: XCTestCase {
         db = (app.db(.psql) as! any SQLDatabase)
         // Nur eigene Tabellen anfassen: parallel laufende PostgresTests setzen das Basisschema zurück.
         try await db.raw("DROP TABLE IF EXISTS k4_items").run()
-        try await db.raw("CREATE TABLE IF NOT EXISTS idempotency_keys (tenant_id uuid NOT NULL, key text NOT NULL, request_hash text NOT NULL, state text NOT NULL DEFAULT 'in_progress', response_status integer, response_body text, created_at timestamptz NOT NULL DEFAULT now(), PRIMARY KEY (tenant_id, key))").run()
+        // AK-H16-2: echtes Schema per Migrationen statt handgeschriebener Tabelle (die fehlende Lease-Spalte `locked_at` aus WP-H12 liess jeden
+        // Takeover-Pfad unter Last mit 500 scheitern).
+        try await migrateWithLock(app)
     }
 
     override func tearDown() async throws {

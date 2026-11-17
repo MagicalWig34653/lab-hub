@@ -156,11 +156,15 @@ final class ExtractionTests: XCTestCase {
         XCTAssertEqual(DocumentExtractor.extract(ExtractionInput(text: "")).kind, .other)
     }
 
+    /// AK-H16-1: "Eingabe bleibt begrenzt" deterministisch (Zeichenbudget `maxChars`, Fundstellen liegen im begrenzten Text) statt per Wanduhr.
+    /// Die harte Frist selbst prüft `ExtractionRedosTests`; hier läuft sie mit 120 s weit über jeder Lastspitze, damit unter Last nicht `other` entsteht.
     func testHugeInputIsBounded() {
         let big = String(repeating: "Rechnungsnummer: A1234 Gesamtbetrag 10,00 € ", count: 20_000)
-        let start = Date()
-        let r = DocumentExtractor.extract(ExtractionInput(text: big))
-        XCTAssertLessThan(Date().timeIntervalSince(start), 20)
+        XCTAssertGreaterThan(DocumentExtractor.normalize(big).count, DocumentExtractor.maxChars)
+        let r = DocumentExtractor.extract(ExtractionInput(text: big), timeout: 120)
+        XCTAssertFalse(r.timedOut)
         XCTAssertEqual(r.kind, .invoice)
+        XCTAssertFalse(r.facts.isEmpty)
+        for f in r.facts { if let s = f.source { XCTAssertLessThanOrEqual(s.offset + s.length, DocumentExtractor.maxChars) } }
     }
 }
