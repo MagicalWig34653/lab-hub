@@ -623,7 +623,7 @@
 								{/if}
 								{#if (row.open_suggestions ?? 0) > 0}
 									<span class="bg-secondary text-secondary-foreground mt-1 block w-fit rounded-md px-1.5 py-0.5 text-xs" data-testid="dms-row-suggestions">
-										{tx('dms.row.suggestions', { count: row.open_suggestions })}
+										{tx('dms.row.suggestions', { count: row.open_suggestions ?? 0 })}
 									</span>
 								{/if}
 							</td>

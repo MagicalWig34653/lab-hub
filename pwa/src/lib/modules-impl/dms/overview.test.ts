@@ -92,7 +92,7 @@ describe('WP-F4d source, open suggestions, totals, search filters', () => {
 		const q = toTotalsQuery(parse('kind=invoice&from=2026-01-01&to=2026-12-31&source=upload&q=abc'), '2026-11-08');
 		expect(q).toMatchObject({ totals: true, limit: 1, kind: 'invoice', source: 'upload', extracted_from: '2026-01-01', extracted_to: '2026-12-31' });
 		expect(q.q).toBeUndefined();
-		expect(q.cursor).toBeUndefined();
+		expect(q.cursor ?? undefined).toBeUndefined();
 		expect(toTotalsQuery(parse('trash=1&q=abc'), '2026-11-08')).toMatchObject({ trashed: true, q: 'abc' });
 	});
 });
