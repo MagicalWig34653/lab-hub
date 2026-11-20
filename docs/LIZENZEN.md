@@ -1,6 +1,6 @@
 # Lizenzen und Abhängigkeitsprüfung
 
-Stand: 01.11.2026 (BoringSSL-Update 20.11.2026). Das vollständige Inventar mit SPDX-Einträgen und SBOM entsteht in WP-H1; dieses Dokument enthält vorerst den Prüfbefund aus WP-K0. Keine Rechtsberatung; die Rechtsfrage ist **nicht abschließend geklärt**.
+Stand: 01.11.2026 (BoringSSL-Update 20.11.2026). Das SPDX-Inventar und die SBOM (WP-H1) stehen im Abschnitt „SPDX-Inventar und SBOM“ am Ende; die übrigen Abschnitte sind die Prüfbefunde der einzelnen WPs. Keine Rechtsberatung; die Rechtsfrage ist **nicht abschließend geklärt**.
 
 ## Befund BoringSSL in `swift-nio-ssl` (WP-K0, F-03)
 
@@ -94,3 +94,12 @@ Pflichten bei **Weitergabe** des Worker-Images (Registry): Ghostscript (AGPL-3.0
 ## WP-F4c (Dokumentübersicht, Seitenleiste, 08.11.2026)
 
 **Keine neue Abhängigkeit.** Die Seitenleiste folgt dem Aufbau der Projekte thermoctl und timetrack-pwa (gruppierte, einklappbare Navigation, Schublade auf Mobilgeräten, Seitenkopf-Typografie); es wurde nur das Muster nachgebaut, kein Code kopiert. Beide nutzen dieselben Bausteine wie der Hub (`@lucide/svelte` ISC, `bits-ui`, `tailwind-variants`, `clsx`, `tailwind-merge`: MIT), weitere Pakete werden nicht benötigt. Neue lucide-Icons (ISC) stammen aus dem vorhandenen Paket.
+
+## SPDX-Inventar und SBOM (WP-H1, 20.11.2026; keine Rechtsberatung, keine rechtliche Freigabe)
+
+- **Datei:** `legal/sbom/lab-hub.cdx.json` (CycloneDX 1.5, JSON, wird mit `legal/` in die Images kopiert). Je Komponente: `purl`, Version, SPDX-Lizenz (`licenses`), bei npm der SHA-512 aus dem Lockfile, bei SwiftPM die aufgelöste Revision.
+- **Umfang (Stand `f8c212c`):** 272 Komponenten: SwiftPM 37 (`backend/Package.resolved`), npm 234 (`pwa/package-lock.json`, auch Dev-/Optional-Pakete, Eigenschaften `labhub:dev`/`labhub:optional`), BoringSSL als eingebettete Komponente von `swift-nio-ssl` (1). **Nicht enthalten:** Betriebssystem-/Toolchain-Pakete der Images (Ubuntu, OCR-Werkzeuge; siehe Abschnitt WP-O2).
+- **Lizenzverteilung:** MIT 201, Apache-2.0 38, MPL-2.0 14, ISC 6, BSD-2-Clause 2, BSD-3-Clause 2, MIT-0 2, `(MIT OR CC0-1.0)` 1, 0BSD 1, BlueOak-1.0.0 1, CC0-1.0 1, OFL-1.1 1, Python-2.0 1, Unlicense 1. Außerhalb der üblichen Vorgabe: MPL-2.0 (axe-core, lightningcss, nur Build/Test), OFL-1.1 (Inter-Schrift), Python-2.0 (argparse, Build); die Bewertung bleibt offen (siehe WP-F1/F4).
+- **Erzeugung:** `swift package resolve` oder ein Build (legt die Checkouts unter `$LH_SCRATCH/checkouts` an), dann `LH_SCRATCH=… node scripts/generate-sbom.mjs` (schreibt die Datei) bzw. `--check` (nur prüfen). Keine Zeitstempel/Zufalls-IDs, keine Netzwerkzugriffe, keine externen Dienste; zweimaliges Erzeugen liefert byte-gleiche Dateien.
+- **Zuordnung SwiftPM:** Lizenz aus der LICENSE-/COPYING-/UNLICENSE-Datei im Checkout (Erkennung: Apache-2.0, MIT, BSD-2/3-Clause, ISC, Unlicense); der Checkout muss der Revision aus `Package.resolved` entsprechen. **npm:** `license`-Feld des Lockfiles.
+- **Prüfung (`--check`, Teil von `scripts/ci.sh`):** Fehler bei fehlender/nicht zuordenbarer Lizenz, SPDX-Kennung außerhalb der Liste `KNOWN` im Skript (neue Kennung = bewusste Aufnahme), abweichender Checkout-Revision, nicht mehr benötigter Ausnahme und veralteter eingecheckter SBOM. Ausnahmen nur mit Begründung in `legal/sbom/license-overrides.json` (aktuell eine: `svelte-toolbelt`, Lockfile ohne Lizenzfeld, LICENSE im Paket ist MIT).

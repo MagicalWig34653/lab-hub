@@ -1,0 +1,9 @@
+{
+  "_comment": "Handgepflegte Lizenzangaben, wenn die Quelle keine maschinenlesbare Angabe liefert. Jede Ausnahme braucht reason; der Generator meldet nicht mehr benötigte Einträge. Keine Rechtsberatung, keine rechtliche Freigabe.",
+  "overrides": {
+    "npm:svelte-toolbelt": {
+      "license": "MIT",
+      "reason": "package-lock.json und package.json des Pakets (0.10.7) haben kein license-Feld; die mitgelieferte LICENSE-Datei im Paket ist der MIT-Text (geprüft 20.11.2026 in pwa/node_modules/svelte-toolbelt/LICENSE)."
+    }
+  }
+}

@@ -32,3 +32,9 @@ swift build --scratch-path "$LH_SCRATCH"
 swift test --scratch-path "$LH_SCRATCH"
 cd ..
 scripts/check-third-party-notices.sh "$LH_SCRATCH/checkouts/swift-nio-ssl"
+# WP-H1: SBOM/SPDX-Inventar reproduzierbar und vollständig (Quelle: Package.resolved, package-lock.json, Checkouts des Builds)
+if command -v node >/dev/null 2>&1; then
+    LH_SCRATCH="$LH_SCRATCH" node scripts/generate-sbom.mjs --check
+else
+    echo "ci: node fehlt, SBOM-Prüfung übersprungen" >&2
+fi
