@@ -10,7 +10,7 @@ ARG OCR_PACKAGES="ocrmypdf tesseract-ocr-deu tesseract-ocr-eng ghostscript poppl
 FROM swift:6.2-noble AS build
 WORKDIR /src
 COPY backend/ ./
-RUN swift build -c release --product App --static-swift-stdlib
+RUN swift build -c release --product App --static-swift-stdlib --force-resolved-versions
 
 # Basis mit den OCR-Werkzeugen (Ubuntu 24.04: ocrmypdf 15.x, Tesseract 5.3.x, Ghostscript 10.x)
 FROM ubuntu:24.04 AS ocr-tools
@@ -20,6 +20,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends ${OCR_PACKAGES}
 
 FROM ocr-tools AS worker
 COPY --from=build /src/.build/release/App /usr/local/bin/lab-hub
+# F-03: Lizenz-/Copyright-Texte der statisch eingebundenen Drittanbieter (BoringSSL), siehe legal/THIRD-PARTY-NOTICES.md
+COPY legal/ /usr/share/doc/lab-hub/legal/
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 USER labhub
 ENV OCR_TMPDIR=/tmp HOME=/tmp

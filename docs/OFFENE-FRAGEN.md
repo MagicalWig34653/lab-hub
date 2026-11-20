@@ -46,6 +46,7 @@ Priorität: **A** blockiert bald einen Meilenstein, **B** vor dem betroffenen WP
 - 07.11.2026 (Nutzer): Annahmen aus K1, K2, K3, K5, D2, F1 bestätigt: `users.is_operator` statt `is_admin` (Spalte `is_admin` entfällt später per Contract-Migration), Betreiberschalter als Tabelle mit Admin-API, Kontakt-Merge nur Owner/Accountant, `member` darf Original laden, Papierkorb nur Accountant/Owner (`dms.master.manage`), F-14 (Swift-Targets) spätestens vor dem zweiten Modul, Lizenzen Inter (OFL-1.1) und lightningcss (MPL-2.0, Build-Zeit) akzeptiert.
 - 07.11.2026 (Nutzer): F-27 entschieden: Neuimplementierung des Rechenkerns im Hub gegen die gemeinsamen Testvektoren (`backend/Tests/Fixtures/taxlab-vectors/`), kein Eingriff ins taxlab-Repo; gemeinsames Paket später möglich.
 - 07.11.2026 (Nutzer): F-03 vorerst zurückgestellt: Repo bleibt privat, keine Weitergabe von Images, auf neue `swift-nio-ssl`-Version warten und Befund dann in WP-K0/H1 erneut prüfen.
+- 20.11.2026 (Nutzer): F-03 Update und Lizenzvermerke freigegeben: `swift-nio-ssl` >= 2.37.6 (BoringSSL `8eb25be6`, Apache-2.0), eigene Drittanbieterhinweise mit tatsächlichem BoringSSL-Lizenztext im Image, Upstream-NOTICE unverändert, kein Produktivdeploy. Umsetzung WP-H1 (Teil BoringSSL), siehe `docs/LIZENZEN.md`.
 
 ## Vorschläge, die Zustimmung brauchen (ADRs im Status „vorgeschlagen“)
 

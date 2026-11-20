@@ -194,7 +194,7 @@ Grundsatz: Hub ohne Swift-App nutzbar (`AGENTS.md`); die Rechnungsphase ist dahe
 
 ## Phase 6 – Hardening
 
-**WP-H1 Lizenzen (M).** `docs/LIZENZEN.md` (Inventar nach Vorbild `timetrack-backend/docs/LIZENZEN.md`), SBOM, Prüfergebnis aus WP-K0 und F-03 umsetzen, Lizenzprüfung als Skript. Akzeptanz: jede Abhängigkeit mit SPDX-Eintrag; Befund BoringSSL dokumentiert mit gewählter Lösung. **P** ab Phase 0.
+**WP-H1 Lizenzen (M).** `docs/LIZENZEN.md` (Inventar nach Vorbild `timetrack-backend/docs/LIZENZEN.md`), SBOM, Prüfergebnis aus WP-K0 und F-03 umsetzen, Lizenzprüfung als Skript. Akzeptanz: jede Abhängigkeit mit SPDX-Eintrag; Befund BoringSSL dokumentiert mit gewählter Lösung. **P** ab Phase 0. **Teilstand 20.11.2026 (BoringSSL-Teil fertig):** `swift-nio-ssl` 2.37.6 gepinnt, `legal/` im Image, `scripts/check-third-party-notices.sh` in `ci.sh`; offen: SPDX-Inventar aller Abhängigkeiten und SBOM.
 
 **WP-H2 Backup/Restore (M).** Skripte `deploy/backup.sh`, `restore.sh`; konsistentes Paar DB + ObjectStore; Restore-Test in frischer Umgebung mit Hash-Prüfung aller Dateien. Akzeptanz: automatischer Restore-Test in Docker, Abweichung = Fehlschlag.
 

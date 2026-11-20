@@ -30,3 +30,5 @@ esac
 cd backend
 swift build --scratch-path "$LH_SCRATCH"
 swift test --scratch-path "$LH_SCRATCH"
+cd ..
+scripts/check-third-party-notices.sh "$LH_SCRATCH/checkouts/swift-nio-ssl"

@@ -1,6 +1,6 @@
 # Lizenzen und Abhängigkeitsprüfung
 
-Stand: 01.11.2026. Das vollständige Inventar mit SPDX-Einträgen und SBOM entsteht in WP-H1; dieses Dokument enthält vorerst den Prüfbefund aus WP-K0. Keine Rechtsberatung; die Rechtsfrage ist **nicht abschließend geklärt**.
+Stand: 01.11.2026 (BoringSSL-Update 20.11.2026). Das vollständige Inventar mit SPDX-Einträgen und SBOM entsteht in WP-H1; dieses Dokument enthält vorerst den Prüfbefund aus WP-K0. Keine Rechtsberatung; die Rechtsfrage ist **nicht abschließend geklärt**.
 
 ## Befund BoringSSL in `swift-nio-ssl` (WP-K0, F-03)
 
@@ -30,7 +30,17 @@ grep -rlE "Permission to use, copy, modify" $D | wc -l
 | `unrelentingtech/SwiftCBOR` | Commit `fd929a6d8f7651ce0f63fc99397fd5762358cc29` (0.6.0) | Unlicense (gemeinfrei) | Transitiv von webauthn-swift; direkt genutzt für die Bindung der attestierten Credential-ID. |
 | `apple/swift-crypto` | Bereich `3.8.1..<5.0.0`, aufgelöst 4.5.2 (vorher transitiv 5.0.3) | Apache-2.0 | Direkte Abhängigkeit (SHA-256, Tests: P-256); webauthn-swift verlangt `<5.0.0`, daher Rückstufung von 5.0.3. |
 
-Schluss BoringSSL: Der Befund ist **nicht erledigt**. Rückfalloption (1) aus F-03 („neuere `swift-nio-ssl`-Version“) entfällt, weil 2.37.5 bereits die neueste Version ist. Offen bleiben (2) TLS nur am Reverse Proxy und BoringSSL-freier Build (Machbarkeit zu verifizieren; Vapor/NIO ziehen `swift-nio-ssl` transitiv) und (3) AGPL-§7-Zusatzerlaubnis der Urheber mit juristischer Prüfung. Entscheidung durch den Nutzer; bis dahin keine Aussage in Doku/Releases, dass der Befund erledigt ist.
+Schluss BoringSSL (Stand 01.11.2026, historisch): Bei 2.37.5 war der Befund offen, weil 2.37.5 damals die neueste Version war. Er ist mit der Aktualisierung vom 20.11.2026 behoben (nächster Abschnitt).
+
+## Update BoringSSL-Befund (WP-H1, 20.11.2026, Freigabe durch den Nutzer; keine Rechtsberatung)
+
+- Pin: `swift-nio-ssl` **2.37.6** (Revision `15e0b9e495786807272dd4891fa4bac76aa43034`, `backend/Package.resolved`; nur diese Zeile des Lockfiles geändert, `swift package update swift-nio-ssl`). Beide Dockerfiles bauen mit `--force-resolved-versions`, das Lockfile ist damit für Images verbindlich.
+- Gebündelte BoringSSL-Revision (`hash.txt`): `8eb25be6fa18d475291122887a7bccd3762ff236` (vorher `817ab07e`). Quelldateien: 666.
+- Dateien mit Header „Licensed under the OpenSSL license“: **0** (vorher 323); mit Apache-2.0-Header: **534** (vorher 0). Die übrigen 132 Dateien (generierte Assembler-/Tabellendateien, kleine Header) tragen keinen Lizenzheader; eine Datei (`poly1305_arm_asm.S`) ist laut Kommentar gemeinfrei (D. J. Bernstein/P. Schwabe, SUPERCOP).
+- Lizenztext von BoringSSL für diese Revision: Apache-2.0 (`LICENSE` upstream, verbatim in `legal/third-party/boringssl/LICENSE`, SHA-256 `827c8d8f…cd97f`). Upstream-`NOTICE.txt` und `LICENSE.txt` von `swift-nio-ssl` liegen unverändert unter `legal/third-party/swift-nio-ssl/`.
+- **Veralteter Verweis:** Die unveränderte Upstream-`NOTICE.txt` nennt BoringSSL noch „Combination ISC and OpenSSL license“. Das ist überholt (BoringSSL steht unter Apache-2.0, siehe oben); die Erläuterung steht in `legal/THIRD-PARTY-NOTICES.md`, die Datei wird bewusst nicht verändert.
+- Auslieferung: `legal/` wird in beide Images nach `/usr/share/doc/lab-hub/legal/` kopiert (`Dockerfile`, `Dockerfile.worker`). Prüfung: `scripts/check-third-party-notices.sh` (Teil von `scripts/ci.sh`): Lockfile-Version ≥ 2.37.6, Prüfsumme der BoringSSL-LICENSE, Upstream-Dateien byte-gleich zum Checkout, keine OpenSSL-Header.
+- Nicht Teil dieses Updates: vollständiges SPDX-Inventar aller Abhängigkeiten und SBOM (bleiben in WP-H1 offen). Die Weitergabe von Images ist weiterhin nur nach Nutzerentscheidung vorgesehen; ein Deploy ist nicht erfolgt.
 
 ## Neue Abhängigkeiten WP-F1 (PWA, `pwa/package-lock.json`, geprüft anhand der Lizenzangaben im Lockfile, keine Rechtsberatung)
 
