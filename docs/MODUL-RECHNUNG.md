@@ -198,3 +198,25 @@ Umgesetzt als HubModule `invoice` (`backend/Sources/HubKit/Modules/Invoice/`), M
 Zählerschlüssel (Grundlage für WP-R2): `CounterKey(space: "invoice", name: <serie-uuid>[-<jjjj>[-<mm>]])`, je nach Gültigkeitsbereich fortlaufend, je Jahr oder je Monat. Eine Serie gilt als benutzt, sobald ein Zähler-Eintrag existiert (auch durch `start_number`); dann sind Format und Löschen gesperrt (409 `series_in_use`). `start_number` beim Anlegen hebt den Zähler des laufenden Zeitraums (UTC, Datenbankuhr) über `ensureAtLeast` an (Audit `counter.raised`). Nummernformat und Zählerschlüssel sind gegen die Testvektoren `number-format.json` geprüft (F-27: Neuimplementierung).
 
 Berechtigungen: `invoice.master.read` (accountant, member, tax_advisor, Owner) und `invoice.master.manage` (accountant, Owner); `customer_viewer` hat keinen Zugriff auf Stammdaten (Annahme, da hier keine feinere Matrix steht). Anlegen akzeptiert optional `Idempotency-Key`. Annahmen und offene Punkte: `docs/handoff/WP-R1.md`.
+
+## 14. R2 – Belege, Berechnung, Finalisieren (WP-R2, 23.11.2026)
+
+Migration `invoice_028_documents` (Expand-only, Revert vorhanden), Code in `backend/Sources/HubKit/Modules/Invoice/` (`InvoiceCalculator`, `InvoiceDocuments`, `InvoiceDocumentMigrations`). Routen unter `/api/v1/tenants/{tenant}/invoice/documents` (Vertrag `contracts/openapi.yaml`):
+
+| Route | Berechtigung | Verhalten |
+| --- | --- | --- |
+| `GET documents` | `invoice.document.read` | Liste (Filter `status`, `kind`, `contact_id`), ohne Positionen |
+| `POST documents` | `invoice.document.create` | Entwurf ohne Nummer; Summen rechnet der Server; optional `Idempotency-Key` |
+| `GET documents/{id}` | `invoice.document.read` | Beleg mit `lines`, `charges`, `tax_totals` |
+| `PATCH documents/{id}` | `invoice.document.update` | Kopf teilweise, `lines`/`charges` ersetzen komplett; nur Entwurf (sonst 409 `document_final_immutable`) |
+| `DELETE documents/{id}` | `invoice.document.update` | nur Entwurf |
+| `POST documents/{id}/finalize` | `invoice.document.finalize` | siehe unten |
+
+**Rechenkern** (`InvoiceCalculator`, F-27: Neuimplementierung gegen `backend/Tests/Fixtures/taxlab-vectors/`): Rundung nur je Steuersatz auf Belegebene, Netto- und Brutto-Modus, Positions- und Belegrabatt (Prozent oder fester Betrag), Zusatzkosten ohne Rabatt, Rundungsmodi `halfAwayFromZero`/`halfEven`/`towardZero`, Zweitmenge. Alle 14 + 16 Vektoren grün (die 15 Zahlenformat- und 5 Saldo-Vektoren betreffen WP-R3/R6). Beträge nur als Dezimal-Strings, nie Gleitkomma; Summen auf 2 Stellen. Der Client sendet keine Summen (422 `unknown_field`), sie entstehen bei jedem Speichern aus den gespeicherten Zeilen.
+
+**Finalisieren** (eine Transaktion, mit `Idempotency-Key` zusätzlich atomar mit dem Schlüssel): Beleg sperren (`FOR UPDATE`) → Vorbedingungen (Kontakt, mindestens eine Positionszeile, aktive Serie aus Beleg oder Standardserie des Belegtyps, Absender-Einstellungen vorhanden; sonst 422) → Nummer über `CounterService.next(on:)` mit dem Schlüssel aus `InvoiceNumbering.counterKey` (Zeitraum nach **Belegdatum**, nicht nach Finalisierungszeitpunkt) → Format der Serie → Steuerregime aus dem Steuerzeitraum zum Belegdatum (sonst `standard`) → Absender (Einstellungen) und Empfänger (Kontakt, erste Adresse) als `jsonb` einfrieren → SHA-256 über Inhalt, Nummer, Zählerwert, Serie, Regime, Absender, Empfänger → Status `final`. Jeder Fehler rollt den Zähler mit zurück (keine Nummernlücke); eine bereits belegte Nummer (Altbestand) = 409 `number_conflict`; zweites Finalisieren = 409 `document_final_immutable`.
+
+**Unveränderlichkeit in der Datenbank:** Trigger `invoice_documents_guard` (UPDATE/DELETE eines nicht-Entwurfs scheitern, Kontakt muss zum Mandanten gehören) und `invoice_children_guard` (Positionen, Zusatzkosten, Steuersummen eines nicht-Entwurfs: INSERT/UPDATE/DELETE scheitern); CHECKs: Entwurf ⇔ keine Nummer/kein Finalisierungszeitpunkt, final braucht Serie, Hash, Absender, Empfänger; Teilindex `(tenant_id, series_id, number) WHERE number IS NOT NULL` hält Nummern eindeutig. Korrektur eines finalen Belegs erfolgt später per Gutschrift (WP-R3), nie durch Ändern.
+
+Berechtigungen (jetzt vom Modul deklariert, aus dem Kernkatalog `Tenancy/Roles.swift` entfernt): `read` accountant/member/tax_advisor/Owner, `create` und `update` accountant/member/Owner, `finalize` nur accountant/Owner. Annahmen und offene Punkte: `docs/handoff/WP-R2.md`.
+

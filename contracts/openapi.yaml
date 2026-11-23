@@ -2933,6 +2933,127 @@ paths:
         "403": { $ref: "#/components/responses/Problem" }
         "404": { $ref: "#/components/responses/Problem" }
         "409": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/invoice/documents:
+    get:
+      operationId: listInvoiceDocuments
+      summary: "Liste Belege (Berechtigung invoice.document.read)"
+      description: "Modul invoice; bei deaktiviertem Modul 404 module_disabled. Neueste zuerst, hoechstens 1000 Eintraege, ohne Positionen/Zusatzkosten/Steuersummen. Filter: status (draft|final|cancelled), kind, contact_id."
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { name: status, in: query, required: false, schema: { type: string, enum: [draft, final, cancelled] } }
+        - { name: kind, in: query, required: false, schema: { type: string, enum: [quote, order_confirmation, delivery_note, invoice, credit_note] } }
+        - { name: contact_id, in: query, required: false, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Belege
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/InvoiceDocument" } }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+    post:
+      operationId: createInvoiceDocuments
+      summary: "Beleg-Entwurf anlegen (Berechtigung invoice.document.create)"
+      description: "Legt einen Entwurf ohne Nummer an. Der Server berechnet Summen und Steuersummen (Rechenkern aus den gemeinsamen Testvektoren, Rundung nur je Steuersatz auf Belegebene); Summen im Request werden nicht angenommen (422 unknown_field). Betraege nur als Dezimal-Strings. Optional Idempotency-Key."
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InvoiceDocumentInput" }
+      responses:
+        "201":
+          description: Entwurf angelegt
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoiceDocument" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/invoice/documents/{id}:
+    get:
+      operationId: getInvoiceDocuments
+      summary: "Beleg mit Positionen, Zusatzkosten und Steuersummen (Berechtigung invoice.document.read); fremde ID 404"
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/InvoiceMasterId" }
+      responses:
+        "200":
+          description: Beleg
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoiceDocument" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+    patch:
+      operationId: updateInvoiceDocuments
+      summary: "Entwurf aendern (Berechtigung invoice.document.update)"
+      description: "Teilaenderung des Kopfs; lines und charges ersetzen die bisherigen komplett, fehlen sie, bleiben sie. Summen werden neu berechnet. Ein finalisierter Beleg ist unveraenderlich: 409 document_final_immutable."
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/InvoiceMasterId" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InvoiceDocumentInput" }
+      responses:
+        "200":
+          description: Aktualisiert
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoiceDocument" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+    delete:
+      operationId: deleteInvoiceDocuments
+      summary: "Entwurf loeschen (Berechtigung invoice.document.update); finalisierte Belege 409 document_final_immutable"
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/InvoiceMasterId" }
+      responses:
+        "204": { description: Geloescht }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/invoice/documents/{id}/finalize:
+    post:
+      operationId: finalizeInvoiceDocuments
+      summary: "Beleg finalisieren (Berechtigung invoice.document.finalize)"
+      description: "Eine Transaktion: Beleg sperren, Nummer aus dem Hub-Zaehler der Serie (Format der Serie, Zaehlerzeitraum nach Belegdatum), Absender (Einstellungen) und Empfaenger (Kontakt) einfrieren, Inhaltshash, Status final. Jeder Fehler rollt den Zaehler mit zurueck (keine Luecke). Danach unveraenderlich (auch per SQL). Voraussetzungen (422): Kontakt, mindestens eine Position, aktive Serie (Beleg oder Standard des Belegtyps), Absender-Einstellungen, Format ohne fehlende Werte. Ein zweites Finalisieren 409 document_final_immutable; belegte Nummer 409 number_conflict. Optional Idempotency-Key: Wiederholung liefert dieselbe Antwort ohne zweite Nummer."
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/InvoiceMasterId" }
+      responses:
+        "200":
+          description: Finalisiert
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoiceDocument" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
 components:
   securitySchemes:
     bearer: { type: http, scheme: bearer, description: "Sitzungstoken fuer Apps (Header X-Auth-Transport: bearer bei der Anmeldung)" }
@@ -3168,6 +3289,7 @@ components:
             - conflict
             - contact_merged
             - csrf_invalid
+            - document_final_immutable
             - document_linked
             - document_not_trashed
             - document_trashed
@@ -3191,6 +3313,7 @@ components:
             - module_requires
             - module_unavailable
             - not_found
+            - number_conflict
             - passkey_invalid
             - payload_too_large
             - precondition_failed
@@ -4022,6 +4145,134 @@ components:
         active: { type: boolean }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
+    InvoiceDocument:
+      type: object
+      required: [id, document_type_id, kind, contact_id, series_id, status, number, counter_value, issue_date, due_date, delivery_date, currency, price_mode, discount_percent, discount_amount,
+                 rounding_mode, header_text, footer_text, note, net_total, tax_total, gross_total, discount_total, tax_regime, sender, recipient, content_hash, finalized_at, rev, created_at, updated_at]
+      properties:
+        id: { type: string, format: uuid }
+        document_type_id: { type: string, format: uuid }
+        kind: { type: string, enum: [quote, order_confirmation, delivery_note, invoice, credit_note] }
+        contact_id: { type: [string, "null"], format: uuid }
+        series_id: { type: [string, "null"], format: uuid }
+        status: { type: string, enum: [draft, final, cancelled] }
+        number: { type: [string, "null"], description: "Erst nach dem Finalisieren" }
+        counter_value: { type: [integer, "null"] }
+        issue_date: { type: string, format: date }
+        due_date: { type: [string, "null"], format: date }
+        delivery_date: { type: [string, "null"], format: date }
+        currency: { type: string }
+        price_mode: { type: string, enum: [net, gross] }
+        discount_percent: { type: string }
+        discount_amount: { type: [string, "null"] }
+        rounding_mode: { type: string, enum: [halfAwayFromZero, halfEven, towardZero] }
+        header_text: { type: [string, "null"] }
+        footer_text: { type: [string, "null"] }
+        note: { type: [string, "null"] }
+        net_total: { type: string, description: "Dezimal-String mit 2 Nachkommastellen, vom Server berechnet" }
+        tax_total: { type: string }
+        gross_total: { type: string }
+        discount_total: { type: string }
+        tax_regime: { type: [string, "null"], enum: [standard, small_business, null] }
+        sender: { type: [object, "null"], additionalProperties: true, description: "Eingefrorene Absenderdaten (Einstellungen beim Finalisieren)" }
+        recipient: { type: [object, "null"], additionalProperties: true, description: "Eingefrorene Empfaengerdaten (Kontakt beim Finalisieren)" }
+        content_hash: { type: [string, "null"], description: "SHA-256 (hex) ueber Inhalt, Nummer, Serie, Steuerregime, Absender und Empfaenger" }
+        finalized_at: { type: [string, "null"], format: date-time }
+        finalized_by: { type: [string, "null"], format: uuid }
+        rev: { type: integer }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        lines:
+          type: array
+          description: "Nur in der Einzelansicht"
+          items:
+            type: object
+            required: [id, position, kind, item_id, description, unit, quantity, second_quantity, unit_price, tax_rate, discount_kind, discount_value]
+            properties:
+              id: { type: string, format: uuid }
+              position: { type: integer }
+              kind: { type: string, enum: [item, text] }
+              item_id: { type: [string, "null"], format: uuid }
+              description: { type: string }
+              unit: { type: [string, "null"] }
+              quantity: { type: [string, "null"] }
+              second_quantity: { type: [string, "null"] }
+              unit_price: { type: [string, "null"] }
+              tax_rate: { type: [string, "null"] }
+              discount_kind: { type: [string, "null"], enum: [percent, amount, null] }
+              discount_value: { type: [string, "null"] }
+        charges:
+          type: array
+          description: "Zusatzkosten (z. B. Versand); werden nicht rabattiert. Nur in der Einzelansicht"
+          items:
+            type: object
+            required: [id, position, description, tax_rate, amount]
+            properties:
+              id: { type: string, format: uuid }
+              position: { type: integer }
+              description: { type: string }
+              tax_rate: { type: string }
+              amount: { type: string }
+        tax_totals:
+          type: array
+          description: "Summen je Steuersatz; Nur in der Einzelansicht"
+          items:
+            type: object
+            required: [rate, net, tax, gross]
+            properties:
+              rate: { type: string }
+              net: { type: string }
+              tax: { type: string }
+              gross: { type: string }
+    InvoiceDocumentInput:
+      type: object
+      required: [document_type_id]
+      additionalProperties: false
+      description: "Beim Anlegen ist nur document_type_id Pflicht; beim Aendern (PATCH) sind alle Felder optional. Betraege nur als Dezimal-Strings (kein JSON-Zahlenwert)."
+      properties:
+        document_type_id: { type: string, format: uuid }
+        contact_id: { type: [string, "null"], format: uuid }
+        series_id: { type: [string, "null"], format: uuid, description: "Fehlt sie, gilt beim Finalisieren die Standardserie des Belegtyps" }
+        issue_date: { type: string, format: date, description: "Standard: heute (UTC, Datenbankuhr)" }
+        due_date: { type: [string, "null"], format: date }
+        delivery_date: { type: [string, "null"], format: date }
+        currency: { type: string, pattern: "^[A-Z]{3}$", description: "Standard: Waehrung der Einstellungen, sonst EUR" }
+        price_mode: { type: string, enum: [net, gross], default: net }
+        discount_percent: { type: string, pattern: "^[0-9]{1,3}(\\.[0-9]{1,4})?$", description: "0 bis 100, Belegrabatt" }
+        discount_amount: { type: [string, "null"], description: "Fester Belegrabatt im Eingabemodus; hat Vorrang vor discount_percent" }
+        rounding_mode: { type: string, enum: [halfAwayFromZero, halfEven, towardZero], default: halfAwayFromZero }
+        header_text: { type: [string, "null"], maxLength: 5000 }
+        footer_text: { type: [string, "null"], maxLength: 5000 }
+        note: { type: [string, "null"], maxLength: 5000 }
+        lines:
+          type: array
+          maxItems: 500
+          items:
+            type: object
+            required: [kind, description]
+            additionalProperties: false
+            properties:
+              kind: { type: string, enum: [item, text], description: "item: Artikelposition (quantity, unit_price, tax_rate Pflicht); text: reine Textzeile" }
+              item_id: { type: [string, "null"], format: uuid }
+              description: { type: string, minLength: 1, maxLength: 5000 }
+              unit: { type: [string, "null"], maxLength: 20 }
+              quantity: { type: string }
+              second_quantity: { type: [string, "null"] }
+              unit_price: { type: string }
+              tax_rate: { type: string }
+              discount_kind: { type: [string, "null"], enum: [percent, amount, null] }
+              discount_value: { type: [string, "null"] }
+        charges:
+          type: array
+          maxItems: 50
+          items:
+            type: object
+            required: [description, tax_rate, amount]
+            additionalProperties: false
+            properties:
+              description: { type: string, minLength: 1, maxLength: 200 }
+              tax_rate: { type: string }
+              amount: { type: string }
     InvoiceItemInput:
       type: object
       required: [name, unit_price, tax_rate]

@@ -168,6 +168,8 @@ export const en: Record<MessageKey, string> = {
 	'error.document_trashed': 'The document is in the trash.',
 	'error.suggestion_decided': 'The suggestion has already been decided.',
 	'error.series_in_use': 'The number series has already issued numbers and cannot be changed or deleted.',
+	'error.document_final_immutable': 'The document is final and can no longer be changed, deleted or finalized again.',
+	'error.number_conflict': 'The document number is already taken in the series. The operation was rolled back; no number was consumed.',
 	'error.tax_period_overlap': 'The tax period overlaps an existing period.',
 	'error.suggestion_stale': 'The suggestion no longer matches the current state of the document.',
 	'error.document_not_trashed': 'The document must be moved to the trash first.',

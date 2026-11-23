@@ -16,7 +16,6 @@ public enum Permissions {
     public static let catalog: [String] = [
         "tenant.tenant.read", "tenant.member.read", "tenant.member.invite", "tenant.member.manage",
         "tenant.module.read", "tenant.module.manage",
-        "invoice.document.read", "invoice.document.create", "invoice.document.update", "invoice.document.finalize",
         "contact.contact.read", "contact.contact.create", "contact.contact.update", "contact.contact.delete", "contact.contact.merge",
         "contact.link.read", "contact.link.write"
     ]
@@ -25,14 +24,12 @@ public enum Permissions {
         .owner: Set(catalog),
         .accountant: [
             "tenant.tenant.read", "tenant.member.read", "tenant.module.read",
-            "invoice.document.read", "invoice.document.create", "invoice.document.update", "invoice.document.finalize",
             "contact.contact.read", "contact.contact.create", "contact.contact.update", "contact.contact.delete", "contact.contact.merge",
             "contact.link.read", "contact.link.write"],
         .member: [
             "tenant.tenant.read", "tenant.member.read", "tenant.module.read",
-            "invoice.document.read", "invoice.document.create", "invoice.document.update",
             "contact.contact.read", "contact.contact.create", "contact.contact.update", "contact.link.read", "contact.link.write"],
-        .taxAdvisor: ["tenant.tenant.read", "tenant.module.read", "invoice.document.read", "contact.contact.read", "contact.link.read"],
+        .taxAdvisor: ["tenant.tenant.read", "tenant.module.read", "contact.contact.read", "contact.link.read"],
         .customerViewer: ["tenant.tenant.read", "tenant.module.read"]
     ]
 

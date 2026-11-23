@@ -93,15 +93,15 @@ enum InvoiceValidation {
 /// Optionaler `Idempotency-Key` für Anlegen (POST). Ohne Header läuft die Arbeit einfach in einer Transaktion; mit Header wird sie atomar mit dem Key gespeichert
 /// (Wiederholung liefert dieselbe Antwort, auch über eine andere Instanz; Fehler rollen den Key mit zurück).
 enum InvoiceIdempotency {
-    static func run(_ req: Request, tenant: UUID, work: @escaping @Sendable (any SQLDatabase) async throws -> String) async throws -> Response {
+    static func run(_ req: Request, tenant: UUID, status: HTTPStatus = .created, work: @escaping @Sendable (any SQLDatabase) async throws -> String) async throws -> Response {
         guard let key = req.headers.first(name: IdempotencyMiddleware.header) else {
             let body = try await invoiceTransaction(req.db, work)
-            return invoiceJSONResponse(body, status: .created)
+            return invoiceJSONResponse(body, status: status)
         }
         guard !key.isEmpty, key.count <= 255 else { throw HubError(.badRequest, "idempotency_key_required") }
         let hash = InvoiceValidation.sha256([Data("\(req.method.rawValue) \(req.url.path)?\(req.url.query ?? "")\n".utf8), req.body.data.map { Data(buffer: $0) } ?? Data()])
         let stored = try await IdempotencyService(try sql(req.db)).executeAtomic(tenant: tenant, key: key, requestHash: hash) { s in
-            StoredResponse(status: 201, body: try await work(s))
+            StoredResponse(status: Int(status.code), body: try await work(s))
         }
         return invoiceJSONResponse(stored.body, status: HTTPStatus(statusCode: stored.status))
     }

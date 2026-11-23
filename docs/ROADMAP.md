@@ -43,7 +43,7 @@ Ausgangsstand (vorhanden, getestet laut `deploy/README.md`/Tests): `migrate`, `s
 | | F4d | PWA an D8/D9: Summenzeile je Währung, Quelle (Spalte/Filter), Dashboard-Zähler aus `dms/stats`, serverseitiger Filter offene Vorschläge, Fakten je Art, Suchtreffer mit Art/Betrag | F4c, D8, D9 | S | | umgesetzt, Gate siehe Handoff (Branch wp-F4d, `docs/handoff/WP-F4d.md`) |
 | 4 Rechnung | R0 | Spike: Linux-Build Rechenkern, Testvektoren | K0 | S | P ab Phase 0 | umgesetzt (Branch wp-R0, `docs/handoff/WP-R0.md`) |
 | | R1 | Stammdaten Rechnung | K3, K5, R0 | M | | umgesetzt (Branch wp-R1, `docs/handoff/WP-R1.md`) |
-| | R2 | Belege, Berechnung, Finalisieren mit Hub-Zähler | R1, K6 | L | | offen |
+| | R2 | Belege, Berechnung, Finalisieren mit Hub-Zähler | R1, K6 | L | | umgesetzt (Branch wp-R2, `docs/handoff/WP-R2.md`) |
 | | R3 | Zahlungen, Gutschrift, Umwandlung | R2 | M | | offen |
 | | R4 | Taxlab-Import/Export | R2 | M | P R3 | offen |
 | | R5 | E-Rechnung Erzeugung (Server) | R2 | M | P R3, R4 | offen |
@@ -172,6 +172,7 @@ Grundsatz: Hub ohne Swift-App nutzbar (`AGENTS.md`); die Rechnungsphase ist dahe
 *Status WP-R1: umgesetzt (Modul `invoice`: Einstellungen/Absender, Steuerzeiträume, Belegtypen, Nummernserien über den Kernzähler, Artikel; Details und Annahmen `MODUL-RECHNUNG.md` Abschnitt 13 und `docs/handoff/WP-R1.md`). Nächster Schritt: WP-R2 (Belege, Finalisieren).*
 
 **WP-R2 Belege und Finalisieren (L).** Entwurf CRUD, Positionen, Berechnung (Konformität mit Testvektoren), Zustandsautomat, Finalisieren mit Hub-Zähler; Invarianten per DB (`MODUL-RECHNUNG.md` Abschnitte 2, 4). Akzeptanz: AK-R4 (50 parallele Finalisierungen, zwei Instanzen), Final unveränderlich (SQL-Test), Idempotenz. Abh.: R1, K6.
+*Status WP-R2: umgesetzt (Rechenkern gegen die Testvektoren, Beleg-Entwurf CRUD mit Serversummen, Finalisieren mit Hub-Zähler in einer Transaktion, Unveränderlichkeit per Trigger, AK-R4 mit 50 parallelen Finalisierungen über zwei Instanzen; Details `MODUL-RECHNUNG.md` Abschnitt 14 und `docs/handoff/WP-R2.md`). Nächste Schritte: R3 (Zahlungen, Gutschrift), R5, R6a.*
 
 **WP-R3 Zahlungen, Gutschrift, Umwandlung (M).** Skonto, Zuordnung nie still, Verknüpfungen Beleg↔Beleg. Abh.: R2.
 

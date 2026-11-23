@@ -112,7 +112,7 @@ final class InvoiceMasterTests: InvoiceTestBase {
                 """, as: String.self)
         }
         let before = try await fingerprint()
-        let routes = app1.moduleRoutes.filter { $0.module == "invoice" }
+        let routes = app1.moduleRoutes.filter { $0.module == "invoice" && $0.permission.hasPrefix("invoice.master.") }   // Belege: InvoiceDocumentTests
         for route in routes {
             let isRead = route.permission == "invoice.master.read"
             XCTAssertTrue(isRead || route.permission == "invoice.master.manage", route.path)
@@ -533,10 +533,12 @@ final class InvoiceMasterTests: InvoiceTestBase {
         try await aEq((try await call(app1, .GET, "ready")).status, .ok)
         let migration = CreateInvoiceMaster()
         let database = app1.db(.psql)
+        try await CreateInvoiceDocuments().revert(on: database)   // WP-R2: Belegtabellen verweisen auf die Stammdaten
         try await migration.revert(on: database)
         for tbl in tables { try await aEq(try await count("information_schema.tables", where: "table_name = '\(tbl)'"), 0, tbl) }
         try await aEq(try await count("pg_proc", where: "proname LIKE 'invoice\\_%'"), 0, "Funktionen/Trigger mit zurückgebaut")
         try await migration.prepare(on: database)
+        try await CreateInvoiceDocuments().prepare(on: database)
         for tbl in tables { try await aEq(try await count("information_schema.tables", where: "table_name = '\(tbl)'"), 1, tbl) }
         try await aEq(try await scalar("SELECT max(version)::int AS v FROM schema_version", as: Int.self), versionBefore)
         XCTAssertFalse(w.tenantA.isEmpty)

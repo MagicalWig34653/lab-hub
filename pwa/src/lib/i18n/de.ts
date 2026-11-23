@@ -166,6 +166,8 @@ export const de = {
 	'error.document_trashed': 'Das Dokument liegt im Papierkorb.',
 	'error.suggestion_decided': 'Der Vorschlag wurde schon entschieden.',
 	'error.series_in_use': 'Die Nummernserie hat bereits Nummern vergeben und kann nicht geändert oder gelöscht werden.',
+	'error.document_final_immutable': 'Der Beleg ist finalisiert und kann nicht mehr geändert, gelöscht oder erneut finalisiert werden.',
+	'error.number_conflict': 'Die Belegnummer ist in der Serie bereits vergeben. Der Vorgang wurde zurückgenommen, es wurde keine Nummer verbraucht.',
 	'error.tax_period_overlap': 'Der Steuerzeitraum überschneidet sich mit einem vorhandenen Zeitraum.',
 	'error.suggestion_stale': 'Der Vorschlag passt nicht mehr zum aktuellen Stand des Dokuments.',
 	'error.document_not_trashed': 'Das Dokument muss zuerst in den Papierkorb verschoben werden.',

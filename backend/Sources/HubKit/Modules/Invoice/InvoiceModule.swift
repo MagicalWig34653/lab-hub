@@ -4,7 +4,7 @@ import SQLKit
 
 // WP-R1 Rechnungsmodul, Stammdaten (ADR 0004, MODUL-RECHNUNG.md). HubModule `invoice`, Routen unter /api/v1/tenants/{tenant}/invoice/…,
 // Berechtigungen `invoice.master.read|manage`. Das Modul nutzt den Kern nur über dessen Dienste (CounterService, AuditLog, IdempotencyService).
-// Belege, Berechnung und Finalisieren kommen mit WP-R2; die Kernberechtigungen `invoice.document.*` (Tenancy/Roles.swift) werden dort verschoben.
+// WP-R2: Belege, Berechnung und Finalisieren; die Berechtigungen `invoice.document.*` deklariert das Modul selbst (nicht mehr der Kernkatalog).
 
 public struct InvoiceModule: HubModule {
     public let key = "invoice"
@@ -15,10 +15,15 @@ public struct InvoiceModule: HubModule {
     /// Schreiben: Buchhaltung und Owner. `customer_viewer` hat keinen Zugriff auf Stammdaten (Bankdaten, Preise).
     public var permissions: [PermissionDefinition] {
         [PermissionDefinition("invoice.master.read", roles: [.accountant, .member, .taxAdvisor]),
-         PermissionDefinition("invoice.master.manage", roles: [.accountant])]
+         PermissionDefinition("invoice.master.manage", roles: [.accountant]),
+         // WP-R2: Belege. Lesen wie Stammdaten; Anlegen/Ändern auch für Mitglieder; Finalisieren (vergibt die Nummer) nur Buchhaltung und Owner.
+         PermissionDefinition("invoice.document.read", roles: [.accountant, .member, .taxAdvisor]),
+         PermissionDefinition("invoice.document.create", roles: [.accountant, .member]),
+         PermissionDefinition("invoice.document.update", roles: [.accountant, .member]),
+         PermissionDefinition("invoice.document.finalize", roles: [.accountant])]
     }
 
-    public var migrations: [any Migration] { [CreateInvoiceMaster()] }
+    public var migrations: [any Migration] { [CreateInvoiceMaster(), CreateInvoiceDocuments()] }
 
     public var navigation: [NavigationItem] { [NavigationItem(key: "invoice", labelKey: "nav.invoice", path: "/invoice", permission: "invoice.master.read")] }
 
@@ -33,5 +38,11 @@ public struct InvoiceModule: HubModule {
             routes.on(.PATCH, segment, ":id", permission: "invoice.master.manage") { req in try await spec.update(req) }
             routes.on(.DELETE, segment, ":id", permission: "invoice.master.manage") { req in try await spec.delete(req) }
         }
+        routes.on(.GET, "documents", permission: "invoice.document.read") { req in try await InvoiceDocuments.list(req) }
+        routes.on(.POST, "documents", permission: "invoice.document.create") { req in try await InvoiceDocuments.create(req) }
+        routes.on(.GET, "documents", ":id", permission: "invoice.document.read") { req in try await InvoiceDocuments.get(req) }
+        routes.on(.PATCH, "documents", ":id", permission: "invoice.document.update") { req in try await InvoiceDocuments.update(req) }
+        routes.on(.DELETE, "documents", ":id", permission: "invoice.document.update") { req in try await InvoiceDocuments.delete(req) }
+        routes.on(.POST, "documents", ":id", "finalize", permission: "invoice.document.finalize") { req in try await InvoiceDocuments.finalize(req) }
     }
 }

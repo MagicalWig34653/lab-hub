@@ -1918,6 +1918,72 @@ export interface paths {
         patch: operations["updateInvoiceItems"];
         trace?: never;
     };
+    "/api/v1/tenants/{tenant}/invoice/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Liste Belege (Berechtigung invoice.document.read)
+         * @description Modul invoice; bei deaktiviertem Modul 404 module_disabled. Neueste zuerst, hoechstens 1000 Eintraege, ohne Positionen/Zusatzkosten/Steuersummen. Filter: status (draft|final|cancelled), kind, contact_id.
+         */
+        get: operations["listInvoiceDocuments"];
+        put?: never;
+        /**
+         * Beleg-Entwurf anlegen (Berechtigung invoice.document.create)
+         * @description Legt einen Entwurf ohne Nummer an. Der Server berechnet Summen und Steuersummen (Rechenkern aus den gemeinsamen Testvektoren, Rundung nur je Steuersatz auf Belegebene); Summen im Request werden nicht angenommen (422 unknown_field). Betraege nur als Dezimal-Strings. Optional Idempotency-Key.
+         */
+        post: operations["createInvoiceDocuments"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/invoice/documents/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Beleg mit Positionen, Zusatzkosten und Steuersummen (Berechtigung invoice.document.read); fremde ID 404 */
+        get: operations["getInvoiceDocuments"];
+        put?: never;
+        post?: never;
+        /** Entwurf loeschen (Berechtigung invoice.document.update); finalisierte Belege 409 document_final_immutable */
+        delete: operations["deleteInvoiceDocuments"];
+        options?: never;
+        head?: never;
+        /**
+         * Entwurf aendern (Berechtigung invoice.document.update)
+         * @description Teilaenderung des Kopfs; lines und charges ersetzen die bisherigen komplett, fehlen sie, bleiben sie. Summen werden neu berechnet. Ein finalisierter Beleg ist unveraenderlich: 409 document_final_immutable.
+         */
+        patch: operations["updateInvoiceDocuments"];
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/invoice/documents/{id}/finalize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Beleg finalisieren (Berechtigung invoice.document.finalize)
+         * @description Eine Transaktion: Beleg sperren, Nummer aus dem Hub-Zaehler der Serie (Format der Serie, Zaehlerzeitraum nach Belegdatum), Absender (Einstellungen) und Empfaenger (Kontakt) einfrieren, Inhaltshash, Status final. Jeder Fehler rollt den Zaehler mit zurueck (keine Luecke). Danach unveraenderlich (auch per SQL). Voraussetzungen (422): Kontakt, mindestens eine Position, aktive Serie (Beleg oder Standard des Belegtyps), Absender-Einstellungen, Format ohne fehlende Werte. Ein zweites Finalisieren 409 document_final_immutable; belegte Nummer 409 number_conflict. Optional Idempotency-Key: Wiederholung liefert dieselbe Antwort ohne zweite Nummer.
+         */
+        post: operations["finalizeInvoiceDocuments"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2034,7 +2100,7 @@ export interface components {
              * @description Stabiler maschinenlesbarer Code
              * @enum {string}
              */
-            code: "api_token_unbound" | "bad_request" | "conflict" | "contact_merged" | "csrf_invalid" | "document_linked" | "document_not_trashed" | "document_trashed" | "forbidden" | "handle_taken" | "idempotency_in_progress" | "idempotency_key_required" | "idempotency_key_reused" | "ingest_not_failed" | "internal_error" | "invalid_cursor" | "invalid_limit" | "invitation_invalid" | "last_owner" | "last_passkey" | "legal_hold" | "login_failed" | "method_not_allowed" | "module_disabled" | "module_required_by" | "module_requires" | "module_unavailable" | "not_found" | "passkey_invalid" | "payload_too_large" | "precondition_failed" | "recovery_session_restricted" | "retention_not_expired" | "series_in_use" | "service_unavailable" | "setup_token_invalid" | "storage_quota_exceeded" | "suggestion_decided" | "suggestion_stale" | "tax_period_overlap" | "tenant_required" | "too_many_requests" | "unauthorized" | "unsupported_media_type" | "upload_interrupted" | "validation_failed";
+            code: "api_token_unbound" | "bad_request" | "conflict" | "contact_merged" | "csrf_invalid" | "document_final_immutable" | "document_linked" | "document_not_trashed" | "document_trashed" | "forbidden" | "handle_taken" | "idempotency_in_progress" | "idempotency_key_required" | "idempotency_key_reused" | "ingest_not_failed" | "internal_error" | "invalid_cursor" | "invalid_limit" | "invitation_invalid" | "last_owner" | "last_passkey" | "legal_hold" | "login_failed" | "method_not_allowed" | "module_disabled" | "module_required_by" | "module_requires" | "module_unavailable" | "not_found" | "number_conflict" | "passkey_invalid" | "payload_too_large" | "precondition_failed" | "recovery_session_restricted" | "retention_not_expired" | "series_in_use" | "service_unavailable" | "setup_token_invalid" | "storage_quota_exceeded" | "suggestion_decided" | "suggestion_stale" | "tax_period_overlap" | "tenant_required" | "too_many_requests" | "unauthorized" | "unsupported_media_type" | "upload_interrupted" | "validation_failed";
             detail?: string;
             request_id: string;
             errors?: components["schemas"]["FieldError"][];
@@ -3029,6 +3095,163 @@ export interface components {
             created_at: string;
             /** Format: date-time */
             updated_at: string;
+        };
+        InvoiceDocument: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            document_type_id: string;
+            /** @enum {string} */
+            kind: "quote" | "order_confirmation" | "delivery_note" | "invoice" | "credit_note";
+            /** Format: uuid */
+            contact_id: string | null;
+            /** Format: uuid */
+            series_id: string | null;
+            /** @enum {string} */
+            status: "draft" | "final" | "cancelled";
+            /** @description Erst nach dem Finalisieren */
+            number: string | null;
+            counter_value: number | null;
+            /** Format: date */
+            issue_date: string;
+            /** Format: date */
+            due_date: string | null;
+            /** Format: date */
+            delivery_date: string | null;
+            currency: string;
+            /** @enum {string} */
+            price_mode: "net" | "gross";
+            discount_percent: string;
+            discount_amount: string | null;
+            /** @enum {string} */
+            rounding_mode: "halfAwayFromZero" | "halfEven" | "towardZero";
+            header_text: string | null;
+            footer_text: string | null;
+            note: string | null;
+            /** @description Dezimal-String mit 2 Nachkommastellen, vom Server berechnet */
+            net_total: string;
+            tax_total: string;
+            gross_total: string;
+            discount_total: string;
+            /** @enum {string|null} */
+            tax_regime: "standard" | "small_business" | null;
+            /** @description Eingefrorene Absenderdaten (Einstellungen beim Finalisieren) */
+            sender: {
+                [key: string]: unknown;
+            } | null;
+            /** @description Eingefrorene Empfaengerdaten (Kontakt beim Finalisieren) */
+            recipient: {
+                [key: string]: unknown;
+            } | null;
+            /** @description SHA-256 (hex) ueber Inhalt, Nummer, Serie, Steuerregime, Absender und Empfaenger */
+            content_hash: string | null;
+            /** Format: date-time */
+            finalized_at: string | null;
+            /** Format: uuid */
+            finalized_by?: string | null;
+            rev: number;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** @description Nur in der Einzelansicht */
+            lines?: {
+                /** Format: uuid */
+                id: string;
+                position: number;
+                /** @enum {string} */
+                kind: "item" | "text";
+                /** Format: uuid */
+                item_id: string | null;
+                description: string;
+                unit: string | null;
+                quantity: string | null;
+                second_quantity: string | null;
+                unit_price: string | null;
+                tax_rate: string | null;
+                /** @enum {string|null} */
+                discount_kind: "percent" | "amount" | null;
+                discount_value: string | null;
+            }[];
+            /** @description Zusatzkosten (z. B. Versand); werden nicht rabattiert. Nur in der Einzelansicht */
+            charges?: {
+                /** Format: uuid */
+                id: string;
+                position: number;
+                description: string;
+                tax_rate: string;
+                amount: string;
+            }[];
+            /** @description Summen je Steuersatz; Nur in der Einzelansicht */
+            tax_totals?: {
+                rate: string;
+                net: string;
+                tax: string;
+                gross: string;
+            }[];
+        };
+        /** @description Beim Anlegen ist nur document_type_id Pflicht; beim Aendern (PATCH) sind alle Felder optional. Betraege nur als Dezimal-Strings (kein JSON-Zahlenwert). */
+        InvoiceDocumentInput: {
+            /** Format: uuid */
+            document_type_id: string;
+            /** Format: uuid */
+            contact_id?: string | null;
+            /**
+             * Format: uuid
+             * @description Fehlt sie, gilt beim Finalisieren die Standardserie des Belegtyps
+             */
+            series_id?: string | null;
+            /**
+             * Format: date
+             * @description Standard: heute (UTC, Datenbankuhr)
+             */
+            issue_date?: string;
+            /** Format: date */
+            due_date?: string | null;
+            /** Format: date */
+            delivery_date?: string | null;
+            /** @description Standard: Waehrung der Einstellungen, sonst EUR */
+            currency?: string;
+            /**
+             * @default net
+             * @enum {string}
+             */
+            price_mode: "net" | "gross";
+            /** @description 0 bis 100, Belegrabatt */
+            discount_percent?: string;
+            /** @description Fester Belegrabatt im Eingabemodus; hat Vorrang vor discount_percent */
+            discount_amount?: string | null;
+            /**
+             * @default halfAwayFromZero
+             * @enum {string}
+             */
+            rounding_mode: "halfAwayFromZero" | "halfEven" | "towardZero";
+            header_text?: string | null;
+            footer_text?: string | null;
+            note?: string | null;
+            lines?: {
+                /**
+                 * @description item: Artikelposition (quantity, unit_price, tax_rate Pflicht); text: reine Textzeile
+                 * @enum {string}
+                 */
+                kind: "item" | "text";
+                /** Format: uuid */
+                item_id?: string | null;
+                description: string;
+                unit?: string | null;
+                quantity?: string;
+                second_quantity?: string | null;
+                unit_price?: string;
+                tax_rate?: string;
+                /** @enum {string|null} */
+                discount_kind?: "percent" | "amount" | null;
+                discount_value?: string | null;
+            }[];
+            charges?: {
+                description: string;
+                tax_rate: string;
+                amount: string;
+            }[];
         };
         InvoiceItemInput: {
             sku?: string | null;
@@ -7258,6 +7481,185 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InvoiceItem"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listInvoiceDocuments: {
+        parameters: {
+            query?: {
+                status?: "draft" | "final" | "cancelled";
+                kind?: "quote" | "order_confirmation" | "delivery_note" | "invoice" | "credit_note";
+                contact_id?: string;
+            };
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Belege */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["InvoiceDocument"][];
+                    };
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    createInvoiceDocuments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvoiceDocumentInput"];
+            };
+        };
+        responses: {
+            /** @description Entwurf angelegt */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceDocument"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getInvoiceDocuments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                id: components["parameters"]["InvoiceMasterId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Beleg */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceDocument"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    deleteInvoiceDocuments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                id: components["parameters"]["InvoiceMasterId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Geloescht */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+        };
+    };
+    updateInvoiceDocuments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                id: components["parameters"]["InvoiceMasterId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvoiceDocumentInput"];
+            };
+        };
+        responses: {
+            /** @description Aktualisiert */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceDocument"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    finalizeInvoiceDocuments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                id: components["parameters"]["InvoiceMasterId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Finalisiert */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceDocument"];
                 };
             };
             401: components["responses"]["Problem"];
