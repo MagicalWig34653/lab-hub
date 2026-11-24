@@ -69,10 +69,20 @@ final class H11ExportQuotaTests: DMSRevisionTestBase {
         let usedBytes = try await scalar("SELECT COALESCE(sum(size_bytes),0)::bigint AS v FROM files WHERE tenant_id = '\(w.tenantA)'", as: Int64.self)
         let r = try await raw(app1, .POST, base(w.tenantA) + "/exports", body: Data("{}".utf8), token: w.alice.token, headers: ["Content-Type": "application/json"])
         let id = try XCTUnwrap(r.json["id"] as? String, "\(r.json)")
-        let handlers: [String: JobHandler] = [DMSExport.kind: DMSExport.handler(tempRoot: NSTemporaryDirectory(), quotaBytes: usedBytes) { s in try ObjectStoreConfig(kind: .db).makeStore(db: s) }]
+        let inner = DMSExport.handler(tempRoot: NSTemporaryDirectory(), quotaBytes: usedBytes) { s in try ObjectStoreConfig(kind: .db).makeStore(db: s) }
+        // The handler marks the export `failed` before the worker quarantines the job. Hold the handler's return back, as a loaded machine does.
+        let slowTail: JobHandler = { job, db in
+            do { try await inner(job, db) } catch { try? await Task.sleep(for: .milliseconds(400)); throw error }
+        }
+        let handlers: [String: JobHandler] = [DMSExport.kind: slowTail]
         let worker = JobWorker(db: app1.db(.psql) as! any SQLDatabase, kinds: [DMSExport.kind], handlers: handlers, leaseSeconds: 30, pollInterval: .milliseconds(100), retryBackoffSeconds: 0, logger: Logger(label: "test.h11"))
         let run = Task { await worker.run() }
-        try await waitFor("export finished") { try await scalar("SELECT state AS v FROM dms_exports WHERE id = '\(id)'", as: String.self) == "failed" }
+        // Wait for the end of the chain (export failed AND job quarantined): a shutdown in between would release the job instead.
+        try await waitFor("export failed and job quarantined") {
+            let exportState = try await scalar("SELECT state AS v FROM dms_exports WHERE id = '\(id)'", as: String.self)
+            let quarantined = try await count("jobs", where: "kind = 'dms.export' AND state = 'failed_permanent'")
+            return exportState == "failed" && quarantined == 1
+        }
         worker.requestShutdown(); await run.value
         try await aEq(try await scalar("SELECT error_code AS v FROM dms_exports WHERE id = '\(id)'", as: String.self), "storage_quota_exceeded")
         try await aEq(try await count("files"), used)
