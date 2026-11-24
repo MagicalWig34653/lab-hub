@@ -599,7 +599,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Verknuepfungen eines Objekts (type und id, beide Richtungen; Berechtigung contact.link.read); standardmaessig nur aktive */
+        /** Verknuepfungen eines Objekts (type und id, beide Richtungen; Berechtigung contact.link.read); standardmaessig nur aktive. Verknuepfungen mit dms.*-Seite nur bei aktivem DMS-Modul und Recht dms.document.read (sonst weggelassen; eine dms.*-Abfrage liefert 404 module_disabled bzw. 403) */
         get: operations["listLinks"];
         put?: never;
         /** Verknuepfung anlegen (Berechtigung contact.link.write); Kontakt-Enden muessen im Mandanten existieren (sonst 404); gleiche aktive Verknuepfung liefert 409 */

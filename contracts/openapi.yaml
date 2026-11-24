@@ -776,7 +776,7 @@ paths:
   /api/v1/tenants/{tenant}/links:
     get:
       operationId: listLinks
-      summary: Verknuepfungen eines Objekts (type und id, beide Richtungen; Berechtigung contact.link.read); standardmaessig nur aktive
+      summary: Verknuepfungen eines Objekts (type und id, beide Richtungen; Berechtigung contact.link.read); standardmaessig nur aktive. Verknuepfungen mit dms.*-Seite nur bei aktivem DMS-Modul und Recht dms.document.read (sonst weggelassen; eine dms.*-Abfrage liefert 404 module_disabled bzw. 403)
       security: [{ bearer: [] }, { cookie: [] }]
       parameters:
         - { $ref: "#/components/parameters/Tenant" }

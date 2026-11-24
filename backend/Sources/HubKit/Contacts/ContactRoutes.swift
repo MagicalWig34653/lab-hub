@@ -74,12 +74,13 @@ func registerContactRoutes(_ app: Application) {
     /// Herkunft für Schutzregeln des DMS: darf die Rolle Dokumente ändern?
     @Sendable func origin(_ req: Request) throws -> LinkService.Origin {
         let ctx = try req.requireTenant()
-        return .external(canWriteDocuments: req.application.hubModules.permissions(of: ctx.role, module: "dms").contains("dms.document.update"))
+        let dms = req.application.hubModules.permissions(of: ctx.role, module: "dms")
+        return .external(canWriteDocuments: dms.contains("dms.document.update"), canReadDocuments: dms.contains("dms.document.read"))
     }
 
     on(.GET, "links", permission: "contact.link.read") { req in
         guard let type: String = req.query["type"], let id: UUID = req.query["id"] else { throw ContactValidation.fail("type", "required") }
-        let items = try await LinkService.list(tenant: try req.requireTenant().tenantID, type: type, id: id, includeRemoved: (req.query["include_removed"] as String?) == "true", on: req.db)
+        let items = try await LinkService.list(tenant: try req.requireTenant().tenantID, type: type, id: id, includeRemoved: (req.query["include_removed"] as String?) == "true", origin: try origin(req), on: req.db)
         return try await contactResponse(["items": items], req)
     }
     on(.POST, "links", permission: "contact.link.write") { req in

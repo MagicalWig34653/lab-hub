@@ -353,8 +353,9 @@ final class ContactTests: AuthTestCase {
         let total = try await scalar("SELECT count(*)::bigint AS v FROM links", as: Int64.self)
         XCTAssertEqual(total, 9, "kein links-Eintrag wurde gelöscht")
         let viaApi = try await call(app1, .GET, a + "/links?type=contact&id=\(target)", token: w.alice.token)
+        // Dieser Mandant hat kein aktives DMS: die generische Liste lässt `dms.document`-Seiten weg (WP-H14, AK-H14-8); `keepDoc` ist oben (l3) per SQL belegt.
         XCTAssertEqual(Set(items(viaApi).compactMap { ($0["id"] as? String)?.lowercased() }),
-                       Set([toSource, keepDoc, collideFrom, fromSourceFree].map { $0.uuidString.lowercased() }))
+                       Set([collideFrom, fromSourceFree].map { $0.uuidString.lowercased() }))
 
         // Audit: genau ein Eintrag, mit Zählern und IDs, ohne Namen oder IBANs
         let after = try await auditCount("contact.merged", tenant: w.tenantA)

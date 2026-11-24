@@ -7,12 +7,13 @@ import SQLKit
 enum LinkService {
     /// Woher der Aufruf kommt. `external` = generische Route (Nutzeranfrage): für Objekte des DMS gelten dann dessen Schutzregeln (WP-H14).
     /// `internal` = Kern, Import und Vorschläge, die ihre Prüfungen selbst vornehmen.
-    enum Origin { case `internal`; case external(canWriteDocuments: Bool) }
+    /// Extern trägt die DMS-Rechte der Rolle: Schreiben (`dms.document.update`) für Anlegen/Entfernen, Lesen (`dms.document.read`) für die Liste.
+    enum Origin { case `internal`; case external(canWriteDocuments: Bool, canReadDocuments: Bool) }
 
     /// Schutz für `dms.document`-Seiten: Modul aktiv (sonst 404 `module_disabled`), Berechtigung `dms.document.update` (403), Dokument im Mandanten (404),
     /// nicht im Papierkorb (409 `document_trashed`), Zeilensperre wie beim Ändern und `rev + 1`. Andere `dms.*`-Typen sind über die generische Route nicht verknüpfbar.
     private static func guardDocuments(_ refs: [(type: String, id: UUID, field: String)], origin: Origin, tenant: UUID, bump: Bool, on s: any SQLDatabase) async throws {
-        guard case .external(let canWrite) = origin else { return }
+        guard case .external(let canWrite, _) = origin else { return }
         for ref in refs where ref.type.hasPrefix("dms.") && ref.type != "dms.document" && bump { throw ContactValidation.fail(ref.field) }
         let documents = Array(Set(refs.filter { $0.type == "dms.document" }.map(\.id))).sorted { $0.uuidString < $1.uuidString }
         if documents.isEmpty { return }
@@ -45,11 +46,21 @@ enum LinkService {
     }
 
     /// Verknüpfungen, an denen das Objekt (Typ, ID) beteiligt ist, auf beiden Seiten. Standard: nur aktive; `includeRemoved` zeigt auch entfernte.
-    static func list(tenant: UUID, type: String, id: UUID, includeRemoved: Bool, on db: any Database) async throws -> [LinkOut] {
-        try await sql(db).raw("""
+    /// Extern (generische Route) sieht man `dms.*`-Seiten nur bei aktivem Modul und Recht `dms.document.read`: eine `dms.*`-Abfrage ohne das gibt 404 `module_disabled`
+    /// bzw. 403, alle anderen Abfragen lassen Verknüpfungen mit `dms.*`-Seite weg (Existenz und Korrespondent eines Dokuments bleiben so verborgen).
+    static func list(tenant: UUID, type: String, id: UUID, includeRemoved: Bool, origin: Origin = .internal, on db: any Database) async throws -> [LinkOut] {
+        let s = try sql(db)
+        var hideDocuments = false
+        if case .external(_, let canRead) = origin {
+            let active = try await DMSSources.dmsActive(tenant: tenant, on: s)
+            hideDocuments = !(active && canRead)
+            if hideDocuments && type.hasPrefix("dms.") { throw active ? HubError(.forbidden, "forbidden") : HubError(.notFound, "module_disabled") }
+        }
+        return try await s.raw("""
             SELECT \(unsafeRaw: columns) FROM links WHERE tenant_id = \(bind: tenant)
               AND ((from_type = \(bind: type) AND from_id = \(bind: id)) OR (to_type = \(bind: type) AND to_id = \(bind: id)))
               AND (\(bind: includeRemoved) OR removed_at IS NULL)
+              AND (NOT \(bind: hideDocuments) OR (left(from_type, 4) <> 'dms.' AND left(to_type, 4) <> 'dms.'))
             ORDER BY created_at, id LIMIT 500
             """).all().map(out)
     }
