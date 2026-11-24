@@ -12,3 +12,7 @@ Branch `wp-H15` (auf `main` f644e78).
 
 ## Offen
 - Kein Backend-/Vertragseingriff. Die Fremdänderung während laufender Verarbeitung bleibt im Formular unsichtbar, bis gespeichert wird (bewusst, kein Auto-Merge).
+
+## Nachtrag 24.11.2026 (Karte 8EE48D41)
+- Konfliktanzeige (Meldung „Der Datensatz wurde zwischenzeitlich geändert.“ und Knopf „Aktuellen Stand laden“) in hell und dunkel gesichtet: `docs/screenshots/dms-konflikt-light.png`, `docs/screenshots/dms-konflikt-dark.png` (Mock-Backend, synthetische Daten).
+- Gegenprobe: Fix in `DocumentDetail.svelte` zurückgenommen, AK-H15-1 rot (`dms-edit-error` nie sichtbar); mit Fix grün. `npm run check`, `npm test` (104), `test:e2e:mock` (58) grün auf 3d0163d. Swift-Suite nicht neu gelaufen (kein Backend-Eingriff).
