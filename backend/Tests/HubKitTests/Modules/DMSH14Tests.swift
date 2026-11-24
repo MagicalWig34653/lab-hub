@@ -151,4 +151,44 @@ final class H14LinkGuardTests: DMSTestBase {
         try await aEq(try await rev(doc), r0 + 1)
         try await aEq(try await count("links", where: "removed_at IS NULL"), 1)
     }
+
+    /// AK-H14-8: Leseroute. Bei abgeschaltetem DMS verraet `GET /links` keine Dokument-Verknuepfungen (weder ueber das Dokument noch ueber den Kontakt);
+    /// mit aktivem DMS und Leserecht bleibt alles sichtbar.
+    func testAKH14_8_listHidesDocumentLinksWhenModuleOff() async throws {
+        let w = try await world()
+        let doc = try await newDoc(w.alice, w.tenantA, seed: "h14-read")["id"] as! String
+        let c = try await contact(w)
+        let created = try await call(app1, .POST, links(w), json: body(doc, c), token: w.alice.token)
+        XCTAssertEqual(created.status, .created, "\(created.json)")
+        let byDocument = links(w) + "?type=dms.document&id=\(doc)", byContact = links(w) + "?type=contact&id=\(c)"
+
+        // Modul an: beide Sichten zeigen den Link.
+        try await aEq(items(try await call(app2, .GET, byDocument, token: w.alice.token)).count, 1)
+        try await aEq(items(try await call(app2, .GET, byContact, token: w.alice.token)).count, 1)
+
+        // Modul aus: Dokumentsicht 404 `module_disabled`, Kontaktsicht ohne den Dokument-Link (auch mit include_removed).
+        try await setModule(w.tenantA, false, by: w.alice)
+        let off = try await call(app1, .GET, byDocument, token: w.alice.token)
+        XCTAssertEqual(off.status, .notFound, "\(off.json)")
+        let offContact = try await call(app2, .GET, byContact + "&include_removed=true", token: w.alice.token)
+        XCTAssertEqual(offContact.status, .ok, "\(offContact.json)")
+        try await aEq(items(offContact).count, 0)
+
+        // Wieder an: sichtbar, der Link selbst blieb unveraendert.
+        try await setModule(w.tenantA, true, by: w.alice)
+        try await aEq(items(try await call(app1, .GET, byDocument, token: w.alice.token)).count, 1)
+        try await aEq(try await count("links", where: "removed_at IS NULL"), 1)
+    }
+
+    /// AK-H14-9: Kontakt-zu-Kontakt-Verknuepfungen bleiben bei abgeschaltetem DMS unberuehrt sichtbar (der Filter trifft nur `dms.*`-Seiten).
+    func testAKH14_9_nonDocumentLinksStayVisibleWhenModuleOff() async throws {
+        let w = try await world()
+        let a = try await contact(w), b = try await contact(w)
+        let r = try await call(app1, .POST, links(w), json: ["from_type": "contact", "from_id": a, "to_type": "contact", "to_id": b, "kind": "related"], token: w.alice.token)
+        XCTAssertEqual(r.status, .created, "\(r.json)")
+        try await setModule(w.tenantA, false, by: w.alice)
+        let l = try await call(app2, .GET, links(w) + "?type=contact&id=\(a)", token: w.alice.token)
+        XCTAssertEqual(l.status, .ok, "\(l.json)")
+        try await aEq(items(l).count, 1)
+    }
 }
