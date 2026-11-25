@@ -9,7 +9,7 @@ Quelle: `docs/handoff/REVIEW-codex-2026-11-17.md`, Befunde 1 bis 3. Branch `wp-H
 - **AK-H11-3** `FilesystemObjectStore.get`: Deskriptor gehört einer Klasse (`DescriptorHandle`) mit idempotentem `close()` und `deinit`; Lesefehler und EOF schließen sofort, ein verworfener Strom (Abbruch, Cancel) schließt über `deinit`. Tests `H11FilesystemFDTests` (zählen `/dev/fd`).
 
 ## Entscheidung / offene Punkte
-- OCR bei Quota-Überschreitung: Auftrag scheitert endgültig mit klarem Code (Vorgabe), statt die Archivdatei still wegzulassen. Alternative (Text indizieren, Archiv weglassen) wäre möglich; Entscheidung bei Lino.
+- OCR bei Quota-Überschreitung: Auftrag scheitert endgültig mit klarem Code (Vorgabe), statt die Archivdatei still wegzulassen. Alternative (Text indizieren, Archiv weglassen) wäre möglich; Entscheidung beim Nutzer.
 - Neuer Problem-Code wurde nicht eingeführt: `storage_quota_exceeded` existiert bereits (Upload); als Job-Fehlercode in `dms_exports.error_code` und `dms_ingest_items.error_code`. Falls i18n/openapi die Codeliste der Jobfehler führt, ist das bei H10b nachzuziehen (nicht angefasst).
 - Auch die Fehlerpfade des Export-ZIP-Lesers (`fileStream` in DMSExport/DMSOCR schließen den FileHandle nur bei EOF) wurden nicht geändert; gleiches Muster, geringeres Risiko (kurzlebiger Job), nicht Teil der Befunde.
 

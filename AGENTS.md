@@ -57,7 +57,7 @@ Eine Instanz hält keinen korrektheitsrelevanten Zustand. Verboten: In-Memory-Ca
 ## 5. Datenschutz und Sicherheit
 
 - Keine Kundendaten, Zugangsdaten, Tokens, echten Belege im Repo, in Tests, Logs oder Ausgaben. Nur synthetische Testdaten. `.env` nie committen, nur `.env.example` mit Platzhaltern.
-- Keine privaten Pfade, Hostnamen, IPs, Domains oder E-Mail-Adressen in Dateien (Platzhalter `hub.example.org`).
+- Keine privaten Pfade, Hostnamen, IPs, Domains, E-Mail-Adressen oder Personennamen (außer erfundenen) in Dateien (Platzhalter `hub.example.org`; für die Person „der Nutzer“).
 - Private Bestandsdaten (Paperless-Archive, Taxlab-Datenbanken, Kundenlayouts) nie lesen oder in den Modellkontext bringen; Import-Code nur mit synthetischen Fixtures entwickeln.
 - Externe Dienste und KI nur mit ausdrücklicher Freigabe je Kunde (Opt-in, protokolliert, deaktivierbar). Standard: lokal. Keine Telemetrie.
 - Jede Abfrage mandantengefiltert (`tenant_id`); jedes Modul liefert Mandantentrennungs-Tests (fremde ID liefert 404).
@@ -65,7 +65,7 @@ Eine Instanz hält keinen korrektheitsrelevanten Zustand. Verboten: In-Memory-Ca
 
 ## 6. Git, Commit, Push
 
-- Remote: privates GitHub-Repo `MagicalWig34653/lab-hub`, Branch `main`. Sichtbarkeit nie ändern.
+- Remote: **öffentliches** GitHub-Repo `MagicalWig34653/lab-hub` (Nutzer 25.11.2026: Absicht), Branch `main`. Sichtbarkeit nie ändern. Jeder Push ist sofort weltweit lesbar und bleibt in der Historie: vorher Abschnitt 5 prüfen (`gitleaks git --redact`), auch Doku, Bilder und Commit-Nachrichten.
 - Vor Commit `git status` und `git diff --cached --stat` prüfen. Keine Binärdateien, Archive, Builds, `.env`, Schlüssel, Kundendateien.
 - Commit-Nachricht: kurzer englischer Betreff mit WP-ID (z. B. `WP-K2: tenants and roles`). Nach jedem abgeschlossenen WP `git push origin main`. Nie `--force`.
 - Lizenz AGPL-3.0-only. Neue Abhängigkeiten: Lizenz prüfen und in `docs/LIZENZEN.md` (entsteht mit WP-H1) eintragen. **Lizenzprüfung BoringSSL (WP-K0, Rechtsfrage nicht abschließend geklärt):** BoringSSL steht upstream seit dem Commit „Switch the license to Apache 2.0, matching OpenSSL upstream“ (`boringssl.googlesource.com/boringssl/+/33d1049b1f730d2725bb09b2256fd5fe4c46b17e`) unter Apache-2.0, das mit AGPLv3 kompatibel ist. Offen ist, ob die in `swift-nio-ssl` gebündelte Kopie (`CNIOBoringSSL`) der im Hub aufgelösten Version diesen Stand hat (ältere Checkouts tragen noch den Header „Licensed under the OpenSSL license“). Prüfauftrag und Rückfalloptionen: `docs/OFFENE-FRAGEN.md` F-03. Stand 20.11.2026: `swift-nio-ssl` 2.37.6 (BoringSSL `8eb25be6`, Apache-2.0) ist gepinnt, die Lizenztexte liegen in `legal/` und werden in die Images kopiert (`docs/LIZENZEN.md`, `scripts/check-third-party-notices.sh`); die Rechtsfrage bleibt keine Rechtsberatung.

@@ -1,4 +1,8 @@
 .env
+.env.*
+!.env.example
+.claude/worktrees/
+.claude/settings.local.json
 .build/
 *.xcodeproj
 node_modules/
