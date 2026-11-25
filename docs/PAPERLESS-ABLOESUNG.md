@@ -28,10 +28,13 @@ Einstufung: **B** blockiert die Ablösung, **P** hängt vom Probelauf ab, **S** 
 | Punkt | Quelle | Stufe | WP |
 | --- | --- | --- | --- |
 | Manifest- und API-Format des Imports **nie gegen eine echte Instanz geprüft** (nur synthetische Nachbildung) | Handoff D6 | B | PA1 |
-| D6 ohne Reviewer-Lauf (SSRF/TLS der REST-Quelle, Dateizugriff, Transaktion); DNS-Rebinding nicht abgefangen | Handoff D6 | B | PA1 |
+| D6 ohne Reviewer-Lauf (SSRF/TLS der REST-Quelle, Dateizugriff, Transaktion). DNS-Rebinding und interne Ziele sind seit WP-H10 abgefangen, ebenfalls ohne Reviewer-Lauf | Handoff D6, H10, Code | B | PA1 |
+| Token der REST-Quelle bleibt nach dem Lauf verschlüsselt in `dms_imports` stehen | Code | B (API-Weg) | PA1 |
+| Import fragt keine feste API-Version an; ohne Angabe liefert Paperless seine jeweilige Standardversion | Code, Paperless-API-Doku | B (API-Weg) | PA1 |
+| Mehrere Dateifassungen je Dokument (neuere Paperless-Stände) nicht berücksichtigt | Paperless-API-Doku, Code (Annahme) | P | PA1 |
 | Keine Import-Seiten in der PWA (nur API); Notizen nur lesbar | Handoff D6 | B | PA2 |
 | Export-Manifest wird komplett geladen (Grenze 128 MiB) | D6, Code | P | PA1 messen, PA6 |
-| REST-Quelle liefert (Annahme) keine Prüfsummen | D6 | P | PA1 |
+| REST-Quelle liefert (Annahme) keine Prüfsummen; mit dem gewählten API-Weg betrifft das die Abnahme (Abschnitt 6) | D6 | B (API-Weg) | PA1 |
 | Besitzer/Rechte nicht übernommen (F-23), Regeln nur als Vorschläge, `documentlink`-Felder nicht unterstützt, Währung in Geldfeldern geht verloren | MODUL-DMS 10 | P | PA3 Bericht → PA6 |
 | Nur PDF, PNG, JPEG, TIFF, WebP; keine Office-/ZIP-Dateien | Handoff D2/D4 | P | PA6 |
 | Digital signierte und passwortgeschützte PDFs scheitern bei OCR; Textschicht-PDFs ohne PDF/A | Handoff O2 | P | PA6 |
@@ -54,7 +57,7 @@ Einstufung: **B** blockiert die Ablösung, **P** hängt vom Probelauf ab, **S** 
 | 1 | PA1 Import gegen **echte paperless-ngx im lokalen Container mit erfundenen Dokumenten** (Export und API) + Sicherheitsprüfung | Agent | Abweichungen behoben; geprüfte Paperless-Version dokumentiert |
 | 2 | PA2 Import in der PWA | Agent | Trockenlauf und Bericht ohne Kommandozeile |
 | 3 | PA7 Betrieb (Teil Probelauf: Zielrechner, Backup, Speicherbedarf) | Agent bereitet vor, **Nutzer setzt auf** | Hub läuft beim Nutzer, Restore erprobt |
-| 4 | **PA3 Probelauf** (Trockenlauf gegen die echte Instanz) + Inventur der Eingangswege | **Nutzer** (F-34) | Bericht mit Anzahlen liegt vor; Lückenliste bewertet |
+| 4 | **PA3 Probelauf** (Trockenlauf gegen die echte Instanz per API-Lese-Token, erst nach PA1 und PA2) + Inventur der Eingangswege | **Nutzer** | Bericht mit Anzahlen liegt vor; Lückenliste bewertet |
 | 5 | PA4, PA5, PA6, F3, ST4 | Agent | Lücken der Stufe B/P geschlossen |
 | 6 | PA7 Rest | Agent/Nutzer | Zeitplan für Prüflauf, Aufräumen, Aktualisierung erprobt |
 | 7 | **PA8** Vollimport, Parallelbetrieb, Umschalten | **Nutzer** | Abnahme unten erfüllt |
@@ -63,17 +66,22 @@ Scan-Bridge (BR1–BR4) und App (APP-M0 ff.) sind **nicht** Voraussetzung, auße
 
 ## 5. Probelauf (PA3)
 
-| Variante | Vorgehen | Für/Wider |
-| --- | --- | --- |
-| **Export (Empfehlung)** | Nutzer erzeugt den Export mit `document_exporter`, legt ihn unter `DMS_IMPORT_ROOT/<mandant>/` beim eigenen Hub ab, startet `dry_run` | Prüfsummen vorhanden, kein Zugang zur laufenden Instanz nötig; braucht Platz und Zeit |
-| API-Token | eigener Nur-Lese-Zugang, Token direkt im Hub eintragen, `DMS_IMPORT_HOST_ALLOWLIST` setzen; nur `https` mit gültigem Zertifikat | kein Kopieren; Prüfsummen vermutlich nicht, belastet die Instanz |
+**Entschieden (Nutzer, 25.11.2026, F-34):** API-Token nur zum Lesen, **vom Nutzer selbst direkt im Hub eingetragen**. Start erst nach PA1 und PA2 (die Eingabeseite entsteht mit PA2; heute gibt es dafür nur die API-Route). Der Export mit `document_exporter` bleibt möglich, etwa zur Gegenprüfung von Prüfsummen, ist aber nicht der gewählte Weg.
 
-In beiden Fällen: Lauf auf der Hardware des Nutzers; Agents erhalten **weder Token noch Dateien noch Titel/Namen**, nur die Zahlen und Befundcodes, die der Nutzer weitergibt. Der Trockenlauf schreibt nichts ins DMS.
+Ablauf (die genaue Anleitung ist Teil von PA3, geprüft in PA1):
+
+1. **In Paperless:** eigenen Benutzer anlegen, nur Leserechte (Dokumente, Korrespondenten, Dokumenttypen, Tags, Speicherpfade, Zusatzfelder, Notizen). Das Token hat keine eigenen Grenzen, es darf, was der Benutzer darf. Er sieht Objekte ohne Besitzer, eigene und ausdrücklich freigegebene; Dokumente anderer Besitzer müssen für ihn zum Lesen freigegeben sein, sonst fehlen sie im Lauf. Kein Administrator-Token.
+2. **Am Hub:** `SECRET_KEY` gesetzt; die Paperless-Adresse muss `https` mit einem Zertifikat sein, dem der Worker vertraut (ein eigener Aussteller ist heute nicht einstellbar, PA1 prüft das); `DMS_IMPORT_HOST_ALLOWLIST` auf diesen Host. Steht Paperless im Heimnetz, zusätzlich `DMS_ALLOW_INTERNAL_TARGETS=true` für Backend und Worker (gilt dann auch für Mail-Quellen).
+3. Der Nutzer trägt Adresse und Token in der Hub-Oberfläche ein und startet `dry_run`.
+4. Der Nutzer vergleicht die Anzahl der Dokumente mit Paperless und gibt nur Zahlen und Befundcodes weiter.
+5. Token in Paperless widerrufen; für den Vollimport (PA8) ein neues erzeugen.
+
+Lauf auf der Hardware des Nutzers. Agents erhalten **weder Token noch Dateien noch Titel/Namen**; das Token kommt nie in Chat, Board, Repository oder einen Befehl im Shell-Verlauf. Der Trockenlauf schreibt nichts ins DMS.
 
 ## 6. Abnahme zum Umschalten (PA8, Vorschlag)
 
 1. Vollimport ohne ungeklärte Fehler; Anzahl Dokumente, Korrespondenten, Typen, Tags, Notizen entspricht der Quelle bzw. jede Abweichung ist erklärt.
-2. Prüfsummen aller Originale stimmen; Prüflauf grün; höchste ASN übernommen.
+2. Prüfsummen aller Originale stimmen (über die API nur, falls PA1 das belegt; sonst Gegenprüfung mit einem Export); Prüflauf grün; höchste ASN übernommen.
 3. Stichprobe von 20 Dokumenten: finden, öffnen, Metadaten richtig.
 4. Alle genutzten Eingangswege liefern in den Hub (mindestens zwei Wochen Parallelbetrieb).
 5. Backup und Restore mit dem echten Bestand erprobt.

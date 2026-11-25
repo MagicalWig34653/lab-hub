@@ -52,6 +52,8 @@ Betriebsarten je Produkt: (a) komplett lokal, (b) lokal plus iCloud (heute), (c)
 
 ## 4. Produkte und Namen (Vorschlag, ohne Markenprüfung)
 
+**Entschieden (Nutzer, 25.11.2026):** Die Web-PWA heißt „LAB hub“, die Module „invoice“, „docs“ usw. Jedes Modul hat eine eigene native App, die an den Hub angebunden werden kann. Die Tabelle unten bleibt als Ideensammlung.
+
 Familienmarke „LAB“ bleibt. Die Namen sind Ideen; **Marken- und Domainprüfung wurde nicht durchgeführt**, „Lab“ ist generisch.
 
 | Aufgabe | Namensideen |

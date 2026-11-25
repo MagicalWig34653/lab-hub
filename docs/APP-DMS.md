@@ -1,6 +1,8 @@
-# DMS-App: Konzept und Meilensteine
+# App „docs“ (DMS-Modul): Konzept und Meilensteine
 
-Status: Planung, Stand 25.11.2026. Noch kein Code, kein Xcode-Projekt. **Name und Bundle-ID sind offen** (F-33); die Bundle-ID legt der Nutzer in Xcode an. Arbeitstitel hier: „DMS-App“.
+Status: Planung, Stand 25.11.2026. Noch kein Code, kein Xcode-Projekt. Interne Bezeichner im Hub bleiben `dms`.
+
+**Namen und Zuschnitt (Nutzer, 25.11.2026):** Die Web-PWA heißt „LAB hub“, die Module „docs“, „invoice“ usw. **Jedes Modul hat eine eigene native App**, die an den Hub angebunden werden kann – keine Sammel-App. Dieses Dokument beschreibt die App „docs“ und die Grundlage, die alle Modul-Apps teilen (Abschnitt 7). Offen (F-33, beim Anlegen in Xcode): Anzeigename im Store („docs“ oder „LAB docs“), Bundle-ID, Aufteilung der Repositories.
 
 Vorgaben (Nutzer, 25.11.2026): eigenes, ausgefeiltes Konzept (**nicht** nach dem Vorbild Chronolog), alle Apple-Geräte, alle für ein DMS sinnvollen nativen Integrationen, Scanner wählen und Scan starten **auch in der App**. Grundsatz bleibt: Der Hub ist ohne App vollständig nutzbar (`AGENTS.md`); die App ist ein optionaler Client mit eigenständigem Modus.
 
@@ -126,19 +128,21 @@ Mindestversionen laut Apple-Dokumentation, abgerufen am 25.11.2026; „–“ = 
 
 - Anmeldung über den System-Browser mit dem Passkey des Hubs, danach ein widerrufbares **Gerätetoken** im Schlüsselbund (Hub-Funktion fehlt: AB1). Grund: Die native Passkey-Schnittstelle braucht eine beim Bauen feste, verknüpfte Domain; selbst gehostete Hubs haben je eigene.
 - Erweiterungen nutzen App Group und gemeinsame Schlüsselbundgruppe; sie legen nur in den Eingang.
+- Jede Modul-App meldet sich selbst an und erhält ein **eigenes Token, begrenzt auf ihr Modul** (AB1); Widerruf je App und Gerät. Eine zwischen den Apps geteilte Anmeldung (gemeinsame Schlüsselbundgruppe) ist höchstens eine spätere Komfortfunktion.
 - App-Sperre, Dateien mit Datenschutzklasse, Spotlight und Widgets ohne Inhalte bei gesperrtem Gerät, keine Telemetrie, keine externen Dienste.
 
 ## 7. Aufbau (Vorschlag)
 
-| Paket/Ziel | Inhalt |
-| --- | --- |
-| `DocsCore` | Modelle und API-Client passend zum Vertrag, Anmeldung |
-| `DocsLibrary` | Protokoll `Library`, `HubLibrary`, später `LocalLibrary`, Zwischenstand, Eingang |
-| `DocsCapture` | `ScanSource` mit Adaptern Kamera, Bridge, ImageCaptureCore, Continuity, später eSCL |
-| `DocsDesign` | Farben, Typografie, Bausteine, hell/dunkel |
-| App-Ziel(e) | gemeinsame SwiftUI-App mit eigenem Mac-Layout; Erweiterungen je Meilenstein |
+| Paket/Ziel | Für | Inhalt |
+| --- | --- | --- |
+| `LabHubClient` | alle Modul-Apps | Hub-Adresse, Anmeldung, Gerätetoken, Versions- und Modulprüfung, Fehler und Grundlagen des API-Zugriffs |
+| `LabHubDesign` | alle Modul-Apps | Farben, Typografie, Bausteine, hell/dunkel |
+| `DocsCore` | „docs“ | Modelle und API-Aufrufe des Moduls passend zum Vertrag |
+| `DocsLibrary` | „docs“ | Protokoll `Library`, `HubLibrary`, später `LocalLibrary`, Zwischenstand, Eingang |
+| `DocsCapture` | „docs“ | `ScanSource` mit Adaptern Kamera, Bridge, ImageCaptureCore, Continuity, später eSCL |
+| App-Ziel(e) | „docs“ | gemeinsame SwiftUI-App mit eigenem Mac-Layout; Erweiterungen je Meilenstein |
 
-Eigenes Repository (Name nach F-33). Code Englisch, Texte Deutsch. Tests: Paket-Tests, Integration gegen einen lokalen Hub mit Wegwerf-Postgres, UI-Durchlauf im Simulator, Bilder hell und dunkel.
+Die App „invoice“ nutzt dieselben `LabHubClient`/`LabHubDesign` (WP-APP-I0; Annahme: das ist die vorhandene Rechnungs-App). Vorschlag zur Ablage: **ein Repository für alle nativen Apps** mit den gemeinsamen Paketen und je App eigenem Ziel; Alternative je App ein Repository und ein Paket-Repository. Entscheidung des Nutzers beim Anlegen (APP-M0). Die gemeinsamen Pakete werden ab M1 ohne DMS-Bezug geschnitten. Code Englisch, Texte Deutsch. Tests: Paket-Tests, Integration gegen einen lokalen Hub mit Wegwerf-Postgres, UI-Durchlauf im Simulator, Bilder hell und dunkel.
 
 ## 8. Voraussetzungen im Hub
 
@@ -155,7 +159,7 @@ Eigenes Repository (Name nach F-33). Code Englisch, Texte Deutsch. Tests: Paket-
 
 | M | Inhalt | Fertig, wenn | Abh. |
 | --- | --- | --- | --- |
-| APP-M0 | Name, Bundle-ID, Xcode-Projekt (Nutzer), Pakete, CI | leere App baut auf iOS und macOS; Entscheidungen dokumentiert | F-33 |
+| APP-M0 | Anzeigename, Bundle-ID, Xcode-Projekt (Nutzer), gemeinsame und eigene Pakete, CI | leere App „docs“ baut auf iOS und macOS; Entscheidungen dokumentiert | F-33 (Rest) |
 | APP-M1 | iPhone/iPad: Anmeldung, App-Sperre, Dokumentenscanner, Share Extension, Eingang mit Hintergrund-Upload | Scan und geteiltes PDF landen genau einmal im Hub, auch nach Abbruch (E2E im Simulator) | M0, AB1 |
 | APP-M2 | Finden, Dokumentansicht, Klärstapel mit Belegstellen, Live Text, Drag and Drop, Mehrfenster, Scan über Bridge | Scan per Bridge-`test`-Gerät gestartet, geklärt, gefunden; Konfliktfall getestet | M1, AB2, BR2, PA4 |
 | APP-M3 | native Mac-App, ImageCaptureCore, Continuity Camera, Dienste, Action Extension, Spotlight, App Intents | Scan am Mac mit echtem Gerät (Nutzerprobe) und über Bridge; Spotlight findet, Löschen räumt auf | M2 |

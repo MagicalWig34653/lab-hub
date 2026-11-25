@@ -76,22 +76,23 @@ Ausgangsstand (vorhanden, getestet laut `deploy/README.md`/Tests): `migrate`, `s
 |  | ST3 | Swift-Targets `HubCore`/`HubModule*` (F-14) | ST2 | M | nicht parallel zu Backend-WPs | offen |
 |  | ST4 | PWA Darstellung: System/Hell/Dunkel mit Einstellungsseite | – | S | P ST1–ST3 | offen |
 |  | ST5 | PWA Grundbausteine: Fehlertexte, Versions-/Fähigkeitsprüfung, Betreiber-Modulschalter | ST4 | M | P ST2 | offen |
+|  | ST6 | PWA-Namen: „LAB hub“, Module „docs“ und „invoice“ (F-01) | – | S | P ST1–ST3 | offen |
 | 8 Scan-Bridge | BR1 | Hub: Scan-Aufträge, Geräte, Bridge-Routen, Scope und Rechte | ST2 | M |  | offen |
 |  | BR2 | Bridge-Dienst (SANE, sane-airscan), Container, E2E mit `test`-Gerät | BR1 | L |  | offen |
 |  | BR3 | PWA: Scanner wählen und Scan starten | BR2, ST4 | M | P BR4 | offen |
 |  | BR4 | Bridge-Betrieb, Lizenzhinweise, optionaler Ordner-Eingang (F-22) | BR2 | M | P BR3 | offen |
 | 9 Ablösung | PA1 | Paperless-Import gegen echte Instanz (lokal, erfundene Daten) und Sicherheitsprüfung | D6 | M | P ST4 | offen |
 |  | PA2 | PWA: Import anlegen, Trockenlauf, Bericht, Notizen | PA1, F2 | M |  | offen |
-|  | PA3 | Probelauf gegen die echte Instanz und Inventur der Eingangswege (Nutzer) | PA1, PA2, PA7 (Teil 1), F-34 | S |  | offen |
+|  | PA3 | Probelauf mit API-Lese-Token gegen die echte Instanz und Inventur der Eingangswege (Nutzer) | PA1, PA2, PA7 (Teil 1) | S |  | offen |
 |  | PA4 | Miniaturen (Worker, Route, Liste) | O2 | M | P PA2 | offen |
 |  | PA5 | Gespeicherte Ansichten, Mehrfachauswahl, Massenbearbeitung | F4c, S1 | L | P PA4 | offen |
 |  | PA6 | Lücken aus dem Probelauf (Dateitypen, signierte PDFs, Import-Abbildung) | PA3 | M–L |  | offen |
 |  | PA7 | Betriebsreife: Zielrechner, Restore, Zeitplan Prüflauf, Aufräumen Exporte | H2, H9 | M |  | offen |
 |  | PA8 | Vollimport, Parallelbetrieb, Umschalten (Nutzer) | PA3–PA7 | M |  | offen |
-| 10 DMS-App | AB1 | Geräteanmeldung für Apps (Token mit Scopes, Widerruf) | ST2 | M |  | offen |
+| 10 Modul-Apps | AB1 | Geräteanmeldung für Apps (Token mit Scopes, Widerruf) | ST2 | M |  | offen |
 |  | AB2 | Änderungs-Feed für Zwischenstände | D2 | M | P AB1 | offen |
 |  | AB3 | Abgeleitete Fassungen (Anmerkungen) hochladen | D2, D5 | M |  | offen |
-|  | APP-M0 | Name, Bundle-ID, Xcode-Projekt, Pakete, CI | F-33 | S |  | offen |
+|  | APP-M0 | App „docs“: Anzeigename, Bundle-ID, Xcode-Projekt, gemeinsame Pakete, CI | F-33 (Rest) | S |  | offen |
 |  | APP-M1 | iPhone/iPad: Anmeldung, Dokumentenscanner, Teilen, Eingang | APP-M0, AB1 | L |  | offen |
 |  | APP-M2 | Finden, Klärstapel, Live Text, Mehrfenster, Scan über Bridge | APP-M1, AB2, BR2, PA4 | L |  | offen |
 |  | APP-M3 | Native Mac-App, ImageCaptureCore, Continuity, Spotlight, App Intents | APP-M2 | L |  | offen |
@@ -99,6 +100,7 @@ Ausgangsstand (vorhanden, getestet laut `deploy/README.md`/Tests): `migrate`, `s
 |  | APP-M5 | Dateien/Finder (File Provider), Quick Look, Miniaturen, Drucken | APP-M3, PA4 | L |  | offen |
 |  | APP-M6 | Eigenständiger Modus, CloudKit, Verbinden mit Hub, Anmerkungen | APP-M3, AB3 | L |  | offen |
 |  | APP-M7 | Foundation Models, Vision Pro, Watch, Push, eSCL direkt | APP-M4–M6 | L |  | offen |
+|  | APP-I0 | App „invoice“: Konzept zum Anbinden an den Hub (eigene App je Modul) | APP-M1, R4 | S |  | offen |
 
 Grundsatz: Hub ohne Swift-App nutzbar (`AGENTS.md`); die Rechnungsphase ist daher kein optionaler Anhang, sondern gleichwertig. Kritische Pfade: **DMS** K0 → K1 → K2 → K3 → D2 → O1 → O2 → S1 → F4; **Rechnung** R0 (Linux-Rechenkern) → R1 → R2 → R6a/R6 (Renderer) → F6 → F7; beide laufen nach K3 parallel (getrennter Dateibesitz). Früh parallel starten: K4, D1, K6, R0, H1, F1 (sobald K1/K4).
 
@@ -249,6 +251,8 @@ Grundlage: `docs/ARCHITEKTUR-ABGLEICH-TIMETRACK.md` (25.11.2026). Timetrack ist 
 
 **WP-ST5 PWA Grundbausteine (M).** Akzeptanz: AK-ST5-1 einheitliche Fehlerbeschreibung je Problem-Code; ST5-2 Prüfung von `/api/version` mit Hinweis bei unpassendem Stand; ST5-3 Betreiber schaltet Module in der Oberfläche (nur Betreiberrecht, Test erlaubt/verboten).
 
+**WP-ST6 PWA-Namen (S).** Nutzer 25.11.2026: Die PWA heißt „LAB hub“, die Module „docs“, „invoice“ usw. Akzeptanz: AK-ST6-1 Titel, App-Name und Recovery-Datei zeigen „LAB hub“ (Manifest in WP-F3 übernimmt den Namen); ST6-2 Modulüberschriften in de und en „docs“ bzw. „invoice“, interne Schlüssel und Routen (`dms`, `invoice`) unverändert; ST6-3 Tests angepasst, Bilder hell und dunkel angesehen.
+
 ## Phase 8 – Scan-Bridge
 
 Grundlage: `docs/SCAN-BRIDGE.md`.
@@ -265,11 +269,11 @@ Grundlage: `docs/SCAN-BRIDGE.md`.
 
 Grundlage und Reihenfolge: `docs/PAPERLESS-ABLOESUNG.md`. Private Bestandsdaten gelangen nie in Repo oder Modellkontext.
 
-**WP-PA1 Import verifizieren (M).** Akzeptanz: AK-PA1-1 lokale paperless-ngx-Instanz im Container mit erfundenen Dokumenten (Skript, Version festgehalten, kein GPL-Code im Repo); PA1-2 Import aus Export **und** API vergleicht Anzahlen und Hashes, Abweichungen als Tests (rot, dann behoben); PA1-3 Sicherheitsprüfung D6 (SSRF, TLS, Pfade, Transaktion), Befunde behoben oder dokumentiert.
+**WP-PA1 Import verifizieren (M).** Akzeptanz: AK-PA1-1 lokale paperless-ngx-Instanz im Container mit erfundenen Dokumenten (Skript, Version festgehalten, kein GPL-Code im Repo); PA1-2 Import aus Export **und** API vergleicht Anzahlen und Hashes, Abweichungen als Tests (rot, dann behoben); PA1-3 Sicherheitsprüfung D6 (SSRF, TLS, Pfade, Transaktion), Befunde behoben oder dokumentiert; PA1-4 API-Weg (F-34) mit einem Benutzer nur mit Leserechten: Anzahlen entsprechen dem für ihn Sichtbaren, fehlende Rechte ergeben einen klaren Befund; PA1-5 API-Version fest angefragt (`Accept: …; version=`) und gegen die geprüfte Paperless-Version getestet; PA1-6 Prüfsummen über die API belegt (falls die Quelle sie liefert) oder im Bericht als fehlend ausgewiesen, mit Weg zur Gegenprüfung; PA1-7 gespeichertes Token wird gelöscht, sobald der Lauf beendet ist (fertig, fehlgeschlagen, abgebrochen); PA1-8 Dokumente mit mehreren Fassungen: übernommen oder im Bericht gezählt.
 
-**WP-PA2 Import in der PWA (M).** Akzeptanz: AK-PA2-1 Quelle wählen, Trockenlauf, Fortschritt, Abbruch, Bericht; Token nie wieder angezeigt; PA2-2 Notizen am Dokument sichtbar; PA2-3 E2E gegen echtes Backend, Bilder hell und dunkel.
+**WP-PA2 Import in der PWA (M).** Akzeptanz: AK-PA2-1 Quelle wählen, Trockenlauf, Fortschritt, Abbruch, Bericht; Adresse und Token trägt der Nutzer hier ein (Passwortfeld, ohne Speichern im Browser), das Token wird nie wieder angezeigt oder protokolliert; PA2-2 Notizen am Dokument sichtbar; PA2-3 E2E gegen echtes Backend, Bilder hell und dunkel.
 
-**WP-PA3 Probelauf (S, Nutzer).** Akzeptanz: AK-PA3-1 Anleitung ohne Datenweitergabe; PA3-2 Trockenlauf-Zahlen und Befundcodes liegen vor; PA3-3 genutzte Eingangswege und Funktionen aufgelistet, Lücken eingestuft. Blockiert durch F-34.
+**WP-PA3 Probelauf (S, Nutzer).** Weg entschieden (F-34, 25.11.2026): API-Token nur zum Lesen, vom Nutzer selbst im Hub eingetragen. Start erst nach PA1 und PA2. Akzeptanz: AK-PA3-1 Anleitung (eigener Paperless-Benutzer nur mit Leserechten, Netz- und Zertifikatsvoraussetzungen, Token widerrufen) ohne Datenweitergabe; PA3-2 Trockenlauf-Zahlen und Befundcodes liegen vor, Anzahl Dokumente mit Paperless verglichen; PA3-3 genutzte Eingangswege und Funktionen aufgelistet, Lücken eingestuft.
 
 **WP-PA4 Miniaturen (M).** Akzeptanz: AK-PA4-1 Worker erzeugt Rolle `thumbnail`, Quota und Zeitlimit; PA4-2 Nachlauf für Bestand, fortsetzbar; PA4-3 Liste hell/dunkel, ohne Recht kein Zugriff.
 
@@ -281,17 +285,19 @@ Grundlage und Reihenfolge: `docs/PAPERLESS-ABLOESUNG.md`. Private Bestandsdaten 
 
 **WP-PA8 Umschalten (M, Nutzer).** Akzeptanz: Abschnitt 6 der Ablösungsplanung.
 
-## Phase 10 – DMS-App und Hub-Voraussetzungen
+## Phase 10 – Native Modul-Apps und Hub-Voraussetzungen
 
-Grundlage: `docs/APP-DMS.md`. Kein Hub-WP darf die App voraussetzen. APP-Meilensteine liegen in einem eigenen Repository.
+Grundlage: `docs/APP-DMS.md`. Je Modul eine eigene native App, an den Hub anbindbar (Nutzer 25.11.2026); „docs“ zuerst. Kein Hub-WP darf eine App voraussetzen. Die APP-Meilensteine liegen außerhalb dieses Repositorys (Aufteilung: APP-M0).
 
-**WP-AB1 Geräteanmeldung (M).** Akzeptanz: AK-AB1-1 Anmeldung über System-Browser, Einmalcode mit PKCE gegen Gerätetoken; AB1-2 Scopes, Mandantenbindung, Widerruf wirkt sofort, Liste in der PWA; AB1-3 abgefangener oder zweiter Code scheitert; Zwei-Instanzen-Test.
+**WP-AB1 Geräteanmeldung (M).** Akzeptanz: AK-AB1-1 Anmeldung über System-Browser, Einmalcode mit PKCE gegen Gerätetoken; AB1-2 Scopes, Mandantenbindung, Widerruf wirkt sofort, Liste in der PWA; AB1-3 abgefangener oder zweiter Code scheitert; Zwei-Instanzen-Test; AB1-4 jede Modul-App erhält ein eigenes Token, begrenzt auf ihr Modul (Test: Token der „docs“-App erreicht keine Rechnungsrouten).
 
 **WP-AB2 Änderungs-Feed (M).** Akzeptanz: AK-AB2-1 „Änderungen seit Cursor“ inkl. Löschungen, rechte- und mandantengefiltert; AB2-2 keine verlorene Änderung bei gleichzeitigen Schreibern (Zwei-Verbindungen-Test).
 
 **WP-AB3 Fassungen (M).** Akzeptanz: AK-AB3-1 Upload einer abgeleiteten Datei, Original unverändert; AB3-2 Quota, Audit, Löschkonzept erfasst sie.
 
-**APP-M0 bis APP-M7.** Inhalt und „Fertig, wenn“ je Meilenstein: `docs/APP-DMS.md` Abschnitt 9; Integrationen je Meilenstein Abschnitt 5.
+**APP-M0 bis APP-M7 (App „docs“).** Inhalt und „Fertig, wenn“ je Meilenstein: `docs/APP-DMS.md` Abschnitt 9; Integrationen je Meilenstein Abschnitt 5.
+
+**WP-APP-I0 App „invoice“ (S, Konzept).** Annahme: Die vorhandene Rechnungs-App (heute Taxlab) wird die native App des Moduls. Akzeptanz: AK-APP-I0-1 Konzept für das Anbinden an den Hub (Anmeldung und gemeinsame Pakete aus `APP-DMS.md` Abschnitt 7, Betrieb mit und ohne Hub, Übernahme der Daten über R4); AK-APP-I0-2 nötige Hub-WPs benannt; kein Eingriff in das App-Repository ohne Absprache.
 
 ## Pflege dieser Datei
 

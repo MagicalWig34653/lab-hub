@@ -1,4 +1,4 @@
-# LAB hub (Arbeitsname)
+# LAB hub
 
 Selbst hostbares Backend mit PWA für eine Familie modularer Produkte. Jedes Produkt ist ein Modul (ein-/ausschaltbar je Betreiber und Mandant); mit Backend arbeiten alle Module über einen gemeinsamen Kern (Mandanten, Nutzer, Rechte, Kontakte, Dateien, Zähler, Suche, Audit, Events). Der Hub ist vollständig ohne Swift-App nutzbar (Backend + PWA); die Swift-Apps (z. B. Taxlab) sind optionale Clients und laufen weiterhin eigenständig ohne Backend.
 
@@ -9,7 +9,8 @@ Geplante Module: **Rechnung** (heute Taxlab, Fachlogik im Repo `taxlab`) und **D
 - **Vorhanden (Code):** Swift/Vapor-Gerüst in `backend/` mit `migrate` (Advisory Lock), Nummernzähler, Idempotency, Jobs mit Lease, `/health`, `/ready`, Konfiguration über Env/`_FILE`; Deploy-Skripte (Compose real getestet, Swarm ungetestet).
 - **Vorhanden (Planung):** Architektur, Modulentwürfe, Roadmap mit Arbeitspaketen, offene Fragen, ADRs. **Noch kein Feature-Code**, `pwa/` ist leer.
 - Entscheidungen: ADR 0001–0003 entschieden; 0004–0007 vorgeschlagen.
-- Name, Bundle-IDs und Domains sind vorläufig. Lizenz AGPL-3.0-only (privates Repo; Prüfung der gebündelten BoringSSL-Kopie steht in WP-K0 aus, siehe `docs/OFFENE-FRAGEN.md` F-03).
+- Namen (Nutzer 25.11.2026): PWA „LAB hub“, Module „docs“, „invoice“ usw.; je Modul eine eigene native App, die an den Hub angebunden werden kann. Marken-, Domain- und Bundle-ID-Prüfung offen.
+- Lizenz AGPL-3.0-only, öffentliches Repository. Stand zur gebündelten BoringSSL-Kopie: `docs/LIZENZEN.md`, `docs/OFFENE-FRAGEN.md` F-03 (keine Rechtsberatung).
 
 ## Dokumentenindex
 
@@ -19,7 +20,7 @@ Geplante Module: **Rechnung** (heute Taxlab, Fachlogik im Repo `taxlab`) und **D
 | `docs/ROADMAP.md` | Phasen und Arbeitspakete (WP) mit Abhängigkeiten, Akzeptanzkriterien, Teststrategie |
 | `docs/ARCHITEKTUR-ABGLEICH-TIMETRACK.md` | Struktur-Abgleich mit Timetrack/Chronolog, Umbau-WPs (Planung) |
 | `docs/SCAN-BRIDGE.md` | Netzwerkscanner über SANE als eigener Dienst, F-22, Lizenzen (Planung) |
-| `docs/APP-DMS.md` | Konzept der DMS-App für Apple-Geräte, Integrationen, Meilensteine (Planung) |
+| `docs/APP-DMS.md` | Native App „docs“ (DMS-Modul) für Apple-Geräte, gemeinsame App-Grundlage, Integrationen, Meilensteine (Planung) |
 | `docs/PAPERLESS-ABLOESUNG.md` | Was zur Ablösung von paperless-ngx fehlt, Reihenfolge, Probelauf |
 | `docs/ARCHITEKTUR.md` | Schichten, Modul-System, gemeinsamer Kern, API-Stil, Sync-Entwurf, Datenschutz, Betrieb |
 | `docs/MODUL-DMS.md` | Paperless-Analyse, Problem/Lösung, Datenmodell, Ingest, OCR, Suche, Revisionssicherheit, API, Import |

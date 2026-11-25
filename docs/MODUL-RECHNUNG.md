@@ -1,4 +1,4 @@
-# Modul Rechnung (heute „Taxlab“, später „LAB income“ o. ä.) – Entwurf
+# Modul Rechnung, Name „invoice“ (heute „Taxlab“; Nutzer 25.11.2026) – Entwurf
 
 Status: Entwurf, Stand 01.11.2026. Modulschlüssel `invoice`. **Alle Entscheidungen hier sind Vorschläge**; offene Punkte sind mit **[OFFEN F-xx]** markiert (`OFFENE-FRAGEN.md`). Rahmen: `ARCHITEKTUR.md`. Namensfrage F-01.
 
