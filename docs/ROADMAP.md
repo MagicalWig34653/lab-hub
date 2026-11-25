@@ -44,7 +44,7 @@ Ausgangsstand (vorhanden, getestet laut `deploy/README.md`/Tests): `migrate`, `s
 | 4 Rechnung | R0 | Spike: Linux-Build Rechenkern, Testvektoren | K0 | S | P ab Phase 0 | umgesetzt (Branch wp-R0, `docs/handoff/WP-R0.md`) |
 | | R1 | Stammdaten Rechnung | K3, K5, R0 | M | | umgesetzt (Branch wp-R1, `docs/handoff/WP-R1.md`) |
 | | R2 | Belege, Berechnung, Finalisieren mit Hub-Zähler | R1, K6 | L | | umgesetzt (Branch wp-R2, `docs/handoff/WP-R2.md`) |
-| | R3 | Zahlungen, Gutschrift, Umwandlung | R2 | M | | offen |
+| | R3 | Zahlungen, Gutschrift, Umwandlung | R2 | M | | umgesetzt (`docs/handoff/WP-R3.md`) |
 | | R4 | Taxlab-Import/Export | R2 | M | P R3 | offen |
 | | R5 | E-Rechnung Erzeugung (Server) | R2 | M | P R3, R4 | offen |
 | | R6a | Spike Renderer: Optionen (a)/(b)/(c) gegen Referenz-PDFs | R0 | M | P R1, R2 | offen |
@@ -175,6 +175,7 @@ Grundsatz: Hub ohne Swift-App nutzbar (`AGENTS.md`); die Rechnungsphase ist dahe
 *Status WP-R2: umgesetzt (Rechenkern gegen die Testvektoren, Beleg-Entwurf CRUD mit Serversummen, Finalisieren mit Hub-Zähler in einer Transaktion, Unveränderlichkeit per Trigger, AK-R4 mit 50 parallelen Finalisierungen über zwei Instanzen; Details `MODUL-RECHNUNG.md` Abschnitt 14 und `docs/handoff/WP-R2.md`). Nächste Schritte: R3 (Zahlungen, Gutschrift), R5, R6a.*
 
 **WP-R3 Zahlungen, Gutschrift, Umwandlung (M).** Skonto, Zuordnung nie still, Verknüpfungen Beleg↔Beleg. Abh.: R2.
+*Status WP-R3: umgesetzt (Zahlungen mit Skonto, Zuordnung nur nach Bestätigung, Gutschrift, Umwandlung, Verknüpfungen, Salden gegen die Testvektoren, E2E über HTTP gegen Postgres; Details `MODUL-RECHNUNG.md` Abschnitt 15 und `docs/handoff/WP-R3.md`). Skontoregeln sind Annahme (F-32). Nächste Schritte: R4, R5, R6a, danach Bankimport (R3b), R7.*
 
 **WP-R4 Taxlab-Import/Export (M).** `MODUL-RECHNUNG.md` Abschnitt 8; Format nach F-09. Akzeptanz: Fixture-Import identisch, idempotent, Zähler gesetzt. Abh.: R2.
 

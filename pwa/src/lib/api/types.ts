@@ -1984,6 +1984,228 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tenants/{tenant}/invoice/documents/{id}/convert": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Beleg umwandeln (Berechtigung invoice.document.create)
+         * @description Erzeugt aus einem finalisierten Beleg einen Entwurf der Zielart (Kopf, Positionen, Zusatzkosten, Skontobedingung kopiert) und verknuepft beide (kind conversion). Wege: quote nach order_confirmation, delivery_note, invoice; order_confirmation nach delivery_note, invoice; delivery_note nach invoice; sonst 422 conversion_not_allowed. Entwurf als Ausgangsbeleg 409 document_not_final. Die Art des Entwurfs ist gesperrt (kind_locked). Optional Idempotency-Key.
+         */
+        post: operations["convertInvoiceDocument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/invoice/documents/{id}/credit-note": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Gutschrift zu einer Rechnung anlegen (Berechtigung invoice.document.create)
+         * @description Entwurf mit negierten Mengen und Betraegen der finalisierten Rechnung, verknuepft (kind credit_note); aenderbar fuer Teilgutschriften. Wirkt erst nach dem Finalisieren. Dabei geprueft (422, keine Nummer verbraucht): Summe negativ (credit_must_be_negative), gleiche Waehrung und gleicher Kontakt (differs_from_invoice), alle Gutschriften zusammen nie mehr als die Rechnung (credit_exceeds_invoice). Optional Idempotency-Key.
+         */
+        post: operations["createInvoiceCreditNote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/invoice/documents/{id}/balance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Saldo einer finalisierten Rechnung (Berechtigung invoice.payment.read)
+         * @description Nur finalisierte Rechnungen (sonst 409 document_not_final bzw. 422 not_an_invoice). open_balance = Brutto minus zugeordnete Zahlungen minus gewaehrtes Skonto; total_balance zieht finalisierte Gutschriften ab.
+         */
+        get: operations["getInvoiceBalance"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/invoice/documents/{id}/links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Verknuepfungen eines Belegs (Berechtigung invoice.document.read) */
+        get: operations["listInvoiceDocumentLinks"];
+        put?: never;
+        /**
+         * Referenz auf einen anderen Beleg anlegen (Berechtigung invoice.document.update)
+         * @description Nur kind reference; conversion und credit_note entstehen ausschliesslich durch Umwandlung bzw. Gutschrift. Je Belegpaar eine Referenz (409 conflict).
+         */
+        post: operations["createInvoiceDocumentLink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/invoice/documents/{id}/links/{link}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Referenz entfernen (Berechtigung invoice.document.update)
+         * @description Verknuepfungen aus Umwandlung und Gutschrift: 409 document_link_locked (ein Entwurf samt Verknuepfung verschwindet durch Loeschen des Entwurfs).
+         */
+        delete: operations["deleteInvoiceDocumentLink"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/invoice/payments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Zahlungen (Berechtigung invoice.payment.read)
+         * @description Neueste zuerst, hoechstens 1000. unassigned=true: nicht stornierte Zahlungen mit nicht zugeordnetem Rest.
+         */
+        get: operations["listInvoicePayments"];
+        put?: never;
+        /**
+         * Zahlungseingang erfassen (Berechtigung invoice.payment.write)
+         * @description Legt eine Zahlung ohne Zuordnung an: es wird nie automatisch zugeordnet. Betrag als Dezimal-String mit hoechstens 2 Nachkommastellen. Optional Idempotency-Key.
+         */
+        post: operations["createInvoicePayment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/invoice/payments/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Zahlung mit Zuordnungen samt Historie (Berechtigung invoice.payment.read) */
+        get: operations["getInvoicePayment"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/invoice/payments/{id}/suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Zuordnungsvorschlaege (Berechtigung invoice.payment.read)
+         * @description Reine Abfrage, aendert nichts. Offene finalisierte Rechnungen gleicher Waehrung mit mindestens einer Begruendung (number_in_reference, amount_matches_open, amount_matches_skonto, same_contact), beste zuerst, hoechstens 20.
+         */
+        get: operations["suggestInvoiceAllocations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/invoice/payments/{id}/allocations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Zahlung ausdruecklich zuordnen (Berechtigung invoice.payment.write)
+         * @description Nur mit confirmed=true. Beleg, Betrag und Skonto kommen ausschliesslich aus der Anfrage. Grenzen (422): exceeds_payment; exceeds_open_amount ohne overpayment=true; Skonto nur mit Bedingung am Beleg (skonto_not_allowed), Zahldatum innerhalb der Frist (skonto_period_expired), hoechstens vereinbarter Satz auf Brutto abzueglich Gutschriften (skonto_exceeds_terms) und nur wenn der Rest damit ausgeglichen ist (skonto_must_settle). 409: payment_voided, document_not_final, conflict (schon zugeordnet). Optional Idempotency-Key.
+         */
+        post: operations["allocateInvoicePayment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/invoice/payments/{id}/allocations/{allocation}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Zuordnung zuruecknehmen (Berechtigung invoice.payment.write)
+         * @description Die Zuordnung bleibt mit revoked_at in der Historie.
+         */
+        delete: operations["revokeInvoiceAllocation"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/invoice/payments/{id}/void": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Fehlbuchung stornieren (Berechtigung invoice.payment.write)
+         * @description Nur ohne aktive Zuordnung (409 payment_allocated); Grund Pflicht. Zahlungen werden nie geloescht.
+         */
+        post: operations["voidInvoicePayment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2100,7 +2322,7 @@ export interface components {
              * @description Stabiler maschinenlesbarer Code
              * @enum {string}
              */
-            code: "api_token_unbound" | "bad_request" | "conflict" | "contact_merged" | "csrf_invalid" | "document_final_immutable" | "document_linked" | "document_not_trashed" | "document_trashed" | "forbidden" | "handle_taken" | "idempotency_in_progress" | "idempotency_key_required" | "idempotency_key_reused" | "ingest_not_failed" | "internal_error" | "invalid_cursor" | "invalid_limit" | "invitation_invalid" | "last_owner" | "last_passkey" | "legal_hold" | "login_failed" | "method_not_allowed" | "module_disabled" | "module_required_by" | "module_requires" | "module_unavailable" | "not_found" | "number_conflict" | "passkey_invalid" | "payload_too_large" | "precondition_failed" | "recovery_session_restricted" | "retention_not_expired" | "series_in_use" | "service_unavailable" | "setup_token_invalid" | "storage_quota_exceeded" | "suggestion_decided" | "suggestion_stale" | "tax_period_overlap" | "tenant_required" | "too_many_requests" | "unauthorized" | "unsupported_media_type" | "upload_interrupted" | "validation_failed";
+            code: "api_token_unbound" | "bad_request" | "conflict" | "contact_merged" | "csrf_invalid" | "document_final_immutable" | "document_link_locked" | "document_linked" | "document_not_final" | "document_not_trashed" | "document_trashed" | "forbidden" | "handle_taken" | "idempotency_in_progress" | "idempotency_key_required" | "idempotency_key_reused" | "ingest_not_failed" | "internal_error" | "invalid_cursor" | "invalid_limit" | "invitation_invalid" | "last_owner" | "last_passkey" | "legal_hold" | "login_failed" | "method_not_allowed" | "module_disabled" | "module_required_by" | "module_requires" | "module_unavailable" | "not_found" | "number_conflict" | "passkey_invalid" | "payload_too_large" | "payment_allocated" | "payment_voided" | "precondition_failed" | "recovery_session_restricted" | "retention_not_expired" | "series_in_use" | "service_unavailable" | "setup_token_invalid" | "storage_quota_exceeded" | "suggestion_decided" | "suggestion_stale" | "tax_period_overlap" | "tenant_required" | "too_many_requests" | "unauthorized" | "unsupported_media_type" | "upload_interrupted" | "validation_failed";
             detail?: string;
             request_id: string;
             errors?: components["schemas"]["FieldError"][];
@@ -3133,6 +3355,8 @@ export interface components {
             tax_total: string;
             gross_total: string;
             discount_total: string;
+            skonto_percent: string | null;
+            skonto_days: number | null;
             /** @enum {string|null} */
             tax_regime: "standard" | "small_business" | null;
             /** @description Eingefrorene Absenderdaten (Einstellungen beim Finalisieren) */
@@ -3229,6 +3453,10 @@ export interface components {
             header_text?: string | null;
             footer_text?: string | null;
             note?: string | null;
+            /** @description Skontosatz, groesser 0; nur zusammen mit skonto_days */
+            skonto_percent?: string | null;
+            /** @description Frist in Tagen ab Belegdatum */
+            skonto_days?: number | null;
             lines?: {
                 /**
                  * @description item: Artikelposition (quantity, unit_price, tax_rate Pflicht); text: reine Textzeile
@@ -3252,6 +3480,177 @@ export interface components {
                 tax_rate: string;
                 amount: string;
             }[];
+        };
+        InvoiceDeriveInput: {
+            /**
+             * Format: uuid
+             * @description Belegtyp des neuen Entwurfs
+             */
+            document_type_id: string;
+            /**
+             * Format: date
+             * @description Standard: heute (UTC, Datenbankuhr)
+             */
+            issue_date?: string;
+        };
+        InvoiceBalance: {
+            /** Format: uuid */
+            document_id: string;
+            currency: string;
+            gross_total: string;
+            paid: string;
+            skonto: string;
+            /** @description Summe finalisierter Gutschriften (positiv) */
+            credited: string;
+            open_balance: string;
+            /** @description negativ = ueberzahlt */
+            total_balance: string;
+            /** @enum {string} */
+            payment_status: "open" | "partial" | "settled" | "overpaid";
+            skonto_terms: {
+                percent: string;
+                days: number;
+                /** Format: date */
+                deadline: string;
+                /** @description hoechstes Skonto auf Brutto abzueglich Gutschriften */
+                amount: string;
+            } | null;
+            allocations: {
+                /** Format: uuid */
+                id: string;
+                /** Format: uuid */
+                payment_id: string;
+                /** Format: date */
+                paid_on: string;
+                amount: string;
+                skonto_amount: string;
+                overpayment: boolean;
+                /** Format: date-time */
+                confirmed_at: string;
+                /** Format: uuid */
+                confirmed_by: string;
+            }[];
+            credit_notes: {
+                /** Format: uuid */
+                id: string;
+                number: string;
+                gross_total: string;
+            }[];
+        };
+        InvoiceDocumentLink: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            kind: "conversion" | "credit_note" | "reference";
+            /**
+             * @description outgoing: dieser Beleg ist Ausgangsbeleg
+             * @enum {string}
+             */
+            direction: "outgoing" | "incoming";
+            /** Format: date-time */
+            created_at: string;
+            document: {
+                /** Format: uuid */
+                id: string;
+                /** @enum {string} */
+                kind: "quote" | "order_confirmation" | "delivery_note" | "invoice" | "credit_note";
+                /** @enum {string} */
+                status: "draft" | "final" | "cancelled";
+                number: string | null;
+                /** Format: date */
+                issue_date: string;
+                currency: string;
+                gross_total: string;
+            };
+        };
+        InvoiceDocumentLinkInput: {
+            /** Format: uuid */
+            target_id: string;
+        };
+        InvoicePayment: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            contact_id: string | null;
+            /** Format: date */
+            paid_on: string;
+            amount: string;
+            currency: string;
+            /** @enum {string} */
+            method: "bank_transfer" | "cash" | "card" | "direct_debit" | "other";
+            reference: string | null;
+            note: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: uuid */
+            created_by: string;
+            /** Format: date-time */
+            voided_at: string | null;
+            /** Format: uuid */
+            voided_by: string | null;
+            void_reason: string | null;
+            allocated: string;
+            unallocated: string;
+            /** @description inklusive zurueckgenommener (revoked_at) */
+            allocations: {
+                /** Format: uuid */
+                id: string;
+                /** Format: uuid */
+                document_id: string;
+                document_number: string;
+                amount: string;
+                skonto_amount: string;
+                overpayment: boolean;
+                /** Format: date-time */
+                confirmed_at: string;
+                /** Format: uuid */
+                confirmed_by: string;
+                /** Format: date-time */
+                revoked_at: string | null;
+                /** Format: uuid */
+                revoked_by: string | null;
+            }[];
+        };
+        InvoicePaymentInput: {
+            /** @description groesser 0 */
+            amount: string;
+            /** Format: date */
+            paid_on: string;
+            /** @description Standard: Waehrung der Einstellungen, sonst EUR */
+            currency?: string;
+            /**
+             * @default bank_transfer
+             * @enum {string}
+             */
+            method: "bank_transfer" | "cash" | "card" | "direct_debit" | "other";
+            reference?: string | null;
+            note?: string | null;
+            /** Format: uuid */
+            contact_id?: string | null;
+        };
+        InvoiceAllocationInput: {
+            /** Format: uuid */
+            document_id: string;
+            amount: string;
+            /** @description Standard 0 */
+            skonto_amount?: string | null;
+            /** @description true erlaubt mehr als den offenen Betrag */
+            overpayment?: boolean | null;
+            /** @constant */
+            confirmed: true;
+        };
+        InvoicePaymentVoidInput: {
+            reason: string;
+        };
+        InvoiceAllocationSuggestion: {
+            /** Format: uuid */
+            document_id: string;
+            document_number: string;
+            open_amount: string;
+            /** @description vorgeschlagener Betrag */
+            amount: string;
+            skonto_amount: string;
+            reasons: ("number_in_reference" | "amount_matches_open" | "amount_matches_skonto" | "same_contact")[];
         };
         InvoiceItemInput: {
             sku?: string | null;
@@ -7660,6 +8059,404 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InvoiceDocument"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    convertInvoiceDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                id: components["parameters"]["InvoiceMasterId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvoiceDeriveInput"];
+            };
+        };
+        responses: {
+            /** @description Entwurf angelegt */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceDocument"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    createInvoiceCreditNote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                id: components["parameters"]["InvoiceMasterId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvoiceDeriveInput"];
+            };
+        };
+        responses: {
+            /** @description Gutschrift-Entwurf angelegt */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceDocument"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getInvoiceBalance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                id: components["parameters"]["InvoiceMasterId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Saldo */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceBalance"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listInvoiceDocumentLinks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                id: components["parameters"]["InvoiceMasterId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Verknuepfungen */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["InvoiceDocumentLink"][];
+                    };
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    createInvoiceDocumentLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                id: components["parameters"]["InvoiceMasterId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvoiceDocumentLinkInput"];
+            };
+        };
+        responses: {
+            /** @description Angelegt */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceDocumentLink"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    deleteInvoiceDocumentLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                id: components["parameters"]["InvoiceMasterId"];
+                link: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Entfernt */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+        };
+    };
+    listInvoicePayments: {
+        parameters: {
+            query?: {
+                unassigned?: boolean;
+                contact_id?: string;
+            };
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Zahlungen */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["InvoicePayment"][];
+                    };
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    createInvoicePayment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvoicePaymentInput"];
+            };
+        };
+        responses: {
+            /** @description Erfasst */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoicePayment"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getInvoicePayment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                id: components["parameters"]["InvoiceMasterId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Zahlung */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoicePayment"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    suggestInvoiceAllocations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                id: components["parameters"]["InvoiceMasterId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Vorschlaege */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["InvoiceAllocationSuggestion"][];
+                    };
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    allocateInvoicePayment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                id: components["parameters"]["InvoiceMasterId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvoiceAllocationInput"];
+            };
+        };
+        responses: {
+            /** @description Zugeordnet */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoicePayment"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    revokeInvoiceAllocation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                id: components["parameters"]["InvoiceMasterId"];
+                allocation: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Zurueckgenommen */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoicePayment"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    voidInvoicePayment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                id: components["parameters"]["InvoiceMasterId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvoicePaymentVoidInput"];
+            };
+        };
+        responses: {
+            /** @description Storniert */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoicePayment"];
                 };
             };
             401: components["responses"]["Problem"];

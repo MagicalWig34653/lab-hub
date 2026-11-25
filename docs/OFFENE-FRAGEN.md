@@ -37,6 +37,7 @@ Priorität: **A** blockiert bald einen Meilenstein, **B** vor dem betroffenen WP
 | F-29 | C | Sprachen: Oberfläche de/en reicht? Backend-Fehlertexte nur Deutsch? | de/en, Backend liefert Codes + deutsche Meldung, PWA übersetzt per Code | F1 |
 | F-30 | C | Git-Strategie: nur `main` oder Branch je WP/PR? | Für Einzelnutzer/Agents: Branch je WP, Merge nach `main` nach grünen Tests, Push nach jedem WP. Aktuell `main` (Vorgabe: immer pushen); bei parallelen Agents Branches nutzen | ab K1 |
 | F-31 | A | **Neue Anforderung:** Hub komplett ohne Swift-App nutzbar (Apps = optionale Clients). Gehört der Layout-Designer in die PWA? | Hub-Vollständigkeit als Grundsatz (Nutzerentscheidung 01.11.2026, siehe unten). Layout-Designer in der PWA: V1 nur Layout-Auswahl, Import vorhandener Layouts (App-/Totals-Importformat, serverseitig gerendert) und Parameter (Logo, Farben, Texte); vollständiger grafischer Designer als eigenes WP (F7, L) nach Renderer-Entscheidung, weil Designer und Renderer dasselbe Layoutmodell teilen müssen (Entwurf `FRONTEND.md` Abschnitt 13) | R6, F7 |
+| F-32 | B | Skontoregeln (in `taxlab` keine Rechenregel vorhanden, R0-Befund): Stufen, Fristbeginn, Kulanz, USt-Korrektur? | **Umgesetzt in R3 (25.11.2026, Annahme bis Bestätigung):** eine Stufe (Satz, Tage ab Belegdatum), maßgeblich ist das Zahldatum der ausgleichenden Zahlung, höchstens Satz × (Brutto − Gutschriften) auf Cent, nur bei vollständigem Ausgleich, Gewährung immer ausdrücklich. Mehrere Stufen, Kulanztage und USt-Korrektur bei Bedarf später (R7) | R7 |
 
 ## Entschieden
 

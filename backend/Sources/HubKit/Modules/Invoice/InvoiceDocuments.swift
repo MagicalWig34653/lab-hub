@@ -21,7 +21,9 @@ enum InvoiceDocuments {
         .init(name: "discount_percent", kind: .decimal(intDigits: 3, min: 0, max: 100), defaultValue: .decimal("0")),
         .init(name: "discount_amount", kind: .decimal(intDigits: 14, min: nil, max: nil)),
         .init(name: "rounding_mode", kind: .oneOf(InvoiceRounding.Mode.allCases.map(\.rawValue)), defaultValue: .text("halfAwayFromZero")),
-        .init(name: "header_text", kind: .text(max: 5000)), .init(name: "footer_text", kind: .text(max: 5000)), .init(name: "note", kind: .text(max: 5000))], order: "")
+        .init(name: "header_text", kind: .text(max: 5000)), .init(name: "footer_text", kind: .text(max: 5000)), .init(name: "note", kind: .text(max: 5000)),
+        // WP-R3: Skontobedingung, nur gemeinsam (Satz und Frist ab Belegdatum)
+        .init(name: "skonto_percent", kind: .decimal(intDigits: 2, min: Decimal(string: "0.0001"), max: nil)), .init(name: "skonto_days", kind: .int(0...365))], order: "")
 
     static let lineSpec = InvoiceMasterSpec(segment: "lines", audit: "line", table: "invoice_lines", fields: [
         .init(name: "kind", kind: .oneOf(["item", "text"]), required: true), .init(name: "item_id", kind: .ref(table: "invoice_items")),
@@ -63,10 +65,11 @@ enum InvoiceDocuments {
     private static let metaPairs = """
         'status', r.status, 'series_id', upper(r.series_id::text), 'number', r.number, 'counter_value', r.counter_value, 'tax_regime', r.tax_regime,
         'sender', r.sender, 'recipient', r.recipient, 'content_hash', r.content_hash, 'finalized_at', r.finalized_at, 'finalized_by', upper(r.finalized_by::text),
-        'rev', r.rev, 'created_at', r.created_at, 'updated_at', r.updated_at
+        'rev', r.rev, 'created_at', r.created_at, 'updated_at', r.updated_at, 'skonto_percent', r.skonto_percent::text, 'skonto_days', r.skonto_days
         """
     /// Inhalt des Belegs (Kopf, Positionen, Zusatzkosten, Steuersummen) ohne Metadaten: Grundlage des Inhaltshashs.
-    static let contentJSON = "(jsonb_build_object(\(headPairs)) || jsonb_build_object(\(childPairs)))"
+    /// Die Skontobedingung (WP-R3) steht nur dann im Inhalt, wenn sie gesetzt ist: Hashes älterer Belege bleiben nachrechenbar.
+    static let contentJSON = "(jsonb_build_object(\(headPairs)) || jsonb_build_object(\(childPairs)) || jsonb_strip_nulls(jsonb_build_object('skonto_percent', r.skonto_percent::text, 'skonto_days', r.skonto_days)))"
     static let fullJSON = "(\(contentJSON) || jsonb_build_object(\(metaPairs)))::text"
     static let listJSON = "(jsonb_build_object(\(headPairs)) || jsonb_build_object(\(metaPairs)))::text"
 
@@ -92,6 +95,12 @@ enum InvoiceDocuments {
     }
 
     private static func present(_ v: [String: InvoiceValue], _ key: String) -> Bool { (v[key] ?? .null) != .null }
+
+    /// Skontosatz und -frist gibt es nur zusammen; `stored` sind die bisherigen Werte des Entwurfs.
+    private static func checkSkonto(_ v: [String: InvoiceValue], stored: (percent: Bool, days: Bool) = (false, false)) throws {
+        let percent = v["skonto_percent"].map { $0 != .null } ?? stored.percent, days = v["skonto_days"].map { $0 != .null } ?? stored.days
+        if percent != days { throw InvoiceError.invalid(percent ? "skonto_days" : "skonto_percent", "required_together") }
+    }
 
     static func checkedLines(_ rows: [[String: InvoiceJSON]], tenant: UUID, on s: any SQLDatabase) async throws -> [[String: InvoiceValue]] {
         guard rows.count <= maxLines else { throw InvoiceError.invalid("lines", "too_many") }
@@ -259,9 +268,10 @@ enum InvoiceDocuments {
             guard let kind = try await typeKind(h, tenant: tenant, on: s) else { throw InvoiceError.invalid("document_type_id", "required") }
             try await checkContact(h, tenant: tenant, on: s)
             if h["issue_date"] == .null { throw InvoiceError.invalid("issue_date", "required") }
+            try checkSkonto(h)
             let lines = try await checkedLines(kids.lines ?? [], tenant: tenant, on: s), charges = try await checkedCharges(kids.charges ?? [], tenant: tenant, on: s)
             var columns: [String] = ["document_type_id", "kind"], values: [SQLQueryString] = [(h["document_type_id"] ?? .null).sql, "\(bind: kind)"]
-            for name in ["contact_id", "series_id", "due_date", "delivery_date", "discount_amount", "header_text", "footer_text", "note", "price_mode", "rounding_mode", "discount_percent"] {
+            for name in ["contact_id", "series_id", "due_date", "delivery_date", "discount_amount", "header_text", "footer_text", "note", "price_mode", "rounding_mode", "discount_percent", "skonto_percent", "skonto_days"] {
                 if let v = h[name], v != .null { columns.append(name); values.append(v.sql) }
             }
             columns.append("issue_date"); values.append(h["issue_date"].map { $0.sql } ?? "(now() AT TIME ZONE 'UTC')::date")
@@ -291,7 +301,13 @@ enum InvoiceDocuments {
             if h["issue_date"] == .null { throw InvoiceError.invalid("issue_date", "required") }
             try await checkContact(h, tenant: tenant, on: s)
             var assignments: [SQLQueryString] = []
-            if let kind = try await typeKind(h, tenant: tenant, on: s) { assignments.append("kind = \(bind: kind)") }
+            if let kind = try await typeKind(h, tenant: tenant, on: s) {
+                try await InvoiceLinks.checkKindChange(id, to: kind, on: s)
+                assignments.append("kind = \(bind: kind)")
+            }
+            if let stored = try await s.raw("SELECT skonto_percent IS NOT NULL AS p, skonto_days IS NOT NULL AS d FROM invoice_documents WHERE id = \(bind: id)").first() {
+                try checkSkonto(h, stored: (try stored.decode(column: "p", as: Bool.self), try stored.decode(column: "d", as: Bool.self)))
+            }
             for name in headerSpec.fields.map(\.name) { if let v = h[name] { var a: SQLQueryString = "\(unsafeRaw: name) = "; a += v.sql; assignments.append(a) } }
             var lines: [[String: InvoiceValue]]?, charges: [[String: InvoiceValue]]?
             if let raw = kids.lines { lines = try await checkedLines(raw, tenant: tenant, on: s) }
@@ -328,7 +344,7 @@ enum InvoiceDocuments {
         let id = try InvoiceValidation.id(req)
         return try await InvoiceIdempotency.run(req, tenant: tenant, status: .ok) { s in
             guard let doc = try await s.raw("""
-                SELECT status, series_id, contact_id, issue_date::text AS issue, extract(year FROM issue_date)::int AS y, extract(month FROM issue_date)::int AS m,
+                SELECT status, kind, series_id, contact_id, issue_date::text AS issue, extract(year FROM issue_date)::int AS y, extract(month FROM issue_date)::int AS m,
                        (SELECT default_series_id FROM invoice_document_types t WHERE t.tenant_id = d.tenant_id AND t.id = d.document_type_id) AS default_series
                 FROM invoice_documents d WHERE d.tenant_id = \(bind: tenant) AND d.id = \(bind: id) FOR UPDATE
                 """).first() else { throw InvoiceError.notFound }
@@ -351,6 +367,9 @@ enum InvoiceDocuments {
                 FROM contacts c WHERE c.tenant_id = \(bind: tenant) AND c.id = \(bind: contact) AND c.deleted_at IS NULL AND c.merged_into IS NULL
                 """).first() else { throw InvoiceError.invalid("contact_id", "not_found") }
             let senderJSON = try settings.decode(column: "j", as: String.self), recipientJSON = try recipient.decode(column: "j", as: String.self)
+
+            // WP-R3: verknüpfte Gutschrift gegen die Rechnung prüfen, bevor eine Nummer vergeben wird
+            if try doc.decode(column: "kind", as: String.self) == "credit_note" { try await InvoiceLinks.checkCreditNote(id, tenant: tenant, on: s) }
 
             // Nummer: Format der Serie, Zähler im Kern (Schlüssel je Serie und Zeitraum nach Belegdatum), in dieser Transaktion
             let parsed: InvoiceNumberFormat

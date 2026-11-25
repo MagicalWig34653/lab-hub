@@ -3054,6 +3054,292 @@ paths:
         "404": { $ref: "#/components/responses/Problem" }
         "409": { $ref: "#/components/responses/Problem" }
         "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/invoice/documents/{id}/convert:
+    post:
+      operationId: convertInvoiceDocument
+      summary: "Beleg umwandeln (Berechtigung invoice.document.create)"
+      description: "Erzeugt aus einem finalisierten Beleg einen Entwurf der Zielart (Kopf, Positionen, Zusatzkosten, Skontobedingung kopiert) und verknuepft beide (kind conversion). Wege: quote nach order_confirmation, delivery_note, invoice; order_confirmation nach delivery_note, invoice; delivery_note nach invoice; sonst 422 conversion_not_allowed. Entwurf als Ausgangsbeleg 409 document_not_final. Die Art des Entwurfs ist gesperrt (kind_locked). Optional Idempotency-Key."
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/InvoiceMasterId" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InvoiceDeriveInput" }
+      responses:
+        "201":
+          description: Entwurf angelegt
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoiceDocument" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/invoice/documents/{id}/credit-note:
+    post:
+      operationId: createInvoiceCreditNote
+      summary: "Gutschrift zu einer Rechnung anlegen (Berechtigung invoice.document.create)"
+      description: "Entwurf mit negierten Mengen und Betraegen der finalisierten Rechnung, verknuepft (kind credit_note); aenderbar fuer Teilgutschriften. Wirkt erst nach dem Finalisieren. Dabei geprueft (422, keine Nummer verbraucht): Summe negativ (credit_must_be_negative), gleiche Waehrung und gleicher Kontakt (differs_from_invoice), alle Gutschriften zusammen nie mehr als die Rechnung (credit_exceeds_invoice). Optional Idempotency-Key."
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/InvoiceMasterId" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InvoiceDeriveInput" }
+      responses:
+        "201":
+          description: Gutschrift-Entwurf angelegt
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoiceDocument" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/invoice/documents/{id}/balance:
+    get:
+      operationId: getInvoiceBalance
+      summary: "Saldo einer finalisierten Rechnung (Berechtigung invoice.payment.read)"
+      description: "Nur finalisierte Rechnungen (sonst 409 document_not_final bzw. 422 not_an_invoice). open_balance = Brutto minus zugeordnete Zahlungen minus gewaehrtes Skonto; total_balance zieht finalisierte Gutschriften ab."
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/InvoiceMasterId" }
+      responses:
+        "200":
+          description: Saldo
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoiceBalance" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/invoice/documents/{id}/links:
+    get:
+      operationId: listInvoiceDocumentLinks
+      summary: "Verknuepfungen eines Belegs (Berechtigung invoice.document.read)"
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/InvoiceMasterId" }
+      responses:
+        "200":
+          description: Verknuepfungen
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/InvoiceDocumentLink" } }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+    post:
+      operationId: createInvoiceDocumentLink
+      summary: "Referenz auf einen anderen Beleg anlegen (Berechtigung invoice.document.update)"
+      description: "Nur kind reference; conversion und credit_note entstehen ausschliesslich durch Umwandlung bzw. Gutschrift. Je Belegpaar eine Referenz (409 conflict)."
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/InvoiceMasterId" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InvoiceDocumentLinkInput" }
+      responses:
+        "201":
+          description: Angelegt
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoiceDocumentLink" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/invoice/documents/{id}/links/{link}:
+    delete:
+      operationId: deleteInvoiceDocumentLink
+      summary: "Referenz entfernen (Berechtigung invoice.document.update)"
+      description: "Verknuepfungen aus Umwandlung und Gutschrift: 409 document_link_locked (ein Entwurf samt Verknuepfung verschwindet durch Loeschen des Entwurfs)."
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/InvoiceMasterId" }
+        - { name: link, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204": { description: Entfernt }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/invoice/payments:
+    get:
+      operationId: listInvoicePayments
+      summary: "Zahlungen (Berechtigung invoice.payment.read)"
+      description: "Neueste zuerst, hoechstens 1000. unassigned=true: nicht stornierte Zahlungen mit nicht zugeordnetem Rest."
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { name: unassigned, in: query, required: false, schema: { type: boolean } }
+        - { name: contact_id, in: query, required: false, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Zahlungen
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/InvoicePayment" } }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+    post:
+      operationId: createInvoicePayment
+      summary: "Zahlungseingang erfassen (Berechtigung invoice.payment.write)"
+      description: "Legt eine Zahlung ohne Zuordnung an: es wird nie automatisch zugeordnet. Betrag als Dezimal-String mit hoechstens 2 Nachkommastellen. Optional Idempotency-Key."
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InvoicePaymentInput" }
+      responses:
+        "201":
+          description: Erfasst
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoicePayment" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/invoice/payments/{id}:
+    get:
+      operationId: getInvoicePayment
+      summary: "Zahlung mit Zuordnungen samt Historie (Berechtigung invoice.payment.read)"
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/InvoiceMasterId" }
+      responses:
+        "200":
+          description: Zahlung
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoicePayment" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/invoice/payments/{id}/suggestions:
+    get:
+      operationId: suggestInvoiceAllocations
+      summary: "Zuordnungsvorschlaege (Berechtigung invoice.payment.read)"
+      description: "Reine Abfrage, aendert nichts. Offene finalisierte Rechnungen gleicher Waehrung mit mindestens einer Begruendung (number_in_reference, amount_matches_open, amount_matches_skonto, same_contact), beste zuerst, hoechstens 20."
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/InvoiceMasterId" }
+      responses:
+        "200":
+          description: Vorschlaege
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/InvoiceAllocationSuggestion" } }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/invoice/payments/{id}/allocations:
+    post:
+      operationId: allocateInvoicePayment
+      summary: "Zahlung ausdruecklich zuordnen (Berechtigung invoice.payment.write)"
+      description: "Nur mit confirmed=true. Beleg, Betrag und Skonto kommen ausschliesslich aus der Anfrage. Grenzen (422): exceeds_payment; exceeds_open_amount ohne overpayment=true; Skonto nur mit Bedingung am Beleg (skonto_not_allowed), Zahldatum innerhalb der Frist (skonto_period_expired), hoechstens vereinbarter Satz auf Brutto abzueglich Gutschriften (skonto_exceeds_terms) und nur wenn der Rest damit ausgeglichen ist (skonto_must_settle). 409: payment_voided, document_not_final, conflict (schon zugeordnet). Optional Idempotency-Key."
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/InvoiceMasterId" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InvoiceAllocationInput" }
+      responses:
+        "201":
+          description: Zugeordnet
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoicePayment" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/invoice/payments/{id}/allocations/{allocation}:
+    delete:
+      operationId: revokeInvoiceAllocation
+      summary: "Zuordnung zuruecknehmen (Berechtigung invoice.payment.write)"
+      description: "Die Zuordnung bleibt mit revoked_at in der Historie."
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/InvoiceMasterId" }
+        - { name: allocation, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Zurueckgenommen
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoicePayment" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/invoice/payments/{id}/void:
+    post:
+      operationId: voidInvoicePayment
+      summary: "Fehlbuchung stornieren (Berechtigung invoice.payment.write)"
+      description: "Nur ohne aktive Zuordnung (409 payment_allocated); Grund Pflicht. Zahlungen werden nie geloescht."
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/InvoiceMasterId" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InvoicePaymentVoidInput" }
+      responses:
+        "200":
+          description: Storniert
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoicePayment" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
 components:
   securitySchemes:
     bearer: { type: http, scheme: bearer, description: "Sitzungstoken fuer Apps (Header X-Auth-Transport: bearer bei der Anmeldung)" }
@@ -3290,7 +3576,9 @@ components:
             - contact_merged
             - csrf_invalid
             - document_final_immutable
+            - document_link_locked
             - document_linked
+            - document_not_final
             - document_not_trashed
             - document_trashed
             - forbidden
@@ -3316,6 +3604,8 @@ components:
             - number_conflict
             - passkey_invalid
             - payload_too_large
+            - payment_allocated
+            - payment_voided
             - precondition_failed
             - recovery_session_restricted
             - retention_not_expired
@@ -4148,7 +4438,7 @@ components:
     InvoiceDocument:
       type: object
       required: [id, document_type_id, kind, contact_id, series_id, status, number, counter_value, issue_date, due_date, delivery_date, currency, price_mode, discount_percent, discount_amount,
-                 rounding_mode, header_text, footer_text, note, net_total, tax_total, gross_total, discount_total, tax_regime, sender, recipient, content_hash, finalized_at, rev, created_at, updated_at]
+                 rounding_mode, header_text, footer_text, note, net_total, tax_total, gross_total, discount_total, skonto_percent, skonto_days, tax_regime, sender, recipient, content_hash, finalized_at, rev, created_at, updated_at]
       properties:
         id: { type: string, format: uuid }
         document_type_id: { type: string, format: uuid }
@@ -4173,6 +4463,8 @@ components:
         tax_total: { type: string }
         gross_total: { type: string }
         discount_total: { type: string }
+        skonto_percent: { type: [string, "null"] }
+        skonto_days: { type: [integer, "null"] }
         tax_regime: { type: [string, "null"], enum: [standard, small_business, null] }
         sender: { type: [object, "null"], additionalProperties: true, description: "Eingefrorene Absenderdaten (Einstellungen beim Finalisieren)" }
         recipient: { type: [object, "null"], additionalProperties: true, description: "Eingefrorene Empfaengerdaten (Kontakt beim Finalisieren)" }
@@ -4244,6 +4536,8 @@ components:
         header_text: { type: [string, "null"], maxLength: 5000 }
         footer_text: { type: [string, "null"], maxLength: 5000 }
         note: { type: [string, "null"], maxLength: 5000 }
+        skonto_percent: { type: [string, "null"], pattern: "^[0-9]{1,2}(\\.[0-9]{1,4})?$", description: "Skontosatz, groesser 0; nur zusammen mit skonto_days" }
+        skonto_days: { type: [integer, "null"], minimum: 0, maximum: 365, description: "Frist in Tagen ab Belegdatum" }
         lines:
           type: array
           maxItems: 500
@@ -4273,6 +4567,156 @@ components:
               description: { type: string, minLength: 1, maxLength: 200 }
               tax_rate: { type: string }
               amount: { type: string }
+    InvoiceDeriveInput:
+      type: object
+      required: [document_type_id]
+      additionalProperties: false
+      properties:
+        document_type_id: { type: string, format: uuid, description: "Belegtyp des neuen Entwurfs" }
+        issue_date: { type: string, format: date, description: "Standard: heute (UTC, Datenbankuhr)" }
+    InvoiceBalance:
+      type: object
+      required: [document_id, currency, gross_total, paid, skonto, credited, open_balance, total_balance, payment_status, skonto_terms, allocations, credit_notes]
+      properties:
+        document_id: { type: string, format: uuid }
+        currency: { type: string }
+        gross_total: { type: string }
+        paid: { type: string }
+        skonto: { type: string }
+        credited: { type: string, description: "Summe finalisierter Gutschriften (positiv)" }
+        open_balance: { type: string }
+        total_balance: { type: string, description: "negativ = ueberzahlt" }
+        payment_status: { type: string, enum: [open, partial, settled, overpaid] }
+        skonto_terms:
+          type: [object, "null"]
+          required: [percent, days, deadline, amount]
+          properties:
+            percent: { type: string }
+            days: { type: integer }
+            deadline: { type: string, format: date }
+            amount: { type: string, description: "hoechstes Skonto auf Brutto abzueglich Gutschriften" }
+        allocations:
+          type: array
+          items:
+            type: object
+            required: [id, payment_id, paid_on, amount, skonto_amount, overpayment, confirmed_at, confirmed_by]
+            properties:
+              id: { type: string, format: uuid }
+              payment_id: { type: string, format: uuid }
+              paid_on: { type: string, format: date }
+              amount: { type: string }
+              skonto_amount: { type: string }
+              overpayment: { type: boolean }
+              confirmed_at: { type: string, format: date-time }
+              confirmed_by: { type: string, format: uuid }
+        credit_notes:
+          type: array
+          items:
+            type: object
+            required: [id, number, gross_total]
+            properties:
+              id: { type: string, format: uuid }
+              number: { type: string }
+              gross_total: { type: string }
+    InvoiceDocumentLink:
+      type: object
+      required: [id, kind, direction, created_at, document]
+      properties:
+        id: { type: string, format: uuid }
+        kind: { type: string, enum: [conversion, credit_note, reference] }
+        direction: { type: string, enum: [outgoing, incoming], description: "outgoing: dieser Beleg ist Ausgangsbeleg" }
+        created_at: { type: string, format: date-time }
+        document:
+          type: object
+          required: [id, kind, status, number, issue_date, currency, gross_total]
+          properties:
+            id: { type: string, format: uuid }
+            kind: { type: string, enum: [quote, order_confirmation, delivery_note, invoice, credit_note] }
+            status: { type: string, enum: [draft, final, cancelled] }
+            number: { type: [string, "null"] }
+            issue_date: { type: string, format: date }
+            currency: { type: string }
+            gross_total: { type: string }
+    InvoiceDocumentLinkInput:
+      type: object
+      required: [target_id]
+      additionalProperties: false
+      properties:
+        target_id: { type: string, format: uuid }
+    InvoicePayment:
+      type: object
+      required: [id, contact_id, paid_on, amount, currency, method, reference, note, created_at, created_by, voided_at, voided_by, void_reason, allocated, unallocated, allocations]
+      properties:
+        id: { type: string, format: uuid }
+        contact_id: { type: [string, "null"], format: uuid }
+        paid_on: { type: string, format: date }
+        amount: { type: string }
+        currency: { type: string }
+        method: { type: string, enum: [bank_transfer, cash, card, direct_debit, other] }
+        reference: { type: [string, "null"] }
+        note: { type: [string, "null"] }
+        created_at: { type: string, format: date-time }
+        created_by: { type: string, format: uuid }
+        voided_at: { type: [string, "null"], format: date-time }
+        voided_by: { type: [string, "null"], format: uuid }
+        void_reason: { type: [string, "null"] }
+        allocated: { type: string }
+        unallocated: { type: string }
+        allocations:
+          type: array
+          description: "inklusive zurueckgenommener (revoked_at)"
+          items:
+            type: object
+            required: [id, document_id, document_number, amount, skonto_amount, overpayment, confirmed_at, confirmed_by, revoked_at, revoked_by]
+            properties:
+              id: { type: string, format: uuid }
+              document_id: { type: string, format: uuid }
+              document_number: { type: string }
+              amount: { type: string }
+              skonto_amount: { type: string }
+              overpayment: { type: boolean }
+              confirmed_at: { type: string, format: date-time }
+              confirmed_by: { type: string, format: uuid }
+              revoked_at: { type: [string, "null"], format: date-time }
+              revoked_by: { type: [string, "null"], format: uuid }
+    InvoicePaymentInput:
+      type: object
+      required: [amount, paid_on]
+      additionalProperties: false
+      properties:
+        amount: { type: string, pattern: "^[0-9]{1,14}(\\.[0-9]{1,2})?$", description: "groesser 0" }
+        paid_on: { type: string, format: date }
+        currency: { type: string, pattern: "^[A-Z]{3}$", description: "Standard: Waehrung der Einstellungen, sonst EUR" }
+        method: { type: string, enum: [bank_transfer, cash, card, direct_debit, other], default: bank_transfer }
+        reference: { type: [string, "null"], maxLength: 500 }
+        note: { type: [string, "null"], maxLength: 5000 }
+        contact_id: { type: [string, "null"], format: uuid }
+    InvoiceAllocationInput:
+      type: object
+      required: [document_id, amount, confirmed]
+      additionalProperties: false
+      properties:
+        document_id: { type: string, format: uuid }
+        amount: { type: string, pattern: "^[0-9]{1,14}(\\.[0-9]{1,2})?$" }
+        skonto_amount: { type: [string, "null"], pattern: "^[0-9]{1,14}(\\.[0-9]{1,2})?$", description: "Standard 0" }
+        overpayment: { type: [boolean, "null"], description: "true erlaubt mehr als den offenen Betrag" }
+        confirmed: { type: boolean, const: true }
+    InvoicePaymentVoidInput:
+      type: object
+      required: [reason]
+      additionalProperties: false
+      properties:
+        reason: { type: string, minLength: 1, maxLength: 500 }
+    InvoiceAllocationSuggestion:
+      type: object
+      required: [document_id, document_number, open_amount, amount, skonto_amount, reasons]
+      properties:
+        document_id: { type: string, format: uuid }
+        document_number: { type: string }
+        open_amount: { type: string }
+        amount: { type: string, description: "vorgeschlagener Betrag" }
+        skonto_amount: { type: string }
+        reasons: { type: array, items: { type: string, enum: [number_in_reference, amount_matches_open, amount_matches_skonto, same_contact] } }
     InvoiceItemInput:
       type: object
       required: [name, unit_price, tax_rate]

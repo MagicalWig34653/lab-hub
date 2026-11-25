@@ -220,3 +220,27 @@ Migration `invoice_028_documents` (Expand-only, Revert vorhanden), Code in `back
 
 Berechtigungen (jetzt vom Modul deklariert, aus dem Kernkatalog `Tenancy/Roles.swift` entfernt): `read` accountant/member/tax_advisor/Owner, `create` und `update` accountant/member/Owner, `finalize` nur accountant/Owner. Annahmen und offene Punkte: `docs/handoff/WP-R2.md`.
 
+## 15. R3 – Zahlungen, Skonto, Gutschrift, Umwandlung (WP-R3, 25.11.2026)
+
+Migration `invoice_029_payments` (Expand-only, Revert vorhanden), Code `InvoicePayments`, `InvoiceLinks`, `InvoicePaymentMigrations`. Vertrag `contracts/openapi.yaml`; Basis `/api/v1/tenants/{tenant}/invoice/`:
+
+| Route | Berechtigung | Verhalten |
+| --- | --- | --- |
+| `GET/POST payments`, `GET payments/{id}` | `invoice.payment.read` / `.write` | Zahlung entsteht immer ohne Zuordnung; Filter `unassigned`, `contact_id` |
+| `GET payments/{id}/suggestions` | `invoice.payment.read` | nur Lesen; offene Rechnungen mit Begründung (Nummer im Verwendungszweck, Betrag, Betrag mit Skonto, Kontakt) |
+| `POST payments/{id}/allocations` | `invoice.payment.write` | einziger Weg zur Zuordnung: `document_id`, `amount`, optional `skonto_amount`, `overpayment`, Pflicht `confirmed: true` |
+| `DELETE payments/{id}/allocations/{allocation}` | `invoice.payment.write` | Rücknahme, Historie bleibt |
+| `POST payments/{id}/void` | `invoice.payment.write` | Storno mit Grund, nur ohne aktive Zuordnung |
+| `GET documents/{id}/balance` | `invoice.payment.read` | `paid`, `skonto`, `credited`, `open_balance`, `total_balance`, Status |
+| `POST documents/{id}/convert` | `invoice.document.create` | Entwurf der Zielart aus finalem Beleg, Verknüpfung `conversion` |
+| `POST documents/{id}/credit-note` | `invoice.document.create` | Gutschrift-Entwurf mit negierten Mengen, Verknüpfung `credit_note` |
+| `GET/POST documents/{id}/links`, `DELETE …/links/{link}` | `invoice.document.read` / `.update` | von Hand nur `reference`; Systemverknüpfungen nicht entfernbar |
+
+**Zuordnung nie still:** Beleg, Betrag und Skonto kommen ausschließlich aus der bestätigten Anfrage; `confirmed_by`/`confirmed_at` und Audit werden gespeichert.
+
+**Skonto (Annahme F-32):** Bedingung `skonto_percent` + `skonto_days` am Beleg (nach dem Finalisieren unveränderlich). Gewährt wird nur ausdrücklich, bei Zahldatum ≤ Belegdatum + Tage, höchstens Satz × (Brutto − Gutschriften), und nur wenn Zahlung plus Skonto den Rest ausgleichen.
+
+**Salden:** `open_balance` = Brutto − Zahlungen − Skonto; `total_balance` zieht finalisierte Gutschriften ab (Vektoren `balances.json`).
+
+**Invarianten in der Datenbank:** Zuordnungen ≤ Zahlbetrag; über Rechnung abzüglich Gutschriften nur mit Kennzeichen `overpayment`; nur finale Rechnungen gleicher Währung und gleichen Mandanten; Zahlungen und Zuordnungen nie ändern oder löschen (nur Storno/Rücknahme); Systemverknüpfungen zu finalen Belegen nie ändern oder löschen. Parallele Zuordnungen serialisieren über Zeilensperren (Zahlung, dann Beleg). Annahmen und offene Punkte: `docs/handoff/WP-R3.md`.
+

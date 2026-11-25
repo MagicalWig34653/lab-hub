@@ -20,10 +20,13 @@ public struct InvoiceModule: HubModule {
          PermissionDefinition("invoice.document.read", roles: [.accountant, .member, .taxAdvisor]),
          PermissionDefinition("invoice.document.create", roles: [.accountant, .member]),
          PermissionDefinition("invoice.document.update", roles: [.accountant, .member]),
-         PermissionDefinition("invoice.document.finalize", roles: [.accountant])]
+         PermissionDefinition("invoice.document.finalize", roles: [.accountant]),
+         // WP-R3: Zahlungen lesen wie Belege; erfassen, zuordnen und stornieren nur Buchhaltung und Owner.
+         PermissionDefinition("invoice.payment.read", roles: [.accountant, .member, .taxAdvisor]),
+         PermissionDefinition("invoice.payment.write", roles: [.accountant])]
     }
 
-    public var migrations: [any Migration] { [CreateInvoiceMaster(), CreateInvoiceDocuments()] }
+    public var migrations: [any Migration] { [CreateInvoiceMaster(), CreateInvoiceDocuments(), CreateInvoicePayments()] }
 
     public var navigation: [NavigationItem] { [NavigationItem(key: "invoice", labelKey: "nav.invoice", path: "/invoice", permission: "invoice.master.read")] }
 
@@ -44,5 +47,19 @@ public struct InvoiceModule: HubModule {
         routes.on(.PATCH, "documents", ":id", permission: "invoice.document.update") { req in try await InvoiceDocuments.update(req) }
         routes.on(.DELETE, "documents", ":id", permission: "invoice.document.update") { req in try await InvoiceDocuments.delete(req) }
         routes.on(.POST, "documents", ":id", "finalize", permission: "invoice.document.finalize") { req in try await InvoiceDocuments.finalize(req) }
+        // WP-R3: Umwandlung, Gutschrift, Verknüpfungen, Zahlungen
+        routes.on(.POST, "documents", ":id", "convert", permission: "invoice.document.create") { req in try await InvoiceLinks.convert(req) }
+        routes.on(.POST, "documents", ":id", "credit-note", permission: "invoice.document.create") { req in try await InvoiceLinks.creditNote(req) }
+        routes.on(.GET, "documents", ":id", "links", permission: "invoice.document.read") { req in try await InvoiceLinks.list(req) }
+        routes.on(.POST, "documents", ":id", "links", permission: "invoice.document.update") { req in try await InvoiceLinks.create(req) }
+        routes.on(.DELETE, "documents", ":id", "links", ":link", permission: "invoice.document.update") { req in try await InvoiceLinks.delete(req) }
+        routes.on(.GET, "documents", ":id", "balance", permission: "invoice.payment.read") { req in try await InvoicePayments.balance(req) }
+        routes.on(.GET, "payments", permission: "invoice.payment.read") { req in try await InvoicePayments.list(req) }
+        routes.on(.POST, "payments", permission: "invoice.payment.write") { req in try await InvoicePayments.create(req) }
+        routes.on(.GET, "payments", ":id", permission: "invoice.payment.read") { req in try await InvoicePayments.get(req) }
+        routes.on(.GET, "payments", ":id", "suggestions", permission: "invoice.payment.read") { req in try await InvoicePayments.suggestions(req) }
+        routes.on(.POST, "payments", ":id", "allocations", permission: "invoice.payment.write") { req in try await InvoicePayments.allocate(req) }
+        routes.on(.DELETE, "payments", ":id", "allocations", ":allocation", permission: "invoice.payment.write") { req in try await InvoicePayments.revoke(req) }
+        routes.on(.POST, "payments", ":id", "void", permission: "invoice.payment.write") { req in try await InvoicePayments.void(req) }
     }
 }
