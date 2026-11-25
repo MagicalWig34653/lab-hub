@@ -17,6 +17,10 @@ Geplante Module: **Rechnung** (heute Taxlab, Fachlogik im Repo `taxlab`) und **D
 | --- | --- |
 | `AGENTS.md` / `CLAUDE.md` | Arbeitsregeln für Coding-Agents: Lesereihenfolge, Build/Test, Stateless, Datenschutz, Git, Definition of Done |
 | `docs/ROADMAP.md` | Phasen und Arbeitspakete (WP) mit Abhängigkeiten, Akzeptanzkriterien, Teststrategie |
+| `docs/ARCHITEKTUR-ABGLEICH-TIMETRACK.md` | Struktur-Abgleich mit Timetrack/Chronolog, Umbau-WPs (Planung) |
+| `docs/SCAN-BRIDGE.md` | Netzwerkscanner über SANE als eigener Dienst, F-22, Lizenzen (Planung) |
+| `docs/APP-DMS.md` | Konzept der DMS-App für Apple-Geräte, Integrationen, Meilensteine (Planung) |
+| `docs/PAPERLESS-ABLOESUNG.md` | Was zur Ablösung von paperless-ngx fehlt, Reihenfolge, Probelauf |
 | `docs/ARCHITEKTUR.md` | Schichten, Modul-System, gemeinsamer Kern, API-Stil, Sync-Entwurf, Datenschutz, Betrieb |
 | `docs/MODUL-DMS.md` | Paperless-Analyse, Problem/Lösung, Datenmodell, Ingest, OCR, Suche, Revisionssicherheit, API, Import |
 | `docs/MODUL-RECHNUNG.md` | Umfang des Rechnungsmoduls, Renderer-Frage, E-Rechnung, Migration aus Taxlab |

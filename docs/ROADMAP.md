@@ -1,6 +1,6 @@
 # Roadmap und Arbeitspakete
 
-Status: Entwurf, Stand 01.11.2026. Reihenfolge: Kern → DMS M1 → OCR/Suche → PWA + DMS-UI → Rechnungsmodul → Verknüpfung → Hardening. Aufwand: S ≈ 1 Agent-Session, M ≈ 2–4, L ≈ 5+ (Schätzungen, keine Zusage). **P** = parallelisierbar mit den genannten WPs (kein gemeinsamer Dateibesitz: Migrationen und `contracts/openapi.yaml` nur von einem Agent zugleich ändern, `AGENTS.md` Abschnitt 7).
+Status: Entwurf, Stand 01.11.2026, ergänzt 25.11.2026 (Phasen 7–10; **nächste Arbeit zuerst:** ST1, dann PA1 und ST4). Reihenfolge: Kern → DMS M1 → OCR/Suche → PWA + DMS-UI → Rechnungsmodul → Verknüpfung → Hardening. Aufwand: S ≈ 1 Agent-Session, M ≈ 2–4, L ≈ 5+ (Schätzungen, keine Zusage). **P** = parallelisierbar mit den genannten WPs (kein gemeinsamer Dateibesitz: Migrationen und `contracts/openapi.yaml` nur von einem Agent zugleich ändern, `AGENTS.md` Abschnitt 7).
 
 Statusspalte pflegen: `offen` · `in Arbeit (Agent/Branch)` · `fertig (Commit)`. Jedes WP erfüllt die Definition of Done aus `AGENTS.md` Abschnitt 8; sie wird unten nicht wiederholt. Testkennungen `AK-<WP>-<n>`.
 
@@ -71,6 +71,34 @@ Ausgangsstand (vorhanden, getestet laut `deploy/README.md`/Tests): `migrate`, `s
 | | H15 | Codex-Befund 9: DMS-Detail speichert mit der rev des Formulars (`formRev`, nur von `fillForm` gesetzt), nicht mit der vom OCR-Polling aktualisierten; 412 zeigt Konflikt und Knopf „Aktuellen Stand laden“ | H14 | S | | fertig (Branch wp-H15, Übergabe `docs/handoff/WP-H15.md`) |
 | | H16 | Lastempfindliche Tests stabilisieren: `testIdempotencyMiddlewareParallelRunsWorkOnce` (Test-Fixture legte `idempotency_keys` ohne `locked_at` an, Takeover-Pfad lieferte 500 unter Last; jetzt echte Migrationen) und `testHugeInputIsBounded` (Wanduhr-Frist unter Last; jetzt Zeichenbudget deterministisch, Produktfrist unverändert) | H12, H10 | S | | fertig (Branch wp-H16, Übergabe `docs/handoff/WP-H16.md`) |
 | | H17 | Codex-Befund 8 (Rest): Scheitert ein `dms.ocr`-Job endgültig (Absturzschleife im Kern, Versuche erschöpft, `permanent`), setzt ein Trigger auf `jobs` (Migration `dms_027_ocr_quarantine_sync`, mit Backfill) den Ingest-Eintrag in derselben Transaktion auf `failed_permanent`; Übersicht zählt `failed` statt `queued`, Banner und Retry der PWA greifen, Retry bleibt einmalig (zweiter 409). Regression `DMSH17Tests` (kontrollierte Zeit per Lease in der Datenbank) und echtes E2E `scripts/e2e-dms-ocr-failure.sh` (Backend, Postgres, Worker-Prozess, ohne Mocks), Handoff `docs/handoff/WP-H17.md` | erledigt (lokal grün) |
+| 7 Struktur | ST1 | GitHub-CI (Backend mit Postgres, PWA, Vertrag; ohne Image/Release) | – | S | P zu allen | offen |
+|  | ST2 | Kern vom DMS-Modul entkoppeln (Job-Handler, Token-Scopes, Link-Schutz, Fehlertyp) | ST1 | M |  | offen |
+|  | ST3 | Swift-Targets `HubCore`/`HubModule*` (F-14) | ST2 | M | nicht parallel zu Backend-WPs | offen |
+|  | ST4 | PWA Darstellung: System/Hell/Dunkel mit Einstellungsseite | – | S | P ST1–ST3 | offen |
+|  | ST5 | PWA Grundbausteine: Fehlertexte, Versions-/Fähigkeitsprüfung, Betreiber-Modulschalter | ST4 | M | P ST2 | offen |
+| 8 Scan-Bridge | BR1 | Hub: Scan-Aufträge, Geräte, Bridge-Routen, Scope und Rechte | ST2 | M |  | offen |
+|  | BR2 | Bridge-Dienst (SANE, sane-airscan), Container, E2E mit `test`-Gerät | BR1 | L |  | offen |
+|  | BR3 | PWA: Scanner wählen und Scan starten | BR2, ST4 | M | P BR4 | offen |
+|  | BR4 | Bridge-Betrieb, Lizenzhinweise, optionaler Ordner-Eingang (F-22) | BR2 | M | P BR3 | offen |
+| 9 Ablösung | PA1 | Paperless-Import gegen echte Instanz (lokal, erfundene Daten) und Sicherheitsprüfung | D6 | M | P ST4 | offen |
+|  | PA2 | PWA: Import anlegen, Trockenlauf, Bericht, Notizen | PA1, F2 | M |  | offen |
+|  | PA3 | Probelauf gegen die echte Instanz und Inventur der Eingangswege (Nutzer) | PA1, PA2, PA7 (Teil 1), F-34 | S |  | offen |
+|  | PA4 | Miniaturen (Worker, Route, Liste) | O2 | M | P PA2 | offen |
+|  | PA5 | Gespeicherte Ansichten, Mehrfachauswahl, Massenbearbeitung | F4c, S1 | L | P PA4 | offen |
+|  | PA6 | Lücken aus dem Probelauf (Dateitypen, signierte PDFs, Import-Abbildung) | PA3 | M–L |  | offen |
+|  | PA7 | Betriebsreife: Zielrechner, Restore, Zeitplan Prüflauf, Aufräumen Exporte | H2, H9 | M |  | offen |
+|  | PA8 | Vollimport, Parallelbetrieb, Umschalten (Nutzer) | PA3–PA7 | M |  | offen |
+| 10 DMS-App | AB1 | Geräteanmeldung für Apps (Token mit Scopes, Widerruf) | ST2 | M |  | offen |
+|  | AB2 | Änderungs-Feed für Zwischenstände | D2 | M | P AB1 | offen |
+|  | AB3 | Abgeleitete Fassungen (Anmerkungen) hochladen | D2, D5 | M |  | offen |
+|  | APP-M0 | Name, Bundle-ID, Xcode-Projekt, Pakete, CI | F-33 | S |  | offen |
+|  | APP-M1 | iPhone/iPad: Anmeldung, Dokumentenscanner, Teilen, Eingang | APP-M0, AB1 | L |  | offen |
+|  | APP-M2 | Finden, Klärstapel, Live Text, Mehrfenster, Scan über Bridge | APP-M1, AB2, BR2, PA4 | L |  | offen |
+|  | APP-M3 | Native Mac-App, ImageCaptureCore, Continuity, Spotlight, App Intents | APP-M2 | L |  | offen |
+|  | APP-M4 | Widgets, Steuerelemente, Sperrbildschirm, Live Activities, Mitteilungen, Handoff | APP-M2 | M | P APP-M3 | offen |
+|  | APP-M5 | Dateien/Finder (File Provider), Quick Look, Miniaturen, Drucken | APP-M3, PA4 | L |  | offen |
+|  | APP-M6 | Eigenständiger Modus, CloudKit, Verbinden mit Hub, Anmerkungen | APP-M3, AB3 | L |  | offen |
+|  | APP-M7 | Foundation Models, Vision Pro, Watch, Push, eSCL direkt | APP-M4–M6 | L |  | offen |
 
 Grundsatz: Hub ohne Swift-App nutzbar (`AGENTS.md`); die Rechnungsphase ist daher kein optionaler Anhang, sondern gleichwertig. Kritische Pfade: **DMS** K0 → K1 → K2 → K3 → D2 → O1 → O2 → S1 → F4; **Rechnung** R0 (Linux-Rechenkern) → R1 → R2 → R6a/R6 (Renderer) → F6 → F7; beide laufen nach K3 parallel (getrennter Dateibesitz). Früh parallel starten: K4, D1, K6, R0, H1, F1 (sobald K1/K4).
 
@@ -206,6 +234,64 @@ Grundsatz: Hub ohne Swift-App nutzbar (`AGENTS.md`); die Rechnungsphase ist dahe
 **WP-H4 Update-/Swarm-Test (M).** Echter Swarm (nicht auf geteiltem Docker-Host): 2 Backend- + 2 Worker-Repliken, rollierendes Update mit Schemaänderung (Expand/Contract), Rollback, `/ready`-Verhalten, Job-Lease beim Verschieben. Akzeptanz: dokumentierter Lauf in `deploy/README.md`, keine verlorene Anfrage/Job.
 
 **WP-H5 Last/Skalierung (M).** Messen: Suche bei 100 000 Dokumenten, OCR-Durchsatz mit n Workern, Upload großer Dateien; Messwerte in `docs/`.
+
+## Phase 7 – Struktur (Abgleich Timetrack)
+
+Grundlage: `docs/ARCHITEKTUR-ABGLEICH-TIMETRACK.md` (25.11.2026). Timetrack ist Strukturidee, kein Code wird kopiert. PWA offline/installierbar bleibt **WP-F3**.
+
+**WP-ST1 GitHub-CI (S).** Akzeptanz: AK-ST1-1 Push/PR startet Backend-Tests gegen Postgres 17 (übersprungene Tests werden sichtbar, ein Lauf ohne Datenbanktests ist rot); ST1-2 PWA `check`, Unit-Tests, Mock-E2E, Vertragsprüfung; ST1-3 Actions auf Commit gepinnt, keine Secrets, kein Image-Push, kein Release; ST1-4 Lauf auf `main` grün.
+
+**WP-ST2 Kern entkoppeln (M).** Akzeptanz: AK-ST2-1 Module liefern Job-Handler über `HubModule`, `WorkerCommand` nennt kein `DMS*`; ST2-2 Token-Scopes deklarieren die Module; ST2-3 Link-Schutz als Haken des Moduls, `LinkService` und `ApiTokens` ohne `DMS*`; ST2-4 Test, der `DMS`/`Invoice`-Bezeichner außerhalb von `Modules/<Name>` und der Modulliste verbietet; volle Suite unverändert grün.
+
+**WP-ST3 Swift-Targets (M).** F-14 (Nutzer 07.11.2026: spätestens vor dem zweiten Modul). Akzeptanz: AK-ST3-1 `HubCore`, `HubModuleDMS`, `HubModuleInvoice`, Zusammenbau in `HubKit`/`App`; ST3-2 Module importieren einander nicht (Package-Manifest erzwingt es); ST3-3 Images, SBOM und Tests grün. Abh.: ST2.
+
+**WP-ST4 PWA Darstellung (S).** Akzeptanz: AK-ST4-1 Standard folgt `prefers-color-scheme`, Wahl System/Hell/Dunkel bleibt je Gerät; ST4-2 kein Aufblitzen der falschen Farbe beim Laden (mit der CSP aus H9 verträglich); ST4-3 Playwright-Bilder und axe-Kontrast für Kernseiten hell und dunkel, angesehen.
+
+**WP-ST5 PWA Grundbausteine (M).** Akzeptanz: AK-ST5-1 einheitliche Fehlerbeschreibung je Problem-Code; ST5-2 Prüfung von `/api/version` mit Hinweis bei unpassendem Stand; ST5-3 Betreiber schaltet Module in der Oberfläche (nur Betreiberrecht, Test erlaubt/verboten).
+
+## Phase 8 – Scan-Bridge
+
+Grundlage: `docs/SCAN-BRIDGE.md`.
+
+**WP-BR1 Hub-Seite (M).** Akzeptanz: AK-BR1-1 Tabellen und Routen laut Abschnitt 3 im Vertrag; BR1-2 zwei Verbindungen übernehmen einen Auftrag genau einmal, Lease über `now()`, Ablauf ⇒ `failed` ohne Wiederholung, spätes Ergebnis derselben Bridge möglich; BR1-3 Mandantentrennung, Rechte, falscher Scope; BR1-4 Upload mit `Idempotency-Key: scan-<job>` erzeugt ein Dokument.
+
+**WP-BR2 Bridge-Dienst (L).** Akzeptanz: AK-BR2-1 Verfügbarkeit von SANE-`test`-Backend und sane-airscan im gewählten Basis-Image belegt, Versionen und Lizenzen in `docs/LIZENZEN.md`; BR2-2 E2E Hub + Bridge-Container + `test`-Gerät: mehrseitiger Scan wird Dokument; BR2-3 eSCL-Attrappe über festen Eintrag; BR2-4 Parameter nur aus Positivliste, kein Shell-Aufruf; BR2-5 Upload-Abbruch und Neustart ohne Verlust und ohne Doppel; BR2-6 Image amd64 und arm64 lokal gebaut (kein Push ohne vom Nutzer festgelegtes Ziel).
+
+**WP-BR3 PWA Scannen (M).** Akzeptanz: AK-BR3-1 Gerät, Quelle, Auflösung, Farbe wählen; starten, nächste Seite, fertig, abbrechen; BR3-2 Zustände und Fehler verständlich, Bridge offline sichtbar; BR3-3 Playwright gegen echten Hub und Bridge, Bilder hell und dunkel angesehen.
+
+**WP-BR4 Betrieb (M).** Akzeptanz: AK-BR4-1 Anleitung und Compose-Beispiel (feste Geräte, Host-Netz); BR4-2 Lizenztexte und Quellenhinweis im Image, SBOM; BR4-3 optionaler Ordner-Eingang: nur stabile Dateien, genau ein Dokument, Verschieben nach Erfolg (nur nach Entscheidung F-22).
+
+## Phase 9 – Paperless-Ablösung
+
+Grundlage und Reihenfolge: `docs/PAPERLESS-ABLOESUNG.md`. Private Bestandsdaten gelangen nie in Repo oder Modellkontext.
+
+**WP-PA1 Import verifizieren (M).** Akzeptanz: AK-PA1-1 lokale paperless-ngx-Instanz im Container mit erfundenen Dokumenten (Skript, Version festgehalten, kein GPL-Code im Repo); PA1-2 Import aus Export **und** API vergleicht Anzahlen und Hashes, Abweichungen als Tests (rot, dann behoben); PA1-3 Sicherheitsprüfung D6 (SSRF, TLS, Pfade, Transaktion), Befunde behoben oder dokumentiert.
+
+**WP-PA2 Import in der PWA (M).** Akzeptanz: AK-PA2-1 Quelle wählen, Trockenlauf, Fortschritt, Abbruch, Bericht; Token nie wieder angezeigt; PA2-2 Notizen am Dokument sichtbar; PA2-3 E2E gegen echtes Backend, Bilder hell und dunkel.
+
+**WP-PA3 Probelauf (S, Nutzer).** Akzeptanz: AK-PA3-1 Anleitung ohne Datenweitergabe; PA3-2 Trockenlauf-Zahlen und Befundcodes liegen vor; PA3-3 genutzte Eingangswege und Funktionen aufgelistet, Lücken eingestuft. Blockiert durch F-34.
+
+**WP-PA4 Miniaturen (M).** Akzeptanz: AK-PA4-1 Worker erzeugt Rolle `thumbnail`, Quota und Zeitlimit; PA4-2 Nachlauf für Bestand, fortsetzbar; PA4-3 Liste hell/dunkel, ohne Recht kein Zugriff.
+
+**WP-PA5 Ansichten und Massenbearbeitung (L).** Akzeptanz: AK-PA5-1 gespeicherte Ansichten je Nutzer/Mandant; PA5-2 Mehrfachauswahl mit Typ, Tags, Korrespondent, Papierkorb, mit `rev`-Konflikten je Dokument und Audit; PA5-3 E2E.
+
+**WP-PA6 Lücken aus dem Probelauf (M–L).** Umfang erst nach PA3; je Lücke eigenes Akzeptanzkriterium.
+
+**WP-PA7 Betriebsreife (M).** Akzeptanz: AK-PA7-1 Anleitung Zielrechner inkl. Platzbedarf; PA7-2 Restore mit großem synthetischem Bestand gemessen; PA7-3 Prüflauf periodisch ohne Hand (zustandslos), alte Export-ZIPs nach Frist entfernt; Zwei-Instanzen-Test.
+
+**WP-PA8 Umschalten (M, Nutzer).** Akzeptanz: Abschnitt 6 der Ablösungsplanung.
+
+## Phase 10 – DMS-App und Hub-Voraussetzungen
+
+Grundlage: `docs/APP-DMS.md`. Kein Hub-WP darf die App voraussetzen. APP-Meilensteine liegen in einem eigenen Repository.
+
+**WP-AB1 Geräteanmeldung (M).** Akzeptanz: AK-AB1-1 Anmeldung über System-Browser, Einmalcode mit PKCE gegen Gerätetoken; AB1-2 Scopes, Mandantenbindung, Widerruf wirkt sofort, Liste in der PWA; AB1-3 abgefangener oder zweiter Code scheitert; Zwei-Instanzen-Test.
+
+**WP-AB2 Änderungs-Feed (M).** Akzeptanz: AK-AB2-1 „Änderungen seit Cursor“ inkl. Löschungen, rechte- und mandantengefiltert; AB2-2 keine verlorene Änderung bei gleichzeitigen Schreibern (Zwei-Verbindungen-Test).
+
+**WP-AB3 Fassungen (M).** Akzeptanz: AK-AB3-1 Upload einer abgeleiteten Datei, Original unverändert; AB3-2 Quota, Audit, Löschkonzept erfasst sie.
+
+**APP-M0 bis APP-M7.** Inhalt und „Fertig, wenn“ je Meilenstein: `docs/APP-DMS.md` Abschnitt 9; Integrationen je Meilenstein Abschnitt 5.
 
 ## Pflege dieser Datei
 
