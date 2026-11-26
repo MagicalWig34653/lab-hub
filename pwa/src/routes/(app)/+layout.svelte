@@ -169,7 +169,7 @@
 				</span>
 				{t('app.name')}
 			</a>
-			<Button variant="ghost" size="icon" class="transition-colors lg:hidden" aria-label={t('shell.closeMenu')} onclick={closeDrawer} data-testid="menu-close">
+			<Button variant="ghost" size="icon" class="lg:hidden" aria-label={t('shell.closeMenu')} onclick={closeDrawer} data-testid="menu-close">
 				<XIcon class="size-[18px]" aria-hidden="true" />
 			</Button>
 		</div>
