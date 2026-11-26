@@ -227,8 +227,10 @@ final class WorkerProcessTests: JobTestBase {
     override var testModules: [any HubModule] { InstalledModules.all }
 
     static var appBinary: URL? {
-        let url = Bundle(for: WorkerProcessTests.self).bundleURL.deletingLastPathComponent().appendingPathComponent("App")
-        return FileManager.default.isExecutableFile(atPath: url.path) ? url : nil
+        // macOS: neben dem .xctest-Bundle; Linux: `bundleURL` ist schon das Build-Verzeichnis.
+        let bundle = Bundle(for: WorkerProcessTests.self).bundleURL
+        return [bundle.deletingLastPathComponent(), bundle].map { $0.appendingPathComponent("App") }
+            .first { FileManager.default.isExecutableFile(atPath: $0.path) }
     }
 
     func startWorker(lease: Int = 2) throws -> Process {

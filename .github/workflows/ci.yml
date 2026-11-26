@@ -50,7 +50,8 @@ jobs:
           package-manager-cache: false
       - name: Skripte (shellcheck, CI-Regeln, Umgebungsvariablen)
         run: |
-          shellcheck deploy/*.sh scripts/*.sh docker-entrypoint.sh
+          # ab Stufe warning: das ältere shellcheck des Runners meldet Hinweise, die neuere Versionen nicht mehr melden
+          shellcheck --severity=warning deploy/*.sh scripts/*.sh docker-entrypoint.sh
           scripts/test-ci-gates.sh
           scripts/check-env-docs.sh
       - name: Abhängigkeiten

@@ -33,7 +33,8 @@ if [ -n "${GITHUB_ACTIONS:-}" ] && [ "$skipped" != 0 ]; then echo "::warning tit
 grep -Eq "Executed [0-9]+ tests?," "$log" || err "keine Abschlusszeile: Testlauf unvollständig"
 [ -z "$(cases failed)" ] || err "fehlgeschlagene Tests im Protokoll"
 if grep -Eq "Test skipped.*(Keine Postgres-Datenbank erreichbar|CREATEROLE)" "$log"; then err "Datenbanktests wurden übersprungen (Datenbank oder Rechte fehlen)"; fi
-cases passed | grep -Eq '(^|\.)PostgresTests[ .]' || err "kein Datenbanktest (PostgresTests) bestanden: Lauf ohne Datenbanktests"
+# ohne -q: grep liest alles, sonst beendet SIGPIPE bei langen Protokollen die Pipe (pipefail)
+cases passed | grep -E '(^|\.)PostgresTests[ .]' > /dev/null || err "kein Datenbanktest (PostgresTests) bestanden: Lauf ohne Datenbanktests"
 
 [ "$fail" = 0 ] && echo "check-test-report: ok"
 exit "$fail"

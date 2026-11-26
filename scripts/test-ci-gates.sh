@@ -39,6 +39,10 @@ contains "tesseract nicht installiert" "AK-ST1-1 Übersprungene mit Grund sichtb
 expect 0 "AK-ST1-1 grünes Protokoll (Linux-Format)" report "$W/linux.log"
 contains "DMSSearchTests.testPerf" "AK-ST1-1 Übersprungene mit Namen sichtbar (Linux)"
 
+# großes Protokoll wie in der CI: ein früher Treffer darf die Auswertung nicht durch eine abgebrochene Pipe kippen
+{ cat "$W/linux.log"; awk 'BEGIN { for (i = 0; i < 20000; i++) printf "Test Case %cHealthTests.testSynthetic%d%c passed (0.1 seconds)\n", 39, i, 39 }'; } > "$W/big.log"
+expect 0 "AK-ST1-1 großes Protokoll bleibt grün" report "$W/big.log"
+
 GITHUB_STEP_SUMMARY="$W/summary.md" scripts/check-test-report.sh "$W/linux.log" > "$W/out" 2>&1 || true
 if grep -qF "DMSSearchTests.testPerf" "$W/summary.md" 2> /dev/null; then ok "AK-ST1-1 Übersprungene in der Lauf-Zusammenfassung"; else fail "AK-ST1-1 Übersprungene in der Lauf-Zusammenfassung"; fi
 
