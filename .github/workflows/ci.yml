@@ -1,0 +1,68 @@
+# WP-ST1: Prüfungen bei Push und Pull Request. Nur Leserechte, keine Secrets, kein Image-Push, kein Release
+# (Regeln geprüft durch scripts/check-workflows.sh). Actions sind auf Commits gepinnt.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend-Tests (Postgres 17)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          # nur für diese Wegwerf-Datenbank im Lauf, kein Geheimnis
+          POSTGRES_USER: labhub
+          POSTGRES_PASSWORD: devtest-pw
+          POSTGRES_DB: labhub
+        ports:
+          - 127.0.0.1:15432:5432
+        options: >-
+          --health-cmd "pg_isready -U labhub -d labhub"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Swift-Tests im Worker-Test-Image, Auswertung der übersprungenen Tests
+        run: scripts/ci-backend.sh
+
+  pwa:
+    name: PWA, Vertrag, Skripte
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: Skripte (shellcheck, CI-Regeln, Umgebungsvariablen)
+        run: |
+          shellcheck deploy/*.sh scripts/*.sh docker-entrypoint.sh
+          scripts/test-ci-gates.sh
+          scripts/check-env-docs.sh
+      - name: Abhängigkeiten
+        run: npm --prefix pwa ci
+      - name: Vertrag (OpenAPI-YAML)
+        run: node scripts/check-openapi-yaml.mjs
+      - name: PWA check (inkl. Abgleich der API-Typen mit dem Vertrag)
+        run: npm --prefix pwa run check
+      - name: Unit-Tests
+        run: npm --prefix pwa test
+      - name: Browser für E2E
+        working-directory: pwa
+        run: npx playwright install --with-deps chromium
+      - name: E2E gegen Mock-Backend
+        run: npm --prefix pwa run test:e2e:mock

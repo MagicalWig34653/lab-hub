@@ -6,6 +6,7 @@ cd "$(dirname "$0")/.."
 export LH_SCRATCH="${LH_SCRATCH:-${TMPDIR:-/tmp}/labhub-build}"
 
 shellcheck deploy/*.sh scripts/*.sh docker-entrypoint.sh
+scripts/test-ci-gates.sh   # WP-ST1: Prüfungen der GitHub-CI (Testprotokoll, Workflow-Regeln)
 scripts/check-env-docs.sh   # WP-H9: jede gelesene Umgebungsvariable ist dokumentiert
 scripts/backup-restore-test.sh   # WP-H2: Backup/Restore mit Hash-Prüfung (Wegwerf-Datenbanken, Postgres wie für die Tests)
 
