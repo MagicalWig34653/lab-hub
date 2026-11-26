@@ -145,7 +145,7 @@
 {#if loading && items.length === 0}
 	<p class="text-muted-foreground text-sm">{tx('common.loading')}</p>
 {:else if items.length === 0 && !error}
-	<p class="text-muted-foreground" data-testid="review-empty">{tx('dms.review.empty')}</p>
+	<p class="panel text-muted-foreground text-center text-sm" data-testid="review-empty">{tx('dms.review.empty')}</p>
 {:else}
 	<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 	<ul bind:this={listEl} class="space-y-2" aria-label={tx('dms.review.listLabel')} onkeydown={onKeydown} data-testid="review-list">

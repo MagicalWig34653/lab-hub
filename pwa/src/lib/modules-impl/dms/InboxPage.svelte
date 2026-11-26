@@ -137,9 +137,9 @@
 
 			{#if suggestions.length > 0}
 				<div class="mb-4" data-testid="inbox-suggestions">
-					<div class="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-						<h3 class="text-sm font-medium">{tx((suggestionTotal ?? suggestions.length) === 1 ? 'dms.inbox.suggestion' : 'dms.inbox.suggestions', { count: suggestionTotal ?? suggestions.length })}</h3>
-						<a href="/dms/review" class="text-sm underline-offset-2 hover:underline" data-touch>{tx('dms.inbox.reviewAll')}</a>
+					<div class="mb-2 flex items-baseline justify-between gap-3">
+						<h3 class="min-w-0 text-sm font-medium">{tx((suggestionTotal ?? suggestions.length) === 1 ? 'dms.inbox.suggestion' : 'dms.inbox.suggestions', { count: suggestionTotal ?? suggestions.length })}</h3>
+						<a href="/dms/review" class="text-ui-accent-ink shrink-0 text-sm font-medium underline-offset-2 hover:underline" data-touch>{tx('dms.inbox.reviewAll')}</a>
 					</div>
 					<ul class="space-y-2">
 						{#each suggestions as s (s.id)}
@@ -196,9 +196,9 @@
 
 			{#if due.length > 0}
 				<div data-testid="inbox-due">
-					<div class="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-						<h3 class="text-sm font-medium">{tx('dms.inbox.due')}</h3>
-						<a href="/dms?due=week" class="text-sm underline-offset-2 hover:underline" data-touch>{tx('dms.inbox.dueAll')}</a>
+					<div class="mb-2 flex items-baseline justify-between gap-3">
+						<h3 class="min-w-0 text-sm font-medium">{tx('dms.inbox.due')}</h3>
+						<a href="/dms?due=week" class="text-ui-accent-ink shrink-0 text-sm font-medium underline-offset-2 hover:underline" data-touch>{tx('dms.inbox.dueAll')}</a>
 					</div>
 					<ul class="divide-y rounded-md border">
 						{#each due as doc (doc.id)}
@@ -222,9 +222,9 @@
 		</section>
 
 		<section class="{sectionClass} lg:col-span-2" aria-labelledby="inbox-recent" data-testid="inbox-recent">
-			<div class="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-				<h2 id="inbox-recent" class="panel-title">{tx('dms.inbox.recent')}</h2>
-				<a href="/dms" class="text-sm underline-offset-2 hover:underline" data-touch>{tx('dms.inbox.allDocuments')}</a>
+			<div class="mb-3 flex items-baseline justify-between gap-3">
+				<h2 id="inbox-recent" class="panel-title min-w-0">{tx('dms.inbox.recent')}</h2>
+				<a href="/dms" class="text-ui-accent-ink shrink-0 text-sm font-medium underline-offset-2 hover:underline" data-touch>{tx('dms.inbox.allDocuments')}</a>
 			</div>
 			{#if recent.length === 0}
 				<p class="text-muted-foreground text-sm" data-testid="inbox-recent-empty">{tx('dms.list.empty')}</p>

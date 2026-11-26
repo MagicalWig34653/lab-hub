@@ -108,7 +108,9 @@ test('AK-F5-1 review workflow: rule -> upload -> suggestion with reason -> keybo
 	await expect(page.getByTestId('masters-row').filter({ hasText: 'Steuer' })).toHaveCount(0);
 	await page.getByTestId('dms-nav-review').click();
 	const stale = page.getByTestId('review-row').filter({ has: page.getByTestId('suggestion-stale') });
-	await expect(stale).toHaveCount(await page.getByTestId('review-row').count());
+	// Only suggestions that use the deleted tag turn stale. (The earlier "every row" check compared against a count taken
+	// before the queue had loaded, so it was either empty or failed by timing.)
+	await expect(stale.first()).toBeVisible();
 	await expect(stale.first().getByTestId('suggestion-accept')).toBeDisabled();
 	await expect(stale.first().getByTestId('suggestion-stale')).toContainText('Veraltet');
 	await expectNoSeriousA11y(page);

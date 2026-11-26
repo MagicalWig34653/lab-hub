@@ -121,7 +121,7 @@
 {#if loading}
 	<p class="text-muted-foreground text-sm">{tx('common.loading')}</p>
 {:else if jobs.length === 0}
-	<p class="text-muted-foreground" data-testid="exports-empty">{tx('dms.exports.empty')}</p>
+	<p class="panel text-muted-foreground text-center text-sm" data-testid="exports-empty">{tx('dms.exports.empty')}</p>
 {:else}
 	<ul class="space-y-3" data-testid="exports-list">
 		{#each jobs as job (job.id)}

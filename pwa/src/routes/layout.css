@@ -255,8 +255,19 @@
 		overflow: hidden;
 		clip-path: inset(50%);
 	}
+	/* one line between two cards only; rows keep no border of their own */
 	table.table-cards tr {
 		padding: 0.75rem;
+		border: 0;
+	}
+	table.table-cards thead,
+	table.table-cards thead tr {
+		border: 0;
+		background: none;
+	}
+	/* the first cell has no column label: it is the card's title */
+	table.table-cards td:first-child:not([data-label]) {
+		font-weight: 600;
 	}
 	table.table-cards tbody tr + tr {
 		border-top: 1px solid var(--border);

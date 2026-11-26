@@ -121,7 +121,7 @@
 						onclick={() => save(preset.hex)}
 						data-testid={`accent-${preset.id}`}
 					>
-						<span class="ring-foreground/25 flex size-8 items-center justify-center rounded-full ring-1" style="background: {preset.hex}; color: {swatchMark(preset.hex)}" aria-hidden="true">
+						<span class="ring-foreground/25 dark:ring-foreground/55 flex size-8 items-center justify-center rounded-full ring-1" style="background: {preset.hex}; color: {swatchMark(preset.hex)}" aria-hidden="true">
 							{#if checked}<Check class="size-4" />{/if}
 						</span>
 						{t(`appearance.accent.color.${preset.id}` as MessageKey)}

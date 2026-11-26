@@ -161,7 +161,7 @@
 {#if loading && docs.length === 0}
 	<p class="text-muted-foreground text-sm">{tx('common.loading')}</p>
 {:else if docs.length === 0 && !error}
-	<p class="text-muted-foreground" data-testid="trash-empty">{tx('dms.list.trashEmpty')}</p>
+	<p class="panel text-muted-foreground text-center text-sm" data-testid="trash-empty">{tx('dms.list.trashEmpty')}</p>
 {:else}
 	<ul class="space-y-3" data-testid="trash-list">
 		{#each docs as doc (doc.id)}
@@ -231,9 +231,9 @@
 <h2 class="mt-8 mb-2 panel-title">{tx('dms.trash.logTitle')}</h2>
 <p class="text-muted-foreground mb-2 text-xs">{tx('dms.trash.logIntro')}</p>
 {#if log.length === 0}
-	<p class="text-muted-foreground text-sm" data-testid="deletion-log-empty">{tx('dms.trash.logEmpty')}</p>
+	<p class="panel text-muted-foreground text-center text-sm" data-testid="deletion-log-empty">{tx('dms.trash.logEmpty')}</p>
 {:else}
-	<div class="overflow-x-auto">
+	<div class="panel overflow-x-auto">
 		<table class="table-cards w-full text-left text-sm" data-testid="deletion-log">
 			<caption class="sr-only">{tx('dms.trash.logTitle')}</caption>
 			<thead>

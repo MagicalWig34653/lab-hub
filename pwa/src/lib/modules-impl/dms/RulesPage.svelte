@@ -80,9 +80,9 @@
 	{#if loading}
 		<p class="text-muted-foreground text-sm">{tx('common.loading')}</p>
 	{:else if rules.length === 0 && !error}
-		<p class="text-muted-foreground" data-testid="rules-empty">{tx('dms.rules.empty')}</p>
+		<p class="panel text-muted-foreground text-center text-sm" data-testid="rules-empty">{tx('dms.rules.empty')}</p>
 	{:else}
-		<div class="overflow-x-auto">
+		<div class="panel overflow-x-auto">
 			<table class="table-cards w-full text-left text-sm" data-testid="rules-table">
 				<caption class="sr-only">{tx('dms.rules.title')}</caption>
 				<thead>

@@ -92,6 +92,13 @@
 	const open = $derived(openGroupIds(groups, choices, activeId));
 	// Breadcrumbs in the header: group (if any) and the current page.
 	const crumbGroup = $derived(groups.find((g) => g.id === activeId)?.labelKey ?? null);
+	// A long sidebar scrolls the current entry into view (it can sit below the fold, e.g. in the settings group at the end).
+	$effect(() => {
+		void page.url.pathname;
+		void groups;
+		void open;
+		void tick().then(() => navEl?.querySelector('[aria-current="page"]')?.scrollIntoView({ block: 'nearest' }));
+	});
 	function toggle(id: string) {
 		choices = toggleChoice(choices, id, open.has(id));
 		writeChoices(choices);
@@ -237,7 +244,7 @@
 <div class={session.isRecovery ? '' : 'lg:pl-64'} inert={mobile && drawer} data-testid="shell-content">
 	<header class="glass-header sticky top-0 z-20 border-b">
 		<div class="flex min-h-[60px] items-center justify-between gap-2 px-4 py-2 sm:gap-3 min-[1101px]:px-10">
-			<div class="flex min-w-0 flex-1 items-center gap-2">
+			<div class="flex min-w-0 flex-auto items-center gap-2">
 				{#if !session.isRecovery}
 					<Button variant="ghost" size="icon" class="lg:hidden" aria-label={t('shell.openMenu')} aria-expanded={drawer} aria-controls="app-sidebar" onclick={openDrawer} data-testid="menu-toggle">
 						<MenuIcon class="size-[18px]" aria-hidden="true" />
@@ -258,12 +265,12 @@
 					</p>
 				{/if}
 			</div>
-			<div class="flex shrink-0 items-center justify-end gap-1 sm:gap-3">
+			<div class="flex min-w-0 flex-initial items-center justify-end gap-1 sm:gap-3">
 				{#if workspace.memberships.length > 1 && !session.isRecovery}
-					<label class="text-muted-foreground flex items-center gap-2 text-sm">
+					<label class="text-muted-foreground flex min-w-0 items-center gap-2 text-sm">
 						<span class="sr-only">{t('shell.tenant')}</span>
 						<select
-							class="hover:bg-muted bg-background text-foreground h-9 max-w-[7.5rem] truncate rounded-lg border border-transparent px-1 text-sm font-medium sm:max-w-56"
+							class="hover:bg-muted bg-background text-foreground h-9 w-37 max-w-full min-w-0 truncate sm:w-auto rounded-lg border border-transparent px-1 text-sm font-medium sm:max-w-56"
 							value={workspace.activeId ?? ''}
 							onchange={onTenantChange}
 							data-testid="tenant-switch"
@@ -281,6 +288,7 @@
 					<Button
 						variant="ghost"
 						size="icon"
+						class="max-sm:hidden"
 						href="/settings/appearance"
 						aria-label={t('settings.appearance')}
 						title={t('settings.appearance')}

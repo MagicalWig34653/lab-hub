@@ -118,7 +118,7 @@
 {#if loading && items.length === 0}
 	<p class="text-muted-foreground text-sm">{tx('common.loading')}</p>
 {:else if items.length === 0 && !error}
-	<p class="text-muted-foreground" data-testid="duplicates-empty">{tx('dms.duplicates.empty')}</p>
+	<p class="panel text-muted-foreground text-center text-sm" data-testid="duplicates-empty">{tx('dms.duplicates.empty')}</p>
 {:else}
 	<ul class="space-y-3" data-testid="duplicates-list">
 		{#each items as d (d.id)}

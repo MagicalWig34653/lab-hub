@@ -136,9 +136,9 @@
 {#if loading}
 	<p class="text-muted-foreground text-sm">{tx('common.loading')}</p>
 {:else if tokens.length === 0}
-	<p class="text-muted-foreground" data-testid="tokens-empty">{tx('dms.tokens.empty')}</p>
+	<p class="panel text-muted-foreground text-center text-sm" data-testid="tokens-empty">{tx('dms.tokens.empty')}</p>
 {:else}
-	<div class="overflow-x-auto">
+	<div class="panel overflow-x-auto">
 		<table class="table-cards w-full text-left text-sm" data-testid="tokens-table">
 			<caption class="sr-only">{tx('dms.tokens.title')}</caption>
 			<thead>

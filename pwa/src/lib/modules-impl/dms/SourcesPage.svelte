@@ -129,7 +129,7 @@
 	{#if loading}
 		<p class="text-muted-foreground text-sm">{tx('common.loading')}</p>
 	{:else if sources.length === 0 && !error}
-		<p class="text-muted-foreground" data-testid="sources-empty">{tx('dms.sources.empty')}</p>
+		<p class="panel text-muted-foreground text-center text-sm" data-testid="sources-empty">{tx('dms.sources.empty')}</p>
 	{:else}
 		<ul class="space-y-3" data-testid="sources-list">
 			{#each sources as source (source.id)}

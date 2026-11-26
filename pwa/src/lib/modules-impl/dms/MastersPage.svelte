@@ -215,13 +215,25 @@
 		f.kind === 'bool' ? tx((row as Record<string, unknown>)[f.key] === true ? 'dms.masters.yes' : 'dms.masters.no') : f.kind === 'group' ? groupName(text(row, f.key)) : text(row, f.key);
 </script>
 
-<PageHeader title={tx('dms.masters.title')} lead={tx('dms.masters.intro')} testid="masters-title" />
+<PageHeader title={tx('dms.masters.title')} lead={tx('dms.masters.intro')} testid="masters-title">
+	{#snippet actions()}
+		{#if canManage && editing === undefined}
+			<Button type="button" onclick={() => startEdit(null)} data-testid="masters-new">{tx('dms.masters.new')}</Button>
+		{/if}
+	{/snippet}
+</PageHeader>
 
-<div role="group" aria-label={tx('dms.masters.sections')} class="mb-4 flex flex-wrap gap-2">
+<div role="group" aria-label={tx('dms.masters.sections')} class="bg-muted mb-4 inline-flex max-w-full flex-wrap gap-1 rounded-lg p-1">
 	{#each sections as s (s.resource)}
-		<Button type="button" size="sm" variant={active === s.resource ? 'default' : 'outline'} aria-pressed={active === s.resource} class="transition-none" onclick={() => select(s.resource)} data-testid={`masters-tab-${s.resource}`}>
+		<button
+			type="button"
+			class="text-muted-foreground hover:text-foreground aria-pressed:bg-background aria-pressed:text-foreground h-8 rounded-md px-3 text-[13px] font-medium aria-pressed:shadow-sm"
+			aria-pressed={active === s.resource}
+			onclick={() => select(s.resource)}
+			data-testid={`masters-tab-${s.resource}`}
+		>
 			{tx(s.label)}
-		</Button>
+		</button>
 	{/each}
 </div>
 
@@ -232,7 +244,7 @@
 
 {#if editing !== undefined}
 	<form onsubmit={save} class="mb-5 space-y-3 panel" novalidate data-testid="masters-form">
-		<h2 class="text-base font-medium">{tx(editing ? 'dms.masters.edit' : 'dms.masters.new')}</h2>
+		<h2 class="panel-title">{tx(editing ? 'dms.masters.edit' : 'dms.masters.new')}</h2>
 		{#each section.fields as f (f.key)}
 			{#if !(editing && f.createOnly)}
 				<label class="block text-sm">
@@ -275,18 +287,16 @@
 			<Button type="button" variant="outline" onclick={() => (editing = undefined)} data-testid="masters-cancel">{tx('common.cancel')}</Button>
 		</div>
 	</form>
-{:else if canManage}
-	<Button type="button" class="mb-4" onclick={() => startEdit(null)} data-testid="masters-new">{tx('dms.masters.new')}</Button>
-{:else}
+{:else if !canManage}
 	<p class="text-muted-foreground mb-3 text-xs">{tx('dms.masters.readOnly')}</p>
 {/if}
 
 {#if loading}
 	<p class="text-muted-foreground text-sm">{tx('common.loading')}</p>
 {:else if items.length === 0 && !error}
-	<p class="text-muted-foreground" data-testid="masters-empty">{tx('dms.masters.empty')}</p>
+	<p class="panel text-muted-foreground text-center text-sm" data-testid="masters-empty">{tx('dms.masters.empty')}</p>
 {:else}
-	<div class="overflow-x-auto">
+	<div class="panel overflow-x-auto">
 		<table class="table-cards w-full text-left text-sm" data-testid="masters-table">
 			<caption class="sr-only">{tx(section.label)}</caption>
 			<thead>
@@ -298,7 +308,7 @@
 			<tbody>
 				{#each items as row (row.id)}
 					<tr class="border-b" data-testid="masters-row">
-						{#each section.fields as f (f.key)}<td data-label={tx(f.label)} data-empty={String(cell(row, f) ?? '').trim() ? undefined : ''} class="py-2 pr-3 break-words">{cell(row, f)}</td>{/each}
+						{#each section.fields as f, column (f.key)}<td data-label={column === 0 ? undefined : tx(f.label)} data-empty={String(cell(row, f) ?? '').trim() ? undefined : ''} class="py-2 pr-3 break-words">{cell(row, f)}</td>{/each}
 						<td class="py-2">
 							{#if canManage}
 								<div class="flex gap-2">

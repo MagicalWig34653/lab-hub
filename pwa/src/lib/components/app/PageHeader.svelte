@@ -17,5 +17,5 @@
 		{#if lead}<p class="page-lead" data-testid="page-lead">{lead}</p>{/if}
 		{@render children?.()}
 	</div>
-	{#if actions}<div class="flex flex-wrap items-center gap-2">{@render actions()}</div>{/if}
+	{#if actions}<div class="page-actions flex flex-wrap items-center gap-2">{@render actions()}</div>{/if}
 </div>

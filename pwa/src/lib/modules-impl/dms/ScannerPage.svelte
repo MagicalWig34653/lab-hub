@@ -30,17 +30,17 @@
 
 <PageHeader title={tx('dms.scanner.title')} lead={tx('dms.scanner.intro')} testid="scanner-title" />
 
-<div class="space-y-6">
-	<section aria-labelledby="scanner-step1">
-		<h2 id="scanner-step1" class="mb-1 text-base font-medium">{tx('dms.scanner.step1')}</h2>
+<div class="max-w-[820px] space-y-5">
+	<section class="panel" aria-labelledby="scanner-step1">
+		<h2 id="scanner-step1" class="panel-title mb-2">{tx('dms.scanner.step1')}</h2>
 		<p class="text-sm">
 			{tx('dms.scanner.step1Text')}
 			<a class="text-ui-accent-ink underline" href="/dms/tokens" data-testid="scanner-to-tokens">{tx('dms.scanner.toTokens')}</a>
 		</p>
 	</section>
 
-	<section aria-labelledby="scanner-step2">
-		<h2 id="scanner-step2" class="mb-1 text-base font-medium">{tx('dms.scanner.step2')}</h2>
+	<section class="panel" aria-labelledby="scanner-step2">
+		<h2 id="scanner-step2" class="panel-title mb-2">{tx('dms.scanner.step2')}</h2>
 		<dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
 			<dt class="text-muted-foreground">{tx('dms.scanner.method')}</dt>
 			<dd class="font-mono">{'POST'}</dd>
@@ -59,8 +59,8 @@
 		{#if copied === 'url'}<p role="status" class="mt-1 text-sm">{tx('dms.tokens.copied')}</p>{/if}
 	</section>
 
-	<section aria-labelledby="scanner-step3">
-		<h2 id="scanner-step3" class="mb-1 text-base font-medium">{tx('dms.scanner.step3')}</h2>
+	<section class="panel" aria-labelledby="scanner-step3">
+		<h2 id="scanner-step3" class="panel-title mb-2">{tx('dms.scanner.step3')}</h2>
 		<!-- Focusable so keyboard users can scroll the wide example (axe: scrollable-region-focusable). -->
 		<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 		<pre role="region" class="bg-muted overflow-x-auto rounded-md p-3 text-xs" tabindex="0" aria-label={tx('dms.scanner.curlLabel')} data-testid="scanner-curl">{curl}</pre>
@@ -72,8 +72,8 @@
 		<p class="text-muted-foreground mt-2 text-xs">{tx('dms.scanner.curlNote')}</p>
 	</section>
 
-	<section aria-labelledby="scanner-step4">
-		<h2 id="scanner-step4" class="mb-1 text-base font-medium">{tx('dms.scanner.step4')}</h2>
+	<section class="panel" aria-labelledby="scanner-step4">
+		<h2 id="scanner-step4" class="panel-title mb-2">{tx('dms.scanner.step4')}</h2>
 		<ul class="list-disc space-y-1 pl-5 text-sm">
 			<li>{tx('dms.scanner.deviceScanner')}</li>
 			<li>{tx('dms.scanner.deviceShare')}</li>
@@ -81,8 +81,8 @@
 		</ul>
 	</section>
 
-	<section aria-labelledby="scanner-step5">
-		<h2 id="scanner-step5" class="mb-1 text-base font-medium">{tx('dms.scanner.step5')}</h2>
+	<section class="panel" aria-labelledby="scanner-step5">
+		<h2 id="scanner-step5" class="panel-title mb-2">{tx('dms.scanner.step5')}</h2>
 		<ul class="list-disc space-y-1 pl-5 text-sm">
 			<li>{tx('dms.scanner.err201')}</li>
 			<li>{tx('dms.scanner.err401')}</li>

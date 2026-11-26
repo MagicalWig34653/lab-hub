@@ -109,9 +109,9 @@
 {#if loading}
 	<p class="text-muted-foreground text-sm">{tx('common.loading')}</p>
 {:else if runs.length === 0}
-	<p class="text-muted-foreground" data-testid="integrity-empty">{tx('dms.integrity.empty')}</p>
+	<p class="panel text-muted-foreground text-center text-sm" data-testid="integrity-empty">{tx('dms.integrity.empty')}</p>
 {:else}
-	<div class="overflow-x-auto">
+	<div class="panel overflow-x-auto">
 		<table class="table-cards w-full text-left text-sm" data-testid="integrity-runs">
 			<caption class="sr-only">{tx('dms.integrity.runs')}</caption>
 			<thead>
