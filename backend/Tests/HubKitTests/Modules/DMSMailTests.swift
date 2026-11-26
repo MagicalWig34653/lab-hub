@@ -496,7 +496,12 @@ final class NetworkTargetTests: XCTestCase {
 struct ServerSocketProbe {
     let closedPort: Int
     init() throws {
-        let fd = socket(AF_INET, SOCK_STREAM, 0)
+        #if canImport(Darwin)
+        let stream = SOCK_STREAM
+        #else
+        let stream = Int32(SOCK_STREAM.rawValue)
+        #endif
+        let fd = socket(AF_INET, stream, 0)
         defer { close(fd) }
         var addr = sockaddr_in(); addr.sin_family = sa_family_t(AF_INET); addr.sin_addr.s_addr = UInt32(0x7f000001).bigEndian; addr.sin_port = 0
         var len = socklen_t(MemoryLayout<sockaddr_in>.size)
