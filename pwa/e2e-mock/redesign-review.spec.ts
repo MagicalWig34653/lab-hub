@@ -143,3 +143,75 @@ test('own finding: the inbox on a phone keeps the suggestion text wide, above it
 	await expect(page.getByRole('heading', { name: '1 offener Vorschlag', exact: true })).toBeVisible();
 	await expect(page.getByTestId('inbox-attention')).toContainText('15.01.2000 (überfällig)');
 });
+
+test('re-check 1: the active settings entry is scrolled into view in the sidebar', async ({ page, context, request }) => {
+	await bootstrapWithDocs(page, context, request);
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await page.goto('/settings/members');
+	await expect(page.getByTestId('settings-tab-members')).toHaveAttribute('aria-current', 'page');
+	await expect(page.getByTestId('settings-tab-members')).toBeInViewport({ ratio: 1 });
+});
+
+test('re-check 2: sub pages share the card pattern for lists and empty states; the new action sits in the page head', async ({ page, context, request }) => {
+	await bootstrapWithDocs(page, context, request);
+	const radius = (testid: string) =>
+		page.getByTestId(testid).evaluate((el) => {
+			const card = el.closest<HTMLElement>('.panel');
+			return card ? getComputedStyle(card).borderTopLeftRadius : null;
+		});
+	for (const [path, testid] of [
+		['/dms/rules', 'rules-empty'],
+		['/dms/duplicates', 'duplicates-empty'],
+		['/dms/exports', 'exports-empty'],
+		['/dms/masters', 'masters-table'],
+		['/dms/tokens', 'tokens-empty'],
+		['/dms/trash', 'trash-empty'],
+		['/dms/sources', 'sources-empty'],
+		['/dms/integrity', 'integrity-empty'],
+		['/dms/scanner', 'scanner-curl']
+	]) {
+		await page.goto(path);
+		await expect(page.getByTestId(testid)).toBeVisible();
+		expect(await radius(testid), path).toBe('10px');
+	}
+	await page.goto('/dms/masters');
+	await expect(page.getByTestId('masters-new')).toBeVisible();
+	expect(await page.getByTestId('masters-new').evaluate((el) => Boolean(el.closest('.page-actions')))).toBe(true);
+});
+
+test('re-check 3-6: phone card lists have one line between rows and a title; inbox links look like links; the tenant name is not cut', async ({ page, context, request }) => {
+	await bootstrapWithDocs(page, context, request);
+	await page.setViewportSize(PHONE);
+	await page.goto('/dms/masters');
+	const rows = page.getByTestId('masters-row');
+	await expect(rows.first()).toBeVisible();
+	expect(await rows.first().evaluate((el) => getComputedStyle(el).borderBottomWidth)).toBe('0px');
+	const name = rows.first().locator('td').first();
+	expect(await name.getAttribute('data-label')).toBeNull();
+	await page.goto('/dms');
+	await expect(page.getByTestId('dms-row').first()).toBeVisible();
+	expect(await page.getByTestId('dms-list').locator('thead th').first().evaluate((el) => getComputedStyle(el.closest('tr')!).borderBottomWidth)).toBe('0px');
+	await page.goto('/dms/rules');
+	await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+	const cut = await page.getByTestId('tenant-switch').evaluate((el: HTMLSelectElement) => el.getBoundingClientRect().width);
+	expect(cut).toBeGreaterThanOrEqual(145);
+	await page.goto('/dms/inbox');
+	const link = page.getByRole('link', { name: 'Alle Dokumente' });
+	await expect(link).toHaveClass(/text-ui-accent-ink/);
+});
+
+test('own finding: on a phone the header shows short page names in full next to the tenant', async ({ page, context, request }) => {
+	await bootstrapWithDocs(page, context, request);
+	await page.setViewportSize(PHONE);
+	for (const path of ['/dms', '/dms/inbox', '/dms/masters', '/dms/duplicates', '/settings/appearance']) {
+		await page.goto(path);
+		await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+		const title = page.getByTestId('header-title');
+		expect(await title.evaluate((el) => el.scrollWidth - el.clientWidth), path).toBeLessThanOrEqual(0);
+		expect(await page.getByTestId('tenant-switch').evaluate((el) => el.getBoundingClientRect().width), path).toBeGreaterThanOrEqual(145);
+	}
+	// the shortcut that makes room stays reachable through the menu
+	await page.getByTestId('menu-toggle').click();
+	await page.getByTestId('drawer-settings').click();
+	await expect(page.getByTestId('settings-tab-appearance')).toBeVisible();
+});
