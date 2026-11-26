@@ -553,6 +553,37 @@ paths:
                   codes: { type: array, items: { type: string } }
         "401": { $ref: "#/components/responses/Problem" }
         "403": { $ref: "#/components/responses/Problem" }
+  /api/v1/me/preferences:
+    get:
+      operationId: getPreferences
+      summary: Darstellung des eigenen Kontos (WP-ST7, Akzentfarbe je Benutzer)
+      security: [{ bearer: [] }, { cookie: [] }]
+      responses:
+        "200":
+          description: Einstellungen
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Preferences" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+    put:
+      operationId: updatePreferences
+      summary: Darstellung des eigenen Kontos setzen (`accent` null = Standardfarbe)
+      security: [{ bearer: [] }, { cookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Preferences" }
+      responses:
+        "200":
+          description: Gespeicherte Einstellungen
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Preferences" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
   /api/v1/me/passkeys:
     get:
       operationId: listPasskeys
@@ -3449,6 +3480,14 @@ components:
         application/json:
           schema: { $ref: "#/components/schemas/SessionResponse" }
   schemas:
+    Preferences:
+      type: object
+      required: [accent]
+      properties:
+        accent:
+          type: [string, "null"]
+          pattern: "^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$"
+          description: Akzentfarbe als Hex; die Antwort liefert immer kleingeschriebenes `#rrggbb` oder null
     PasskeyOptionsResponse:
       type: object
       required: [challenge_id, public_key]

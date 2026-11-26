@@ -33,15 +33,17 @@ final class PreferencesTests: AuthTestCase {
         XCTAssertEqual(bobKept.json["accent"] as? String, "#7c3aed")
     }
 
-    /// AK-ST7-2: Nur `#rgb`/`#rrggbb` ist erlaubt; sonst 400 `validation_failed`, der alte Wert bleibt.
+    /// AK-ST7-2: Nur `#rgb`/`#rrggbb` ist erlaubt; sonst 422 `validation_failed`, der alte Wert bleibt.
     func testAKST7_2_InvalidAccentIsRejected() async throws {
         let alice = try await bootstrap(app1, VirtualAuthenticator())
         _ = try await call(app1, .PUT, "api/v1/me/preferences", json: ["accent": "#2563eb"], token: alice.token)
         for bad: Any in ["red", "#12345", "#gggggg", "2563eb", "#2563eb00", 42, "#2563eb; color: red"] {
             let r = try await call(app1, .PUT, "api/v1/me/preferences", json: ["accent": bad], token: alice.token)
-            XCTAssertEqual(r.status, .badRequest, "\(bad)")
+            XCTAssertEqual(r.status, .unprocessableEntity, "\(bad)")
             XCTAssertEqual(r.problemCode, "validation_failed", "\(bad)")
         }
+        let kept = try await call(app1, .GET, "api/v1/me/preferences", token: alice.token)
+        XCTAssertEqual(kept.json["accent"] as? String, "#2563eb")
         let short = try await call(app1, .PUT, "api/v1/me/preferences", json: ["accent": "#AbC"], token: alice.token)
         XCTAssertEqual(short.json["accent"] as? String, "#aabbcc")
     }

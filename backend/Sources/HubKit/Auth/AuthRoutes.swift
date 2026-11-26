@@ -122,6 +122,7 @@ func registerAuthRoutes(_ app: Application) {
 
     // Nur normale Sitzungen
     let normal = api.grouped(RequireSession())
+    registerPreferenceRoutes(normal)  // WP-ST7
     normal.get("auth", "sessions") { req async throws -> Response in
         let list = try await req.application.authService().sessions(try req.requireAuth(), on: req.db)
         return try jsonResponse(["items": list.map { ["id": $0.id.uuidString, "kind": $0.kind, "created_at": iso($0.createdAt),
