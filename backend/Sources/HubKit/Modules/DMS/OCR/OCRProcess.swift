@@ -53,7 +53,7 @@ private final class TimeoutFlag: @unchecked Sendable {
 
 enum OCRProcess {
     /// Startet `executable` (Suche über PATH). `memoryBytes`: Adressraumlimit (`ulimit -v`, nur Linux). `timeout`: Sekunden; danach wird die ganze Prozessgruppe beendet
-    /// (Linux: `timeout(1)` mit TERM, nach 5 s KILL, Exit 124/137; Swift-Zeitgeber als Rückfall nach timeout + 10 s).
+    /// (Linux: `timeout(1)` mit TERM, nach 5 s KILL, Exit 124 oder Signal 9; Swift-Zeitgeber als Rückfall nach timeout + 10 s).
     static func run(_ executable: String, _ arguments: [String], workDir: URL, timeout: TimeInterval, memoryBytes: Int64? = nil,
                     environment: [String: String] = [:], maxCapture: Int = 4 << 20) async throws -> OCRProcessResult {
         let id = UUID().uuidString
@@ -97,8 +97,10 @@ enum OCRProcess {
         await withTaskCancellationHandler { await running.wait() } onCancel: { running.kill() }
         timer.cancel()
         #if os(Linux)
+        // `timeout` meldet 124. Greift erst das KILL nach 5 s, trifft es die Gruppe samt `timeout`: Foundation meldet dann Signal 9 (eine Shell 137).
         let status = p.terminationStatus
-        if status == 124 || (status == 137 && Date().timeIntervalSince(started) >= timeout) { timedOut.set() }
+        let killed = p.terminationReason == .uncaughtSignal ? status == SIGKILL : status == 137
+        if status == 124 || (killed && Date().timeIntervalSince(started) >= timeout) { timedOut.set() }
         #endif
 
         func read(_ url: URL) -> String {
