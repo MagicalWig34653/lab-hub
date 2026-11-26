@@ -271,6 +271,16 @@ final class OCRUnitTests: XCTestCase {
         XCTAssertNotEqual(r.exitCode, 0)
     }
 
+    /// AK-O2-4: Auch ein Prozess, der SIGTERM ignoriert, gilt als Zeitüberschreitung. Linux: `timeout` beendet dann nach 5 s die ganze
+    /// Gruppe mit KILL, sich selbst eingeschlossen; gemeldet wird das Signal 9, nicht Exit 137 (WP-ST1, Befund aus der CI).
+    func testAKO2_4_timeLimitReportedWhenProcessIgnoresTerm() async throws {
+        let dir = try scratch(); defer { try? FileManager.default.removeItem(at: dir) }
+        let start = Date()
+        let r = try await OCRProcess.run("sh", ["-c", "trap '' TERM; exec sleep 60"], workDir: dir, timeout: 1)
+        XCTAssertTrue(r.timedOut, "Exit \(r.exitCode)")
+        XCTAssertLessThan(Date().timeIntervalSince(start), 20)
+    }
+
     /// AK-O2-4 (Abbruch): Cancellation beendet den Fremdprozess (Worker-Shutdown, Lease-Verlust).
     func testAKO2_4_cancellationKillsProcess() async throws {
         let dir = try scratch(); defer { try? FileManager.default.removeItem(at: dir) }
