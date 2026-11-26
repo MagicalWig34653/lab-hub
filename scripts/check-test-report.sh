@@ -2,6 +2,7 @@
 # WP-ST1 (AK-ST1-1): Wertet das Protokoll von `swift test` aus (XCTest auf macOS oder Linux).
 # Listet alle übersprungenen Tests (auch in $GITHUB_STEP_SUMMARY) und schlägt fehl, wenn der Lauf nicht vollständig war,
 # ein Test fehlschlug oder Datenbanktests fehlten. Aufruf: scripts/check-test-report.sh <Protokolldatei>
+# LH_MAX_SKIPPED (CI): mehr übersprungene Tests als angegeben sind ein Fehler.
 set -euo pipefail
 
 log="${1:?Aufruf: check-test-report.sh <Protokolldatei>}"
@@ -30,6 +31,7 @@ summary
 if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then summary >> "$GITHUB_STEP_SUMMARY"; fi
 if [ -n "${GITHUB_ACTIONS:-}" ] && [ "$skipped" != 0 ]; then echo "::warning title=Übersprungene Tests::$skipped Tests übersprungen (Liste in der Zusammenfassung)"; fi
 
+if [ -n "${LH_MAX_SKIPPED:-}" ] && [ "$skipped" -gt "$LH_MAX_SKIPPED" ]; then err "$skipped Tests übersprungen, erlaubt sind $LH_MAX_SKIPPED"; fi
 grep -Eq "Executed [0-9]+ tests?," "$log" || err "keine Abschlusszeile: Testlauf unvollständig"
 [ -z "$(cases failed)" ] || err "fehlgeschlagene Tests im Protokoll"
 if grep -Eq "Test skipped.*(Keine Postgres-Datenbank erreichbar|CREATEROLE)" "$log"; then err "Datenbanktests wurden übersprungen (Datenbank oder Rechte fehlen)"; fi

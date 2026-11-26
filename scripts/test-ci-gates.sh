@@ -66,6 +66,11 @@ expect 1 "AK-ST1-1 fehlgeschlagener Test ist rot" report "$W/failed.log"
 expect 1 "AK-ST1-1 leeres Protokoll ist rot" report "$W/empty.log"
 expect 1 "AK-ST1-1 fehlendes Protokoll ist rot" report "$W/none.log"
 
+# Obergrenze für Übersprungene (CI): ein zusätzlicher Skip (Mail, Mehrprozess) ist rot
+limit() { GITHUB_STEP_SUMMARY="" LH_MAX_SKIPPED="$1" scripts/check-test-report.sh "$W/linux.log"; }
+expect 0 "AK-ST1-1 Übersprungene innerhalb der Obergrenze" limit 1
+expect 1 "AK-ST1-1 mehr Übersprungene als erlaubt ist rot" limit 0
+
 # ---- AK-ST1-3: Workflow-Regeln ----
 wf() { # wf <Verzeichnis> <zusätzliche Zeile>
   mkdir -p "$W/$1"
@@ -86,11 +91,17 @@ wf noperm '      - run: echo ok'
 grep -v -e '^permissions:' -e 'contents: read' "$W/noperm/ci.yml" > "$W/noperm/n" && mv "$W/noperm/n" "$W/noperm/ci.yml"
 wf target '      - run: echo ok'
 sed 's/pull_request]/pull_request_target]/' "$W/target/ci.yml" > "$W/target/t" && mv "$W/target/t" "$W/target/ci.yml"
+wf flow '      - { uses: actions/setup-node@v7 }'
+wf flowok '      - { uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 }'
+wf tojson '      - run: echo ${{ toJSON(secrets) }}'
 mkdir -p "$W/leer"
 
 expect 0 "AK-ST1-3 erlaubter Workflow" scripts/check-workflows.sh "$W/good"
 expect 1 "AK-ST1-3 Action nur auf Tag gepinnt" scripts/check-workflows.sh "$W/tag"
 expect 1 "AK-ST1-3 Secret" scripts/check-workflows.sh "$W/secret"
+expect 1 "AK-ST1-3 alle Secrets über toJSON" scripts/check-workflows.sh "$W/tojson"
+expect 1 "AK-ST1-3 ungepinnte Action in Flow-Schreibweise" scripts/check-workflows.sh "$W/flow"
+expect 0 "AK-ST1-3 gepinnte Action in Flow-Schreibweise" scripts/check-workflows.sh "$W/flowok"
 expect 1 "AK-ST1-3 Image-Push" scripts/check-workflows.sh "$W/push"
 expect 1 "AK-ST1-3 Image-Push über buildx" scripts/check-workflows.sh "$W/bpush"
 expect 1 "AK-ST1-3 Release" scripts/check-workflows.sh "$W/release"

@@ -14,11 +14,12 @@ files=("$dir"/*.yml "$dir"/*.yaml)
 
 for f in "${files[@]}"; do
   code=$(sed 's/^[[:space:]]*#.*$//' "$f")   # reine Kommentarzeilen zählen nicht
-  unpinned=$(grep -E '^[[:space:]]*(-[[:space:]]+)?uses:' <<< "$code" | grep -Ev 'uses:[[:space:]]+(\./|[^@[:space:]]+@[0-9a-f]{40}([[:space:]]|$))' || true)
+  # jedes `uses:`, auch in Flow-Schreibweise `- { uses: ... }`
+  unpinned=$(grep -E '(^|[[:space:]{,])uses:' <<< "$code" | grep -Ev 'uses:[[:space:]]+(\./|[^@[:space:]]+@[0-9a-f]{40}([[:space:],}]|$))' || true)
   [ -z "$unpinned" ] || err "$f: Action nicht auf Commit gepinnt:"$'\n'"$unpinned"
   { grep -Eq '^permissions:' <<< "$code" && grep -Eq '^[[:space:]]+contents:[[:space:]]*read' <<< "$code"; } || err "$f: permissions mit contents: read fehlt"
   ! grep -Eq ':[[:space:]]*write(-all)?([[:space:],}]|$)' <<< "$code" || err "$f: Schreibrecht"
-  ! grep -Eq 'secrets[[:space:]]*[.:[]|github\.token' <<< "$code" || err "$f: Secret oder Token"
+  ! grep -Eq '(^|[^A-Za-z0-9_-])secrets([^A-Za-z0-9_-]|$)|github\.token' <<< "$code" || err "$f: Secret oder Token"
   ! grep -Eq 'docker[[:space:]]+(image[[:space:]]+|compose[[:space:]]+)?push|--push|push:[[:space:]]*true|docker/login-action' <<< "$code" || err "$f: Image-Push"
   ! grep -Eqi 'gh[[:space:]]+release|release-action|action-gh-release|create-release' <<< "$code" || err "$f: Release"
   ! grep -q 'pull_request_target' <<< "$code" || err "$f: pull_request_target"

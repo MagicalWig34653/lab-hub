@@ -34,6 +34,9 @@ jobs:
         with:
           persist-credentials: false
       - name: Swift-Tests im Worker-Test-Image, Auswertung der übersprungenen Tests
+        env:
+          # erwartet: AK-S1-7 Messlauf und AK-O2-5 (read-only Root); jeder weitere Skip ist rot
+          LH_MAX_SKIPPED: "2"
         run: scripts/ci-backend.sh
 
   pwa:
