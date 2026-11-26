@@ -54,7 +54,7 @@
 		noAction: 'dms.rule.problem.noAction',
 		dateRequired: 'dms.rule.problem.dateRequired'
 	} as const;
-	const selectClass = 'border-input bg-background h-8 w-full rounded-lg border px-2 text-sm';
+	const selectClass = 'border-input bg-background h-10 w-full rounded-lg border px-2.5 text-sm';
 
 	function addCondition() {
 		draft.conditions.push({ type: 'text_contains', text: '', caseSensitive: false });

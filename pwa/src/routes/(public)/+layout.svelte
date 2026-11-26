@@ -4,7 +4,7 @@
 	let { children } = $props();
 </script>
 
-<main class="flex min-h-screen flex-col items-center justify-center gap-6 p-4">
+<main class="bg-sidebar flex min-h-dvh flex-col items-center justify-center gap-6 p-4">
 	{@render children()}
 	<LanguageSwitch />
 </main>

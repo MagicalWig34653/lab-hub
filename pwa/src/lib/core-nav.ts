@@ -1,5 +1,6 @@
 import LayoutDashboard from '@lucide/svelte/icons/layout-dashboard';
 import Monitor from '@lucide/svelte/icons/monitor';
+import Palette from '@lucide/svelte/icons/palette';
 import Puzzle from '@lucide/svelte/icons/puzzle';
 import Shield from '@lucide/svelte/icons/shield';
 import UserRound from '@lucide/svelte/icons/user-round';
@@ -12,6 +13,7 @@ export const coreStart: SidebarItem = { id: 'core.dashboard', path: '/dashboard'
 export function coreSettings(can: (permission: string) => boolean): SidebarGroup {
 	const defs = [
 		{ id: 'profile', labelKey: 'settings.profile', icon: UserRound },
+		{ id: 'appearance', labelKey: 'settings.appearance', icon: Palette },
 		{ id: 'security', labelKey: 'settings.security', icon: Shield },
 		{ id: 'sessions', labelKey: 'settings.sessions', icon: Monitor },
 		{ id: 'modules', labelKey: 'settings.modules', icon: Puzzle, permission: 'tenant.module.manage' },

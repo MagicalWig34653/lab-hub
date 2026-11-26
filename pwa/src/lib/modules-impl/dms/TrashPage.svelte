@@ -150,7 +150,7 @@
 	const shortHash = (h: string) => `${h.slice(0, 12)}…`;
 </script>
 
-<h1 class="mb-1 text-2xl font-semibold" data-testid="trash-title">{tx('dms.trash.title')}</h1>
+<h1 class="page-title mb-1" data-testid="trash-title">{tx('dms.trash.title')}</h1>
 <p class="text-muted-foreground mb-1 text-sm">{tx('dms.trash.intro')}</p>
 <p class="text-muted-foreground mb-4 text-xs" data-testid="trash-gobd">{tx('dms.trash.gobdNote')}</p>
 

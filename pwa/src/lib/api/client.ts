@@ -6,6 +6,7 @@ export { ApiError } from './errors';
 type Schemas = components['schemas'];
 export type SessionResponse = Schemas['SessionResponse'];
 export type PasskeyInfo = Schemas['PasskeyInfo'];
+export type Preferences = Schemas['Preferences'];
 export type PasskeyOptionsResponse = Schemas['PasskeyOptionsResponse'];
 export type TenantMembership = Schemas['TenantMembership'];
 export type Role = Schemas['Role'];
@@ -120,7 +121,10 @@ export const meApi = {
 	passkeys: () => request<{ items: PasskeyInfo[] }>('GET', '/me/passkeys'),
 	revokePasskey: (id: string) => request<void>('DELETE', `/me/passkeys/${id}`),
 	recoveryCodeStatus: () => request<{ remaining: number }>('GET', '/me/recovery-codes'),
-	generateRecoveryCodes: () => request<{ codes: string[] }>('POST', '/me/recovery-codes')
+	generateRecoveryCodes: () => request<{ codes: string[] }>('POST', '/me/recovery-codes'),
+	// WP-ST7: accent colour of the own account
+	getPreferences: () => request<Preferences>('GET', '/me/preferences'),
+	updatePreferences: (body: Preferences) => request<Preferences>('PUT', '/me/preferences', body)
 };
 
 /** Tenant-scoped routes (WP-K2/K3): the tenant id is always part of the path. */

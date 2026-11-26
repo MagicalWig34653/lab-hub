@@ -67,7 +67,7 @@
 	<RuleEditor tenant={tenantId} rule={editing} {masters} onsaved={onSaved} oncancel={() => (editing = undefined)} />
 {:else}
 	<div class="mb-3 flex flex-wrap items-center justify-between gap-3">
-		<h1 class="text-2xl font-semibold" data-testid="rules-title">{tx('dms.rules.title')}</h1>
+		<h1 class="page-title" data-testid="rules-title">{tx('dms.rules.title')}</h1>
 		{#if canManage}
 			<Button type="button" onclick={() => ((editing = null), (saved = false))} data-testid="rule-new">{tx('dms.rule.new')}</Button>
 		{/if}

@@ -33,3 +33,12 @@ describe('accent', () => {
 		expect(new Set(ACCENT_PRESETS.map((p) => p.hex)).size).toBe(ACCENT_PRESETS.length);
 	});
 });
+
+describe('accent hover', () => {
+	it('AK-ST7-3 the hover fill keeps the foreground at 4.5:1 for every preset', () => {
+		for (const { hex } of ACCENT_PRESETS) {
+			const tokens = accentTokens(hex, false)!;
+			expect(contrastRatio(tokens.foreground, tokens.hover), hex).toBeGreaterThanOrEqual(4.5);
+		}
+	});
+});

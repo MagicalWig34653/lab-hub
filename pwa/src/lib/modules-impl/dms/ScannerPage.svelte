@@ -27,7 +27,7 @@
 	}
 </script>
 
-<h1 class="mb-1 text-2xl font-semibold" data-testid="scanner-title">{tx('dms.scanner.title')}</h1>
+<h1 class="page-title mb-1" data-testid="scanner-title">{tx('dms.scanner.title')}</h1>
 <p class="text-muted-foreground mb-4 text-sm">{tx('dms.scanner.intro')}</p>
 
 <div class="space-y-6">
@@ -35,7 +35,7 @@
 		<h2 id="scanner-step1" class="mb-1 text-base font-medium">{tx('dms.scanner.step1')}</h2>
 		<p class="text-sm">
 			{tx('dms.scanner.step1Text')}
-			<a class="text-primary underline" href="/dms/tokens" data-testid="scanner-to-tokens">{tx('dms.scanner.toTokens')}</a>
+			<a class="text-ui-accent-ink underline" href="/dms/tokens" data-testid="scanner-to-tokens">{tx('dms.scanner.toTokens')}</a>
 		</p>
 	</section>
 

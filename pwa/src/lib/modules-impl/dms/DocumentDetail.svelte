@@ -295,7 +295,7 @@
 		done: 'dms.processing.phase.processing',
 		failed: 'dms.processing.phase.processing'
 	} as const;
-	const selectClass = 'border-input bg-background h-8 w-full rounded-lg border px-2 text-sm disabled:opacity-50';
+	const selectClass = 'border-input bg-background h-10 w-full rounded-lg border px-2.5 text-sm disabled:opacity-50';
 </script>
 
 <p class="mb-4">
@@ -310,7 +310,7 @@
 	<ErrorBanner message={loadError} />
 {:else}
 	<div class="mb-4 flex flex-wrap items-center gap-3">
-		<h1 class="text-2xl font-semibold break-words" data-testid="dms-detail-title">{doc.title}</h1>
+		<h1 class="page-title break-words" data-testid="dms-detail-title">{doc.title}</h1>
 		{#if doc.extraction}<KindBadge kind={doc.extraction.kind} certain={doc.extraction.kind_certain} />{/if}
 	</div>
 

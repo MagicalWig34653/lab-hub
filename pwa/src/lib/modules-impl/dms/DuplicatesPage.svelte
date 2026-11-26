@@ -101,13 +101,13 @@
 	};
 </script>
 
-<h1 class="mb-1 text-2xl font-semibold" data-testid="duplicates-title">{tx('dms.duplicates.title')}</h1>
+<h1 class="page-title mb-1" data-testid="duplicates-title">{tx('dms.duplicates.title')}</h1>
 <p class="text-muted-foreground mb-4 text-sm">{tx('dms.duplicates.intro')}</p>
 <ErrorBanner message={error} />
 
 <label class="mb-4 block text-sm">
 	<span class="mb-1 block">{tx('dms.duplicates.filterState')}</span>
-	<select class="border-input bg-background h-8 rounded-lg border px-2 text-sm" value={stateFilter} onchange={changeState} data-testid="duplicates-state">
+	<select class="border-input bg-background h-10 rounded-lg border px-2.5 text-sm" value={stateFilter} onchange={changeState} data-testid="duplicates-state">
 		<option value="open">{tx('dms.duplicates.state.open')}</option>
 		<option value="confirmed">{tx('dms.duplicates.state.confirmed')}</option>
 		<option value="dismissed">{tx('dms.duplicates.state.dismissed')}</option>

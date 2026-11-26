@@ -209,12 +209,12 @@
 	}
 
 	const groupName = (id: string) => groups.find((g) => g.id === id)?.name ?? '';
-	const selectClass = 'border-input bg-background h-8 w-full rounded-lg border px-2 text-sm';
+	const selectClass = 'border-input bg-background h-10 w-full rounded-lg border px-2.5 text-sm';
 	const cell = (row: DmsMaster, f: FieldDef): string =>
 		f.kind === 'bool' ? tx((row as Record<string, unknown>)[f.key] === true ? 'dms.masters.yes' : 'dms.masters.no') : f.kind === 'group' ? groupName(text(row, f.key)) : text(row, f.key);
 </script>
 
-<h1 class="mb-1 text-2xl font-semibold" data-testid="masters-title">{tx('dms.masters.title')}</h1>
+<h1 class="page-title mb-1" data-testid="masters-title">{tx('dms.masters.title')}</h1>
 <p class="text-muted-foreground mb-4 text-sm">{tx('dms.masters.intro')}</p>
 
 <div role="group" aria-label={tx('dms.masters.sections')} class="mb-4 flex flex-wrap gap-2">

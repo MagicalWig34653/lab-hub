@@ -29,6 +29,7 @@ interface MockUser {
 	is_operator: boolean;
 	passkeys: MockPasskey[];
 	recoveryCodes: Set<string>;
+	accent?: string | null;
 }
 
 interface MockSession {
@@ -429,6 +430,19 @@ export function createMockApi(): MockApi {
 			return send(res, 204);
 		}
 
+		// WP-ST7: accent colour per user (same validation as the backend).
+		if (method === 'GET' && path === '/api/v1/me/preferences') {
+			return send(res, 200, { accent: auth().user.accent ?? null });
+		}
+		if (method === 'PUT' && path === '/api/v1/me/preferences') {
+			const { user } = auth();
+			const value = body.accent;
+			const match = typeof value === 'string' ? /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(value) : null;
+			if (value !== null && !match) throw new ProblemError(422, 'validation_failed', 'Die Eingaben sind ungültig.');
+			const digits = match?.[1].toLowerCase();
+			user.accent = digits ? '#' + (digits.length === 3 ? [...digits].map((d) => d + d).join('') : digits) : null;
+			return send(res, 200, { accent: user.accent });
+		}
 		if (method === 'GET' && path === '/api/v1/me/recovery-codes') {
 			return send(res, 200, { remaining: auth().user.recoveryCodes.size });
 		}

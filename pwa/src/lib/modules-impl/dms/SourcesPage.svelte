@@ -114,7 +114,7 @@
 	<SourceEditor tenant={tenantId} kind={editing.kind} source={editing.source} onsaved={onSaved} oncancel={() => (editing = undefined)} />
 {:else}
 	<div class="mb-3 flex flex-wrap items-center justify-between gap-3">
-		<h1 class="text-2xl font-semibold" data-testid="sources-title">{tx('dms.sources.title')}</h1>
+		<h1 class="page-title" data-testid="sources-title">{tx('dms.sources.title')}</h1>
 		<div class="flex flex-wrap gap-2">
 			<Button type="button" variant="outline" onclick={() => void load()} data-testid="source-refresh">{tx('dms.sources.refresh')}</Button>
 			{#if canManage}

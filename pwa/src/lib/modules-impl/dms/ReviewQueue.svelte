@@ -123,7 +123,7 @@
 	}
 </script>
 
-<h1 class="mb-1 text-2xl font-semibold" data-testid="review-title">{tx('dms.review.title')}</h1>
+<h1 class="page-title mb-1" data-testid="review-title">{tx('dms.review.title')}</h1>
 <p class="text-muted-foreground mb-4 text-sm">{tx('dms.review.intro')}</p>
 
 <ErrorBanner message={error} />
@@ -131,7 +131,7 @@
 <div class="mb-3 flex flex-wrap items-end gap-3">
 	<label class="text-sm">
 		<span class="mb-1 block">{tx('dms.review.filterKind')}</span>
-		<select class="border-input bg-background h-8 rounded-lg border px-2 text-sm" value={kind} onchange={changeKind} data-testid="review-kind">
+		<select class="border-input bg-background h-10 rounded-lg border px-2.5 text-sm" value={kind} onchange={changeKind} data-testid="review-kind">
 			<option value="">{tx('dms.filter.all')}</option>
 			{#each kinds as k (k)}<option value={k}>{tx(KIND_TEXT[k])}</option>{/each}
 		</select>

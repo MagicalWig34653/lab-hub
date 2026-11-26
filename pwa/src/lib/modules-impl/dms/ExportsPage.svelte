@@ -92,7 +92,7 @@
 	}
 </script>
 
-<h1 class="mb-1 text-2xl font-semibold" data-testid="exports-title">{tx('dms.exports.title')}</h1>
+<h1 class="page-title mb-1" data-testid="exports-title">{tx('dms.exports.title')}</h1>
 <p class="text-muted-foreground mb-1 text-sm">{tx('dms.exports.intro')}</p>
 <p class="text-muted-foreground mb-4 text-xs">{tx('dms.exports.gobdNote')}</p>
 <ErrorBanner message={error} />
@@ -108,7 +108,7 @@
 	</label>
 	<label class="text-sm">
 		<span class="mb-1 block">{tx('dms.field.type')}</span>
-		<select class="border-input bg-background h-8 rounded-lg border px-2 text-sm" bind:value={typeId} data-testid="export-type">
+		<select class="border-input bg-background h-10 rounded-lg border px-2.5 text-sm" bind:value={typeId} data-testid="export-type">
 			<option value="">{tx('dms.filter.all')}</option>
 			{#each masters.types as type (type.id)}<option value={type.id}>{type.name}</option>{/each}
 		</select>
@@ -134,7 +134,7 @@
 						<a
 							href={dmsAdminApi.exportFileUrl(tenantId, job.id)}
 							download
-							class="bg-primary text-primary-foreground hover:bg-primary/80 focus-visible:ring-ring/50 inline-flex h-8 items-center rounded-lg px-2.5 text-sm font-medium focus-visible:ring-3"
+							class="bg-primary text-primary-foreground hover:bg-primary-hover focus-visible:ring-ring/50 inline-flex h-10 items-center rounded-lg px-2.5 text-sm font-medium focus-visible:ring-3"
 							data-testid="export-download"
 						>
 							{tx('dms.exports.download')}

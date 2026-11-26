@@ -1,5 +1,10 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import Building from '@lucide/svelte/icons/building-2';
+	import KeyRound from '@lucide/svelte/icons/key-round';
+	import Puzzle from '@lucide/svelte/icons/puzzle';
+	import UserCheck from '@lucide/svelte/icons/user-check';
+	import KpiCard from '#lib/components/app/KpiCard.svelte';
 	import { meApi } from '#lib/api/client';
 	import * as Alert from '#lib/components/ui/alert';
 	import * as Card from '#lib/components/ui/card';
@@ -17,6 +22,7 @@
 	let recoveryRemaining = $state<number | null>(null);
 
 	const tenants = $derived(session.current?.memberships ?? []);
+	const activeModules = $derived((workspace.modules?.items ?? []).filter((m) => workspace.moduleEffective(m.key)).length);
 
 	async function loadRecoveryStatus() {
 		try {
@@ -48,9 +54,12 @@
 
 <svelte:head><title>{t('dashboard.title')} · {t('app.name')}</title></svelte:head>
 
-<h1 class="mb-4 text-2xl font-semibold" data-testid="dashboard-heading">
-	{t('dashboard.greeting', { name: session.current?.user.display_name ?? '' })}
-</h1>
+<div class="mb-7">
+	<h1 class="page-title" data-testid="dashboard-heading">
+		{t('dashboard.greeting', { name: session.current?.user.display_name ?? '' })}
+	</h1>
+	<p class="text-muted-foreground mt-1">{t('dashboard.subtitle')}</p>
+</div>
 
 {#if error}
 	<div role="alert" class="mb-4">
@@ -74,12 +83,24 @@
 			<Alert.Title>{t('dashboard.recoveryHint.title')}</Alert.Title>
 			<Alert.Description>
 				<p>{t('dashboard.recoveryHint.text', { count: recoveryRemaining })}</p>
-				<a class="text-primary mt-2 inline-block underline" href="/settings/security">{t('dashboard.recoveryHint.link')}</a>
+				<a class="text-ui-accent-ink mt-2 inline-block underline" href="/settings/security">{t('dashboard.recoveryHint.link')}</a>
 			</Alert.Description>
 		</Alert.Root>
 	{/if}
+	<div class="mb-5 grid grid-cols-2 gap-3 md:gap-4 min-[1101px]:grid-cols-4" data-testid="kpis">
+		<KpiCard label={t('dashboard.kpi.tenants')} value={String(tenants.length)} hint={t('dashboard.kpi.tenantsHint')} icon={Building} testid="kpi-tenants" />
+		<KpiCard
+			label={t('dashboard.kpi.role')}
+			value={workspace.detail ? t(`role.${workspace.detail.role}` as MessageKey) : '–'}
+			hint={workspace.detail?.name}
+			icon={UserCheck}
+			testid="kpi-role"
+		/>
+		<KpiCard label={t('dashboard.kpi.modules')} value={workspace.detail ? String(activeModules) : '–'} hint={t('dashboard.kpi.modulesHint')} icon={Puzzle} testid="kpi-modules" />
+		<KpiCard label={t('dashboard.kpi.recovery')} value={recoveryRemaining === null ? '–' : String(recoveryRemaining)} hint={t('dashboard.kpi.recoveryHint')} icon={KeyRound} testid="kpi-recovery" />
+	</div>
 	<Card.Root>
-		<Card.Header><Card.Title><h2 class="text-lg font-semibold">{t('dashboard.tenants')}</h2></Card.Title></Card.Header>
+		<Card.Header><Card.Title><h2 class="text-[17px] font-semibold">{t('dashboard.tenants')}</h2></Card.Title></Card.Header>
 		<Card.Content>
 			{#if tenants.length === 0}
 				<p class="text-muted-foreground text-sm">{t('dashboard.noTenants')}</p>

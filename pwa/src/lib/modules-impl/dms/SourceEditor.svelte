@@ -92,7 +92,7 @@
 	}
 </script>
 
-<h1 class="mb-1 text-2xl font-semibold" data-testid="source-editor-title">
+<h1 class="page-title mb-1" data-testid="source-editor-title">
 	{tx(editing ? (kind === 'mail' ? 'dms.sources.editMail' : 'dms.sources.editFolder') : kind === 'mail' ? 'dms.sources.newMail' : 'dms.sources.newFolder')}
 </h1>
 <p class="text-muted-foreground mb-4 text-sm">{tx(kind === 'mail' ? 'dms.sources.mailIntro' : 'dms.sources.folderIntro')}</p>

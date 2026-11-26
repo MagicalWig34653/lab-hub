@@ -91,13 +91,13 @@
 	}
 </script>
 
-<h1 class="mb-1 text-2xl font-semibold" data-testid="tokens-title">{tx('dms.tokens.title')}</h1>
+<h1 class="page-title mb-1" data-testid="tokens-title">{tx('dms.tokens.title')}</h1>
 <p class="text-muted-foreground mb-1 text-sm">{tx('dms.tokens.intro')}</p>
-<p class="mb-4 text-sm"><a class="text-primary underline" href="/dms/scanner" data-testid="tokens-to-scanner">{tx('dms.tokens.toScanner')}</a></p>
+<p class="mb-4 text-sm"><a class="text-ui-accent-ink underline" href="/dms/scanner" data-testid="tokens-to-scanner">{tx('dms.tokens.toScanner')}</a></p>
 <ErrorBanner message={error} />
 
 {#if fresh}
-	<section class="border-primary mb-5 rounded-lg border-2 p-4" aria-labelledby="token-fresh-title" data-testid="token-fresh">
+	<section class="border-ui-accent mb-5 rounded-lg border-2 p-4" aria-labelledby="token-fresh-title" data-testid="token-fresh">
 		<h2 id="token-fresh-title" class="mb-1 text-base font-semibold">{tx('dms.tokens.freshTitle', { name: fresh.name })}</h2>
 		<p class="mb-2 text-sm font-medium" role="alert">{tx('dms.tokens.freshWarning')}</p>
 		<p class="bg-muted rounded-md p-2 font-mono text-sm break-all select-all" data-testid="token-plain">{fresh.token}</p>
@@ -117,7 +117,7 @@
 	</label>
 	<label class="text-sm">
 		<span class="mb-1 block">{tx('dms.tokens.scope')}</span>
-		<select class="border-input bg-background h-8 rounded-lg border px-2 text-sm" data-testid="token-scope">
+		<select class="border-input bg-background h-10 rounded-lg border px-2.5 text-sm" data-testid="token-scope">
 			<option value={TOKEN_SCOPE}>{tx('dms.tokens.scope.upload')}</option>
 		</select>
 	</label>

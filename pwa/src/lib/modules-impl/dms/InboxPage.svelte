@@ -115,7 +115,7 @@
 	const needsAttention = $derived(suggestions.length + failed.length + sourcesFailing.length + due.length);
 </script>
 
-<h1 class="mb-1 text-[28px] leading-tight font-[650] tracking-[-0.8px]">{tx('dms.inbox.title')}</h1>
+<h1 class="page-title mb-1">{tx('dms.inbox.title')}</h1>
 <p class="text-muted-foreground mb-4 text-sm">{tx('dms.inbox.intro', { date: formatDate(today, i18n.locale) })}</p>
 
 {#if workspace.can('dms.document.create')}

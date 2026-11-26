@@ -326,14 +326,14 @@
 	} as const;
 
 	const detailsOpen = $derived(Boolean(f.type || f.corr || f.tags.length || f.from || f.to || f.trash || f.open || f.cur || f.source));
-	const selectClass = 'border-input bg-background h-8 w-full rounded-lg border px-2 text-sm';
+	const selectClass = 'border-input bg-background h-10 w-full rounded-lg border px-2.5 text-sm';
 	const presetClass = 'hover:bg-muted aria-pressed:bg-primary aria-pressed:text-primary-foreground focus-visible:ring-ring/50 rounded-full border px-3 py-1 text-xs focus-visible:ring-3 focus-visible:outline-none';
 	const thClass = 'px-3 py-2 text-left font-medium';
 </script>
 
 <svelte:window onkeydown={onWindowKey} />
 
-<h1 class="mb-5 text-[28px] leading-tight font-[650] tracking-[-0.8px]">{tx('dms.title')}</h1>
+<h1 class="page-title mb-5">{tx('dms.title')}</h1>
 
 {#if workspace.can('dms.document.create')}
 	<UploadPanel tenant={tenantId} onSettled={refreshAfterUpload} />

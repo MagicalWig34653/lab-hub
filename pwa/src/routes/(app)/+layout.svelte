@@ -3,7 +3,12 @@
 	import { page } from '$app/state';
 	import { onMount, untrack } from 'svelte';
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';
+	import ChevronRight from '@lucide/svelte/icons/chevron-right';
+	import Layers from '@lucide/svelte/icons/layers';
+	import LogOut from '@lucide/svelte/icons/log-out';
 	import MenuIcon from '@lucide/svelte/icons/menu';
+	import Palette from '@lucide/svelte/icons/palette';
+	import UserRound from '@lucide/svelte/icons/user-round';
 	import LanguageSwitch from '#lib/components/app/LanguageSwitch.svelte';
 	import * as Alert from '#lib/components/ui/alert';
 	import { Button } from '#lib/components/ui/button';
@@ -12,6 +17,7 @@
 	import { registry } from '#lib/modules/registry';
 	import { activeGroupId, activeItem, buildSidebar, nextFocusIndex, openGroupIds, toggleChoice, type SidebarItem } from '#lib/modules/sidebar';
 	import { session } from '#lib/session.svelte';
+	import { theme } from '#lib/theme/theme.svelte';
 	import { workspace } from '#lib/workspace.svelte';
 
 	let { children } = $props();
@@ -20,8 +26,16 @@
 	$effect(() => {
 		if (session.loaded && !session.current) {
 			workspace.reset();
+			theme.detach();
 			void goto(`/login?next=${encodeURIComponent(page.url.pathname + page.url.search)}`);
 		}
+	});
+
+	// The accent colour belongs to the account (WP-ST7): load it for the signed-in user.
+	const userId = $derived(session.current && !session.isRecovery ? session.current.user.id : null);
+	$effect(() => {
+		const user = userId;
+		if (user) untrack(() => void theme.attach(user));
 	});
 
 	// Module changes made elsewhere apply when the tab becomes visible again (AK-F2-2, no rebuild).
@@ -35,6 +49,7 @@
 
 	async function logout() {
 		await session.logout();
+		theme.detach();
 		workspace.reset();
 		await goto('/login');
 	}
@@ -73,6 +88,8 @@
 	const activeId = $derived(activeGroupId(groups, page.url.pathname));
 	const currentItem = $derived(activeItem(groups, page.url.pathname));
 	const open = $derived(openGroupIds(groups, choices, activeId));
+	// Breadcrumbs in the header: group (if any) and the current page.
+	const crumbGroup = $derived(groups.find((g) => g.id === activeId)?.labelKey ?? null);
 	function toggle(id: string) {
 		choices = toggleChoice(choices, id, open.has(id));
 		writeChoices(choices);
@@ -124,33 +141,38 @@
 </a>
 
 {#if !session.isRecovery}
-	<!-- Sidebar (WP-F4c): grouped, collapsible sections; below lg it is a drawer opened from the top bar. -->
+	<!-- Sidebar (WP-F4c, redesign WP-ST7): 256 px glass frame with grouped, collapsible sections; below lg a drawer. -->
 	<aside
 		id="app-sidebar"
-		class="bg-muted/40 fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r px-3 py-4 transition-transform motion-reduce:transition-none max-lg:bg-background {drawer ? 'translate-x-0' : 'max-lg:invisible max-lg:-translate-x-full'}"
+		class="glass-sidebar fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r transition-transform motion-reduce:transition-none max-lg:shadow-xl {drawer ? 'translate-x-0' : 'max-lg:invisible max-lg:-translate-x-full'}"
 		inert={mobile && !drawer}
 		data-testid="sidebar"
 	>
-		<a href="/dashboard" class="mb-3 flex items-center gap-2 rounded-lg px-2 py-2 text-[15px] font-semibold tracking-tight">{t('app.name')}</a>
+		<a href="/dashboard" class="mx-3 flex h-[60px] shrink-0 items-center gap-2.5 rounded-lg px-2 text-[17px] font-semibold tracking-tight">
+			<span class="bg-background text-ui-accent-ink flex size-[34px] items-center justify-center rounded-lg border" aria-hidden="true">
+				<Layers class="size-[18px]" />
+			</span>
+			{t('app.name')}
+		</a>
 		<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-		<nav aria-label={t('shell.navigation')} class="min-h-0 flex-1 overflow-y-auto" bind:this={navEl} onkeydown={navKeydown}>
+		<nav aria-label={t('shell.navigation')} class="min-h-0 flex-1 overflow-y-auto px-3 pb-3" bind:this={navEl} onkeydown={navKeydown}>
 			{#each groups as group (group.id)}
 				{#if group.labelKey}
 					{@const isOpen = open.has(group.id)}
-					<div class="mt-4 first:mt-0">
+					<div class="mt-3 first:mt-0">
 						<button
 							type="button"
 							data-nav-item
-							class="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-left text-xs font-medium tracking-wide uppercase focus-visible:ring-3 focus-visible:outline-none"
+							class="text-muted-foreground hover:text-foreground flex w-full items-center justify-between rounded-md px-3 py-1.5 text-left text-[11px] font-semibold tracking-[0.06em] uppercase max-lg:min-h-10"
 							aria-expanded={isOpen}
 							aria-controls={`nav-group-${group.id}`}
 							onclick={() => toggle(group.id)}
 							data-testid={group.toggleTestId ?? `nav-group-${group.id}`}
 						>
 							<span>{tx(group.labelKey)}</span>
-							<ChevronDown class="size-4 transition-transform motion-reduce:transition-none {isOpen ? 'rotate-180' : ''}" aria-hidden="true" />
+							<ChevronDown class="size-3.5 transition-transform motion-reduce:transition-none {isOpen ? 'rotate-180' : ''}" aria-hidden="true" />
 						</button>
-						<ul id={`nav-group-${group.id}`} class="mt-1 space-y-0.5" hidden={!isOpen}>
+						<ul id={`nav-group-${group.id}`} class="mt-0.5 space-y-0.5" hidden={!isOpen}>
 							{#each group.items as item (item.id)}
 								{@render link(item, isOpen)}
 							{/each}
@@ -165,12 +187,12 @@
 				{/if}
 			{/each}
 		</nav>
-		<div class="mt-3 border-t pt-3 lg:hidden">
-			<Button variant="outline" size="sm" class="w-full" onclick={logout}>{t('shell.logout')}</Button>
+		<div class="shrink-0 border-t p-3 lg:hidden">
+			<Button variant="outline" class="w-full" onclick={logout}><LogOut class="size-4" aria-hidden="true" />{t('shell.logout')}</Button>
 		</div>
 	</aside>
 	{#if drawer}
-		<button type="button" class="fixed inset-0 z-30 bg-black/40 lg:hidden" aria-label={t('shell.closeMenu')} onclick={() => (drawer = false)}></button>
+		<button type="button" class="fixed inset-0 z-30 bg-black/30 backdrop-blur-[2px] lg:hidden" aria-label={t('shell.closeMenu')} onclick={() => (drawer = false)}></button>
 	{/if}
 {/if}
 
@@ -182,33 +204,42 @@
 			href={item.path}
 			data-nav-item={tabbable ? '' : undefined}
 			tabindex={tabbable ? undefined : -1}
-			class="hover:bg-muted focus-visible:ring-ring/50 flex min-h-9 items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm focus-visible:ring-3 focus-visible:outline-none {active ? 'bg-secondary font-medium' : ''}"
+			class="flex min-h-[38px] items-center gap-3 rounded-lg px-3 py-1.5 text-sm font-medium max-lg:min-h-11 {active ? 'bg-ui-accent-soft text-ui-accent-ink font-semibold' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}"
 			aria-current={active ? 'page' : undefined}
 			data-testid={item.testId}
 		>
-			<Icon class="text-muted-foreground size-4 shrink-0" aria-hidden="true" />
+			<Icon class="size-[18px] shrink-0" aria-hidden="true" />
 			<span class="min-w-0 break-words">{tx(item.labelKey)}</span>
 		</a>
 	</li>
 {/snippet}
 
 <div class={session.isRecovery ? '' : 'lg:pl-64'}>
-	<header class="bg-background/95 sticky top-0 z-20 border-b backdrop-blur">
-		<div class="flex flex-wrap items-center justify-between gap-3 p-3">
-			<div class="flex items-center gap-2">
+	<header class="glass-header sticky top-0 z-20 border-b">
+		<div class="flex min-h-[60px] flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-2 min-[1101px]:px-10">
+			<div class="flex min-w-0 items-center gap-2">
 				{#if !session.isRecovery}
-					<Button variant="outline" size="icon-sm" class="lg:hidden" aria-label={t('shell.openMenu')} aria-expanded={drawer} aria-controls="app-sidebar" onclick={() => (drawer = true)} data-testid="menu-toggle">
-						<MenuIcon class="size-4" aria-hidden="true" />
+					<Button variant="outline" size="icon" class="lg:hidden" aria-label={t('shell.openMenu')} aria-expanded={drawer} aria-controls="app-sidebar" onclick={() => (drawer = true)} data-testid="menu-toggle">
+						<MenuIcon class="size-[18px]" aria-hidden="true" />
 					</Button>
 				{/if}
-				<a href="/dashboard" class="font-semibold {session.isRecovery ? '' : 'lg:hidden'}">{t('app.name')}</a>
+				<a href="/dashboard" class="truncate font-semibold {session.isRecovery ? '' : 'lg:hidden'}">{t('app.name')}</a>
+				{#if currentItem && !session.isRecovery}
+					<p class="flex min-w-0 items-center gap-1.5 text-sm max-lg:hidden" data-testid="breadcrumbs">
+						{#if crumbGroup}
+							<span class="text-muted-foreground truncate">{tx(crumbGroup)}</span>
+							<ChevronRight class="text-muted-foreground size-3.5 shrink-0" aria-hidden="true" />
+						{/if}
+						<span class="truncate font-semibold">{tx(currentItem.labelKey)}</span>
+					</p>
+				{/if}
 			</div>
-			<div class="flex flex-wrap items-center gap-3">
+			<div class="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
 				{#if workspace.memberships.length > 1 && !session.isRecovery}
 					<label class="text-muted-foreground flex items-center gap-2 text-sm">
-						<span>{t('shell.tenant')}</span>
+						<span class="max-sm:sr-only">{t('shell.tenant')}</span>
 						<select
-							class="border-input bg-background h-8 rounded-md border px-2 text-sm"
+							class="border-input bg-background text-foreground h-9 max-w-[9.5rem] rounded-lg border px-2 text-sm sm:max-w-56"
 							value={workspace.activeId ?? ''}
 							onchange={onTenantChange}
 							data-testid="tenant-switch"
@@ -219,15 +250,40 @@
 						</select>
 					</label>
 				{:else if workspace.detail}
-					<span class="text-muted-foreground text-sm" data-testid="tenant-name">{workspace.detail.name}</span>
+					<span class="text-muted-foreground max-w-40 truncate text-sm max-sm:hidden" data-testid="tenant-name">{workspace.detail.name}</span>
 				{/if}
-				<LanguageSwitch />
-				<span class="text-muted-foreground text-sm" data-testid="user-name">{session.current?.user.display_name}</span>
-				<Button variant="outline" size="sm" class="max-lg:hidden" onclick={logout} data-testid="logout">{t('shell.logout')}</Button>
+				<div class="max-sm:hidden"><LanguageSwitch compact /></div>
+				{#if !session.isRecovery}
+					<Button
+						variant="ghost"
+						size="icon"
+						href="/settings/appearance"
+						aria-label={t('settings.appearance')}
+						title={t('settings.appearance')}
+						data-testid="header-appearance"
+					>
+						<Palette class="size-[18px]" aria-hidden="true" />
+					</Button>
+					<a
+						href="/settings/profile"
+						class="text-muted-foreground hover:bg-muted hover:text-foreground flex h-10 min-w-10 items-center justify-center gap-2 rounded-lg px-2 text-sm"
+					>
+						<UserRound class="size-[18px] shrink-0" aria-hidden="true" />
+						<span class="max-w-40 truncate max-md:sr-only" data-testid="user-name">{session.current?.user.display_name}</span>
+					</a>
+				{:else}
+					<span class="text-muted-foreground text-sm" data-testid="user-name">{session.current?.user.display_name}</span>
+				{/if}
+				<Button variant="ghost" size="icon" class="max-lg:hidden" aria-label={t('shell.logout')} title={t('shell.logout')} onclick={logout} data-testid="logout">
+					<LogOut class="size-[18px]" aria-hidden="true" />
+				</Button>
+				{#if session.isRecovery}
+					<Button variant="outline" size="sm" class="lg:hidden" onclick={logout}>{t('shell.logout')}</Button>
+				{/if}
 			</div>
 		</div>
 	</header>
-	<main id="main" class="mx-auto w-full max-w-6xl min-w-0 p-4 md:p-6">
+	<main id="main" class="mx-auto w-full max-w-[1240px] min-w-0 px-4 py-[22px] min-[761px]:px-6 min-[761px]:py-7 min-[1101px]:px-10 min-[1101px]:py-9">
 		{#if workspace.error}
 			<div role="alert" class="mb-4">
 				<Alert.Root variant="destructive">

@@ -85,7 +85,7 @@
 	const chainOk = (r: DmsIntegrityRun) => (r.chain_ok === null || r.chain_ok === undefined ? '–' : tx(r.chain_ok ? 'dms.masters.yes' : 'dms.masters.no'));
 </script>
 
-<h1 class="mb-1 text-2xl font-semibold" data-testid="integrity-title">{tx('dms.integrity.title')}</h1>
+<h1 class="page-title mb-1" data-testid="integrity-title">{tx('dms.integrity.title')}</h1>
 <p class="text-muted-foreground mb-1 text-sm">{tx('dms.integrity.intro')}</p>
 <p class="text-muted-foreground mb-4 text-xs">{tx('dms.integrity.gobdNote')}</p>
 <ErrorBanner message={error} />
