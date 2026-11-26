@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { dmsApi, dmsSourcesApi } from '#lib/api/client';
+	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import * as Card from '#lib/components/ui/card';
 	import { tx } from '#lib/i18n/index.svelte';
 	import { workspace } from '#lib/workspace.svelte';
@@ -54,14 +55,22 @@
 
 {#if loaded && rows.length > 0}
 	<Card.Root data-testid="dms-processing-card">
-		<Card.Header><Card.Title><h2 class="text-lg font-semibold">{tx('dms.card.title')}</h2></Card.Title></Card.Header>
+		<Card.Header><Card.Title><h2 class="panel-title">{tx('dms.card.title')}</h2></Card.Title></Card.Header>
 		<Card.Content>
-			<dl class="grid grid-cols-[1fr_auto] gap-x-6 gap-y-1 text-sm">
+			<ul class="divide-y">
 				{#each rows as row (row.id)}
-					<dt><a class="underline" href={row.href} data-testid={`dms-card-${row.id}-link`}>{tx(row.label)}</a></dt>
-					<dd class={row.alert ? 'text-destructive font-medium' : 'font-medium'} data-testid={`dms-card-${row.id}`}>{row.count}</dd>
+					<li>
+						<a class="hover:bg-muted/60 -mx-2 flex min-h-11 items-center gap-3 rounded-md px-2 text-sm" href={row.href} data-testid={`dms-card-${row.id}-link`}>
+							<span class="min-w-0 flex-1 break-words">{tx(row.label)}</span>
+							<span
+								class="tabular min-w-7 rounded-full px-2 py-0.5 text-center text-xs font-semibold {row.alert ? 'bg-destructive/10 text-destructive' : 'bg-muted'}"
+								data-testid={`dms-card-${row.id}`}>{row.count}</span
+							>
+							<ChevronRight class="text-muted-foreground size-4 shrink-0" aria-hidden="true" />
+						</a>
+					</li>
 				{/each}
-			</dl>
+			</ul>
 		</Card.Content>
 	</Card.Root>
 {/if}

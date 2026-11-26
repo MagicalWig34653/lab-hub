@@ -104,7 +104,12 @@ export interface ModuleManifest {
 - `ui/` = shadcn-svelte (CLI-erzeugt, nicht von Hand ändern ohne Vermerk).
 - `app/` = zusammengesetzte Bausteine: `PageHeader`, `DataTable` (Cursor-Pagination, Sortierung, Spaltenwahl, Tastaturbedienung), `FilterBar`, `EmptyState`, `ConfirmDialog`, `Toast`, `FileDropzone` (Upload mit Fortschritt, Wiederaufnahme), `DocumentPreview` (PDF/Bild, `pdfjs-dist`), `MoneyInput`/`MoneyText` (Dezimal-String, locale-formatiert, kein `Number`), `StatusChip`, `ContactPicker`, `CommandPalette` (⌘K, globale Suche), `ErrorPage`, `ModuleDisabled`.
 - Geldbeträge im Frontend: Strings; Berechnungen nur mit Dezimalbibliothek (z. B. `decimal.js`, Lizenz prüfen) und nur zur Anzeige/Vorschau; maßgeblich ist der Server.
-- Design: eigene Designsprache, kein Paperless-Layout; Tokens (Farben, Radius, Abstände) zentral in `layout.css`, Akzentfarbe wählbar (Vorbild `theme/accent.ts`), `prefers-color-scheme` + manueller Schalter.
+- Design: kein Paperless-Layout; Designsprache nach dem Vorbild TimeTrack (Struktur, eigene Umsetzung, WP-ST7). Tokens (Farben, Radius, Abstände) zentral in `layout.css`.
+  - Shell: Seitenleiste 256 px (Marke mit 34-px-Symbol, Gruppentitel), Kopfzeile 60 px mit Brotkrumen, beide als Glas (Rückfall deckend ohne `backdrop-filter` oder bei reduzierter Transparenz); unter 1024 px wird die Seitenleiste zum ausfahrbaren Menü. Inhalt max. 1240 px.
+  - Seitentitel `page-title` (32 px, mobil 28), darunter eine Erklärzeile. Karten: 1-px-Rand, Radius 10. Bedienelemente 40 px (klein 32 px). Aktiv nur über Hintergrund, Textfarbe, Gewicht; keine einseitigen Akzentbalken.
+  - Akzentfarbe je Benutzer (`GET`/`PUT /api/v1/me/preferences`, `lib/theme/accent.ts`): Fläche, Schrift darauf, Hover, Tinte (≥ 4,5:1) und weiche Fläche; lokal nur Zwischenspeicher je Benutzer, beim Abmelden zurück auf Standard.
+  - Hell/Dunkel: Standard folgt `prefers-color-scheme`, Wahl System/Hell/Dunkel je Gerät unter `/settings/appearance`; `static/theme-init.js` setzt sie vor dem ersten Zeichnen (CSP: `script-src 'self'`).
+  - Bilder zur Prüfung: `docs/screenshots/redesign/` (erzeugt mit `e2e-mock/screenshots.spec.ts` und `SCREENSHOT_DIR`).
 
 ## 7. Offline und Service Worker
 

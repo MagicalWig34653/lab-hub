@@ -9,7 +9,7 @@
 <svelte:head><title>{t('settings.profile')} · {t('app.name')}</title></svelte:head>
 
 <Card.Root>
-	<Card.Header><Card.Title><h2 class="text-lg font-semibold">{t('settings.profile')}</h2></Card.Title></Card.Header>
+	<div class="sr-only"><h2>{t('settings.profile')}</h2></div>
 	<Card.Content>
 		<dl class="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2 text-sm" data-testid="profile">
 			<dt class="text-muted-foreground">{t('profile.displayName')}</dt>

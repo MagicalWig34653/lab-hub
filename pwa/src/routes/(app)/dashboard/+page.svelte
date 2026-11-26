@@ -3,6 +3,7 @@
 	import Building from '@lucide/svelte/icons/building-2';
 	import KeyRound from '@lucide/svelte/icons/key-round';
 	import Puzzle from '@lucide/svelte/icons/puzzle';
+	import TriangleAlert from '@lucide/svelte/icons/triangle-alert';
 	import UserCheck from '@lucide/svelte/icons/user-check';
 	import KpiCard from '#lib/components/app/KpiCard.svelte';
 	import { meApi } from '#lib/api/client';
@@ -79,13 +80,16 @@
 	</Alert.Root>
 {:else}
 	{#if recoveryRemaining !== null && recoveryRemaining < RECOVERY_LOW}
-		<Alert.Root class="mb-4" data-testid="recovery-hint">
-			<Alert.Title>{t('dashboard.recoveryHint.title')}</Alert.Title>
-			<Alert.Description>
-				<p>{t('dashboard.recoveryHint.text', { count: recoveryRemaining })}</p>
-				<a class="text-ui-accent-ink mt-2 inline-block underline" href="/settings/security">{t('dashboard.recoveryHint.link')}</a>
-			</Alert.Description>
-		</Alert.Root>
+		<div class="bg-card mb-5 flex flex-wrap items-center gap-x-4 gap-y-3 rounded-[10px] border p-4 shadow-(--shadow-card) md:px-6" role="status" data-testid="recovery-hint">
+			<TriangleAlert class="text-ui-accent-ink size-5 shrink-0" aria-hidden="true" />
+			<div class="min-w-0 flex-1 basis-60">
+				<p class="font-semibold">{t('dashboard.recoveryHint.title')}</p>
+				<p class="text-muted-foreground text-sm">
+					{recoveryRemaining === 1 ? t('dashboard.recoveryHint.textOne') : t('dashboard.recoveryHint.text', { count: recoveryRemaining })}
+				</p>
+			</div>
+			<Button variant="outline" class="max-sm:w-full" href="/settings/security">{t('dashboard.recoveryHint.link')}</Button>
+		</div>
 	{/if}
 	<div class="mb-5 grid grid-cols-2 gap-3 md:gap-4 min-[1101px]:grid-cols-4" data-testid="kpis">
 		<KpiCard label={t('dashboard.kpi.tenants')} value={String(tenants.length)} hint={t('dashboard.kpi.tenantsHint')} icon={Building} testid="kpi-tenants" />
@@ -99,23 +103,26 @@
 		<KpiCard label={t('dashboard.kpi.modules')} value={workspace.detail ? String(activeModules) : '–'} hint={t('dashboard.kpi.modulesHint')} icon={Puzzle} testid="kpi-modules" />
 		<KpiCard label={t('dashboard.kpi.recovery')} value={recoveryRemaining === null ? '–' : String(recoveryRemaining)} hint={t('dashboard.kpi.recoveryHint')} icon={KeyRound} testid="kpi-recovery" />
 	</div>
-	<Card.Root>
-		<Card.Header><Card.Title><h2 class="text-[17px] font-semibold">{t('dashboard.tenants')}</h2></Card.Title></Card.Header>
-		<Card.Content>
-			{#if tenants.length === 0}
-				<p class="text-muted-foreground text-sm">{t('dashboard.noTenants')}</p>
-			{:else}
-				<ul class="space-y-1" data-testid="tenant-list">
-					{#each tenants as tenant (tenant.tenant_id)}
-						<li>{tenant.name} <span class="text-muted-foreground text-sm">({t(`role.${tenant.role}` as MessageKey)})</span></li>
-					{/each}
-				</ul>
-			{/if}
-		</Card.Content>
-	</Card.Root>
-	{#if workspace.activeId && workspace.moduleEffective('dms') && workspace.can('dms.document.read')}
-		<div class="mt-4">
+	<div class="grid items-start gap-4 min-[1101px]:grid-cols-2">
+		<Card.Root>
+			<Card.Header><Card.Title><h2 class="panel-title">{t('dashboard.tenants')}</h2></Card.Title></Card.Header>
+			<Card.Content>
+				{#if tenants.length === 0}
+					<p class="text-muted-foreground text-sm">{t('dashboard.noTenants')}</p>
+				{:else}
+					<ul class="divide-y" data-testid="tenant-list">
+						{#each tenants as tenant (tenant.tenant_id)}
+							<li class="flex min-h-11 items-center justify-between gap-3 text-sm">
+								<span class="min-w-0 font-medium break-words">{tenant.name}</span>
+								<span class="bg-muted shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium">{t(`role.${tenant.role}` as MessageKey)}</span>
+							</li>
+						{/each}
+					</ul>
+				{/if}
+			</Card.Content>
+		</Card.Root>
+		{#if workspace.activeId && workspace.moduleEffective('dms') && workspace.can('dms.document.read')}
 			{#key workspace.activeId}<ProcessingCard tenant={workspace.activeId} />{/key}
-		</div>
-	{/if}
+		{/if}
+	</div>
 {/if}

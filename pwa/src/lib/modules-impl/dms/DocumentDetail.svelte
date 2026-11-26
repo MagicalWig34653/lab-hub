@@ -342,7 +342,7 @@
 
 	<div class="grid gap-6 lg:grid-cols-2">
 		<section aria-labelledby="dms-preview-title">
-			<h2 id="dms-preview-title" class="mb-2 text-lg font-medium">{tx('dms.preview.title')}</h2>
+			<h2 id="dms-preview-title" class="mb-2 panel-title">{tx('dms.preview.title')}</h2>
 			<div class="bg-muted/40 flex min-h-64 items-center justify-center rounded-md border" data-testid="dms-preview">
 				{#if previewUrl && previewKind === 'image'}
 					<img src={previewUrl} alt={doc.title} class="max-h-[32rem] max-w-full" data-testid="dms-preview-image" />
@@ -396,7 +396,7 @@
 		</section>
 
 		<section aria-labelledby="dms-edit-title">
-			<h2 id="dms-edit-title" class="mb-2 text-lg font-medium">{tx('dms.edit.title')}</h2>
+			<h2 id="dms-edit-title" class="mb-2 panel-title">{tx('dms.edit.title')}</h2>
 			<form onsubmit={save} class="space-y-3" data-testid="dms-edit-form" novalidate>
 				<fieldset disabled={!canUpdate || trashed || saving} class="space-y-3">
 					<label class="block text-sm">
@@ -474,7 +474,7 @@
 				{#if !canUpdate}<p class="text-muted-foreground text-xs">{tx('dms.edit.readOnly')}</p>{/if}
 			</form>
 
-			<h2 class="mt-8 mb-2 text-lg font-medium">{tx('dms.actions.title')}</h2>
+			<h2 class="mt-8 mb-2 panel-title">{tx('dms.actions.title')}</h2>
 			<ErrorBanner message={actionError} />
 			<div class="space-y-3">
 				{#if canUpdate && !trashed && doc.status !== 'archived'}

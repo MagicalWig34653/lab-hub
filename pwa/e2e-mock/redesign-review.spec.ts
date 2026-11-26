@@ -82,7 +82,23 @@ test('review 6+10: the phone menu closes with a button, blocks the page behind i
 	await page.setViewportSize(PHONE);
 	await page.goto('/dms/inbox');
 	await expect(page.getByTestId('header-title')).toHaveText('Eingang');
+	// one header row, also with a long page name
+	for (const path of ['/settings/appearance', '/settings/security', '/dms/scanner', '/dms/inbox']) {
+		await page.goto(path);
+		await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+		expect((await page.locator('header').boundingBox())!.height, path).toBeLessThanOrEqual(64);
+	}
 	await page.getByTestId('menu-toggle').click();
+	// the footer buttons keep their labels inside
+	for (const button of [page.getByTestId('drawer-settings'), page.getByTestId('drawer-logout')]) {
+		expect(await button.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(0);
+		expect(await button.evaluate((el) => el.getBoundingClientRect().width - el.scrollWidth)).toBeGreaterThanOrEqual(0);
+		expect(await button.evaluate((el) => {
+			const range = document.createRange();
+			range.selectNodeContents(el);
+			return el.getBoundingClientRect().width - range.getBoundingClientRect().width;
+		})).toBeGreaterThanOrEqual(16);
+	}
 	await expect(page.getByTestId('menu-close')).toBeFocused();
 	await expect(page.getByTestId('shell-content')).toHaveAttribute('inert', '');
 	await expect(page.getByTestId('drawer-settings')).toBeInViewport();
@@ -112,4 +128,18 @@ test('review 13: one suggestion is written in the singular', async ({ page, cont
 	await bootstrapWithDocs(page, context, request);
 	await page.goto('/dms');
 	await expect(page.getByTestId('dms-row').filter({ hasText: 'Rechnung Alpha' }).getByTestId('dms-row-suggestions')).toHaveText('1 Vorschlag offen');
+});
+
+test('own finding: the inbox on a phone keeps the suggestion text wide, above its buttons, with singular and spacing', async ({ page, context, request }) => {
+	await bootstrapWithDocs(page, context, request);
+	await page.setViewportSize(PHONE);
+	await page.goto('/dms/inbox');
+	const card = page.getByTestId('suggestion-card').first();
+	const text = await card.getByTestId('suggestion-reason').boundingBox();
+	expect(text!.width).toBeGreaterThanOrEqual(240);
+	const accept = await card.getByTestId('suggestion-accept').boundingBox();
+	expect(accept!.y).toBeGreaterThanOrEqual(text!.y + text!.height);
+	expect((await card.getByTestId('suggestion-change').boundingBox())!.height).toBeGreaterThanOrEqual(40);
+	await expect(page.getByRole('heading', { name: '1 offener Vorschlag', exact: true })).toBeVisible();
+	await expect(page.getByTestId('inbox-attention')).toContainText('15.01.2000 (überfällig)');
 });

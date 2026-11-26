@@ -1,4 +1,5 @@
 <script lang="ts">
+	import PageHeader from '#lib/components/app/PageHeader.svelte';
 	import { ApiError, dmsAdminApi, dmsApi, dmsSourcesApi, type DmsDocument, type DmsProcessing, type DmsSource, type DmsSuggestion } from '#lib/api/client';
 	import ErrorBanner from '#lib/components/app/ErrorBanner.svelte';
 	import { Button } from '#lib/components/ui/button';
@@ -111,12 +112,11 @@
 	}
 
 	const statusText = { processing: 'dms.status.processing', needs_review: 'dms.status.needsReview', archived: 'dms.status.archived' } as const;
-	const sectionClass = 'rounded-lg border p-4';
+	const sectionClass = 'panel';
 	const needsAttention = $derived(suggestions.length + failed.length + sourcesFailing.length + due.length);
 </script>
 
-<h1 class="page-title mb-1">{tx('dms.inbox.title')}</h1>
-<p class="text-muted-foreground mb-4 text-sm">{tx('dms.inbox.intro', { date: formatDate(today, i18n.locale) })}</p>
+<PageHeader title={tx('dms.inbox.title')} lead={tx('dms.inbox.intro', { date: formatDate(today, i18n.locale) })} />
 
 {#if workspace.can('dms.document.create')}
 	<UploadPanel tenant={tenantId} onSettled={() => void load()} />
@@ -130,7 +130,7 @@
 {:else}
 	<div class="grid gap-4 lg:grid-cols-2">
 		<section class="{sectionClass} lg:col-span-2" aria-labelledby="inbox-attention" data-testid="inbox-attention">
-			<h2 id="inbox-attention" class="mb-3 text-lg font-medium">{tx('dms.inbox.attention')}</h2>
+			<h2 id="inbox-attention" class="mb-3 panel-title">{tx('dms.inbox.attention')}</h2>
 			{#if needsAttention === 0}
 				<p class="text-muted-foreground text-sm" data-testid="inbox-attention-empty">{tx('dms.inbox.attentionEmpty')}</p>
 			{/if}
@@ -138,8 +138,8 @@
 			{#if suggestions.length > 0}
 				<div class="mb-4" data-testid="inbox-suggestions">
 					<div class="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-						<h3 class="text-sm font-medium">{tx('dms.inbox.suggestions', { count: suggestionTotal ?? suggestions.length })}</h3>
-						<a href="/dms/review" class="text-sm underline-offset-2 hover:underline">{tx('dms.inbox.reviewAll')}</a>
+						<h3 class="text-sm font-medium">{tx((suggestionTotal ?? suggestions.length) === 1 ? 'dms.inbox.suggestion' : 'dms.inbox.suggestions', { count: suggestionTotal ?? suggestions.length })}</h3>
+						<a href="/dms/review" class="text-sm underline-offset-2 hover:underline" data-touch>{tx('dms.inbox.reviewAll')}</a>
 					</div>
 					<ul class="space-y-2">
 						{#each suggestions as s (s.id)}
@@ -198,7 +198,7 @@
 				<div data-testid="inbox-due">
 					<div class="mb-2 flex flex-wrap items-baseline justify-between gap-2">
 						<h3 class="text-sm font-medium">{tx('dms.inbox.due')}</h3>
-						<a href="/dms?due=week" class="text-sm underline-offset-2 hover:underline">{tx('dms.inbox.dueAll')}</a>
+						<a href="/dms?due=week" class="text-sm underline-offset-2 hover:underline" data-touch>{tx('dms.inbox.dueAll')}</a>
 					</div>
 					<ul class="divide-y rounded-md border">
 						{#each due as doc (doc.id)}
@@ -211,7 +211,7 @@
 								<span class="flex flex-wrap items-center gap-3">
 									<span class="tabular-nums">{formatMoney(doc.extraction?.amount, doc.extraction?.currency, i18n.locale)}</span>
 									<span class={overdue ? 'text-destructive font-medium' : ''}>
-										{tx('dms.col.due')} {formatDate(doc.extraction?.due_date, i18n.locale)}{#if overdue} ({tx('dms.due.overdue')}){/if}
+										{tx('dms.col.due')} {formatDate(doc.extraction?.due_date, i18n.locale)}{overdue ? ` (${tx('dms.due.overdue')})` : ''}
 									</span>
 								</span>
 							</li>
@@ -223,8 +223,8 @@
 
 		<section class="{sectionClass} lg:col-span-2" aria-labelledby="inbox-recent" data-testid="inbox-recent">
 			<div class="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-				<h2 id="inbox-recent" class="text-lg font-medium">{tx('dms.inbox.recent')}</h2>
-				<a href="/dms" class="text-sm underline-offset-2 hover:underline">{tx('dms.inbox.allDocuments')}</a>
+				<h2 id="inbox-recent" class="panel-title">{tx('dms.inbox.recent')}</h2>
+				<a href="/dms" class="text-sm underline-offset-2 hover:underline" data-touch>{tx('dms.inbox.allDocuments')}</a>
 			</div>
 			{#if recent.length === 0}
 				<p class="text-muted-foreground text-sm" data-testid="inbox-recent-empty">{tx('dms.list.empty')}</p>

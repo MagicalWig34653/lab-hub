@@ -51,12 +51,12 @@
 	} as const;
 </script>
 
-<section aria-labelledby="dms-upload-title" class="mb-6" data-testid="dms-upload">
-	<h2 id="dms-upload-title" class="mb-2 text-lg font-medium">{tx('dms.upload.title')}</h2>
+<section aria-labelledby="dms-upload-title" class="panel mb-5" data-testid="dms-upload">
+	<h2 id="dms-upload-title" class="panel-title mb-3">{tx('dms.upload.title')}</h2>
 	<!-- The drop target is a convenience; the file button is the accessible path. -->
 	<div
 		role="presentation"
-		class="flex flex-col items-center gap-2 rounded-lg border-2 border-dashed p-6 text-center transition-colors {dragging ? 'border-ring bg-muted' : ''}"
+		class="flex flex-wrap items-center justify-center gap-3 rounded-lg border border-dashed p-4 text-center transition-colors max-[760px]:border-0 max-[760px]:p-0 {dragging ? 'border-ring bg-muted' : ''}"
 		data-testid="dms-dropzone"
 		ondragover={(e) => {
 			e.preventDefault();
@@ -65,8 +65,8 @@
 		ondragleave={() => (dragging = false)}
 		ondrop={drop}
 	>
-		<p class="text-muted-foreground text-sm">{tx('dms.upload.hint')}</p>
-		<Button type="button" variant="outline" onclick={() => input?.click()} data-testid="dms-upload-button">
+		<p class="text-muted-foreground text-sm max-[760px]:hidden">{tx('dms.upload.hint')}</p>
+		<Button type="button" class="max-[760px]:w-full" onclick={() => input?.click()} data-testid="dms-upload-button">
 			<UploadIcon class="size-4" aria-hidden="true" />{tx('dms.upload.choose')}
 		</Button>
 		<input

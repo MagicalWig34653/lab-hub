@@ -7,6 +7,8 @@
 
 export const DEFAULT_ACCENT = '#2563eb';
 export const MIN_TEXT_CONTRAST = 4.5;
+/** Controls (buttons) must stand out from the page (WCAG 1.4.11). */
+export const MIN_FILL_CONTRAST = 3;
 
 /** Page and sidebar background per scheme (must match `--background` / `--sidebar` in layout.css). */
 export const SURFACES = {
@@ -75,18 +77,26 @@ export interface AccentTokens {
 	checkedSurfaces: string[];
 }
 
+const textOn = (fill: string): '#ffffff' | '#000000' => (contrastRatio(fill, '#ffffff') >= contrastRatio(fill, '#000000') ? '#ffffff' : '#000000');
+
+/** Moves `hex` towards `towards` in 5 % steps until `ok` holds. */
+function shift(hex: string, towards: string, ok: (colour: string) => boolean): string {
+	let colour = hex;
+	for (let step = 1; step <= 20 && !ok(colour); step++) colour = mix(towards, step * 5, hex);
+	return colour;
+}
+
 export function accentTokens(input: string, dark: boolean): AccentTokens | null {
 	const hex = normalizeHex(input);
 	if (!hex) return null;
 	const { background, sidebar } = dark ? SURFACES.dark : SURFACES.light;
-	const share = dark ? 20 : 10;
-	const checkedSurfaces = [background, sidebar, mix(hex, share, background), mix(hex, share, sidebar)];
 	const towards = dark ? '#ffffff' : '#000000';
-	let ink = hex;
-	for (let step = 1; step <= 20 && checkedSurfaces.some((s) => contrastRatio(ink, s) < MIN_TEXT_CONTRAST); step++) {
-		ink = mix(towards, step * 5, hex);
-	}
-	const foreground = contrastRatio(hex, '#ffffff') >= contrastRatio(hex, '#000000') ? '#ffffff' : '#000000';
-	const hover = mix(foreground === '#ffffff' ? '#000000' : '#ffffff', 12, hex);
-	return { primary: hex, foreground, hover, ink, soft: `color-mix(in srgb, ${hex} ${share}%, var(--background))`, checkedSurfaces };
+	// A colour too close to the page (graphite on dark, yellow on white) is moved away until buttons stay visible.
+	const primary = shift(hex, towards, (c) => contrastRatio(c, background) >= MIN_FILL_CONTRAST && contrastRatio(textOn(c), c) >= MIN_TEXT_CONTRAST);
+	const share = dark ? 20 : 10;
+	const checkedSurfaces = [background, sidebar, mix(primary, share, background), mix(primary, share, sidebar)];
+	const ink = shift(primary, towards, (c) => checkedSurfaces.every((s) => contrastRatio(c, s) >= MIN_TEXT_CONTRAST));
+	const foreground = textOn(primary);
+	const hover = mix(foreground === '#ffffff' ? '#000000' : '#ffffff', 12, primary);
+	return { primary, foreground, hover, ink, soft: `color-mix(in srgb, ${primary} ${share}%, var(--background))`, checkedSurfaces };
 }

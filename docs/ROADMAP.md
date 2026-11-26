@@ -74,9 +74,10 @@ Ausgangsstand (vorhanden, getestet laut `deploy/README.md`/Tests): `migrate`, `s
 | 7 Struktur | ST1 | GitHub-CI (Backend mit Postgres, PWA, Vertrag; ohne Image/Release) | – | S | P zu allen | fertig (auf main, Übergabe `docs/handoff/WP-ST1.md`) |
 |  | ST2 | Kern vom DMS-Modul entkoppeln (Job-Handler, Token-Scopes, Link-Schutz, Fehlertyp) | ST1 | M |  | offen |
 |  | ST3 | Swift-Targets `HubCore`/`HubModule*` (F-14) | ST2 | M | nicht parallel zu Backend-WPs | offen |
-|  | ST4 | PWA Darstellung: System/Hell/Dunkel mit Einstellungsseite | – | S | P ST1–ST3 | offen |
+|  | ST4 | PWA Darstellung: System/Hell/Dunkel mit Einstellungsseite | – | S | P ST1–ST3 | fertig (mit ST7, Übergabe `docs/handoff/WP-ST7.md`) |
 |  | ST5 | PWA Grundbausteine: Fehlertexte, Versions-/Fähigkeitsprüfung, Betreiber-Modulschalter | ST4 | M | P ST2 | offen |
 |  | ST6 | PWA-Namen: „LAB hub“, Module „docs“ und „invoice“ (F-01) | – | S | P ST1–ST3 | fertig (Übergabe `docs/handoff/WP-ST6.md`) |
+|  | ST7 | PWA-Redesign nach Vorbild TimeTrack, Akzentfarbe je Benutzer | ST4 | M |  | umgesetzt, Abnahme durch den Nutzer offen (Übergabe `docs/handoff/WP-ST7.md`) |
 | 8 Scan-Bridge | BR1 | Hub: Scan-Aufträge, Geräte, Bridge-Routen, Scope und Rechte | ST2 | M |  | offen |
 |  | BR2 | Bridge-Dienst (SANE, sane-airscan), Container, E2E mit `test`-Gerät | BR1 | L |  | offen |
 |  | BR3 | PWA: Scanner wählen und Scan starten | BR2, ST4 | M | P BR4 | offen |
@@ -252,6 +253,8 @@ Grundlage: `docs/ARCHITEKTUR-ABGLEICH-TIMETRACK.md` (25.11.2026). Timetrack ist 
 **WP-ST5 PWA Grundbausteine (M).** Akzeptanz: AK-ST5-1 einheitliche Fehlerbeschreibung je Problem-Code; ST5-2 Prüfung von `/api/version` mit Hinweis bei unpassendem Stand; ST5-3 Betreiber schaltet Module in der Oberfläche (nur Betreiberrecht, Test erlaubt/verboten).
 
 **WP-ST6 PWA-Namen (S).** Nutzer 25.11.2026: Die PWA heißt „LAB hub“, die Module „docs“, „invoice“ usw. Akzeptanz: AK-ST6-1 Titel, App-Name und Recovery-Datei zeigen „LAB hub“ (Manifest in WP-F3 übernimmt den Namen); ST6-2 Modulüberschriften in de und en „docs“ bzw. „invoice“, interne Schlüssel und Routen (`dms`, `invoice`) unverändert; ST6-3 Tests angepasst, Bilder hell und dunkel angesehen.
+
+**WP-ST7 PWA-Redesign (M).** Nutzer 26.11.2026: Oberfläche nach dem Vorbild TimeTrack, Akzentfarbe je Benutzer; vor der Abnahme prüft eine nicht bauende Sitzung die Bilder (hell/dunkel, Handy/Computer). Akzeptanz: AK-ST7-1 Akzent im Konto je Benutzer, zwei Instanzen sehen denselben Stand; ST7-2 nur `#rgb`/`#rrggbb`; ST7-3 Schrift auf Fläche, Hover und Tinte ≥ 4,5:1 für jede Farbe; ST7-4 Zwischenspeicher je Benutzer; ST7-5 E2E: eigene Farbe je Benutzer über Neuladen und Anmeldung; ST7-6 bei 390 px kein seitliches Scrollen. Migration `022_user_accent`.
 
 ## Phase 8 – Scan-Bridge
 

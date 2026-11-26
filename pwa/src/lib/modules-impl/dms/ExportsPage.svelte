@@ -1,4 +1,5 @@
 <script lang="ts">
+	import PageHeader from '#lib/components/app/PageHeader.svelte';
 	import { onDestroy } from 'svelte';
 	import { dmsAdminApi, type DmsExport, type DmsExportParams } from '#lib/api/client';
 	import ErrorBanner from '#lib/components/app/ErrorBanner.svelte';
@@ -92,12 +93,12 @@
 	}
 </script>
 
-<h1 class="page-title mb-1" data-testid="exports-title">{tx('dms.exports.title')}</h1>
-<p class="text-muted-foreground mb-1 text-sm">{tx('dms.exports.intro')}</p>
-<p class="text-muted-foreground mb-4 text-xs">{tx('dms.exports.gobdNote')}</p>
+<PageHeader title={tx('dms.exports.title')} lead={tx('dms.exports.intro')} testid="exports-title">
+	<p class="text-muted-foreground mt-1 text-[13px]">{tx('dms.exports.gobdNote')}</p>
+</PageHeader>
 <ErrorBanner message={error} />
 
-<form onsubmit={start} class="mb-5 flex flex-wrap items-end gap-3 rounded-lg border p-3" data-testid="export-form">
+<form onsubmit={start} class="mb-5 flex flex-wrap items-end gap-3 panel" data-testid="export-form">
 	<label class="text-sm">
 		<span class="mb-1 block">{tx('dms.filter.dateFrom')}</span>
 		<Input type="date" class="w-44" bind:value={dateFrom} data-testid="export-from" />
@@ -124,7 +125,7 @@
 {:else}
 	<ul class="space-y-3" data-testid="exports-list">
 		{#each jobs as job (job.id)}
-			<li class="rounded-lg border p-3" data-testid="export-row" data-state={job.state}>
+			<li class="bg-card rounded-[10px] border p-4" data-testid="export-row" data-state={job.state}>
 				<div class="flex flex-wrap items-center justify-between gap-3">
 					<div>
 						<p class="text-sm font-medium" data-testid="export-state">{tx(stateText[job.state])}</p>

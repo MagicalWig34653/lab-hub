@@ -58,7 +58,7 @@ test('overview: kind badges, filters kind + amount + due date, sorting, search (
 	await expect(alpha.getByTestId('dms-row-amount')).toContainText('119,00');
 	await expect(alpha.getByTestId('dms-row-reference')).toHaveText('R-ALPHA');
 	await expect(alpha.getByTestId('dms-row-due')).toContainText('überfällig');
-	await expect(alpha.getByTestId('dms-row-suggestions')).toContainText('1 Vorschläge offen');
+	await expect(alpha.getByTestId('dms-row-suggestions')).toContainText('1 Vorschlag offen');
 	await expect(page.getByTestId('dms-row').filter({ hasText: 'Brief Delta' }).getByTestId('kind-badge')).toContainText('Brief');
 	await expect(page.getByTestId('dms-row').filter({ hasText: 'Brief Delta' }).getByTestId('kind-badge')).toContainText('Art unsicher');
 	await expectNoSeriousA11y(page);

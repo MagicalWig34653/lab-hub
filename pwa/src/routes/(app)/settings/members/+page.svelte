@@ -92,7 +92,7 @@
 {:else}
 	<div class="space-y-6">
 		<Card.Root>
-			<Card.Header><Card.Title><h2 class="text-lg font-semibold">{t('members.title')}</h2></Card.Title></Card.Header>
+			<div class="sr-only"><h2>{t('members.title')}</h2></div>
 			<Card.Content class="space-y-4">
 				<ErrorBanner message={error} />
 				<ul class="divide-y" data-testid="member-list">
@@ -107,7 +107,7 @@
 							<div class="flex items-center gap-2">
 								{#if canManage}
 									<select
-										class="border-input bg-background h-8 rounded-md border px-2 text-sm"
+										class="border-input bg-background h-10 rounded-lg border px-2.5 text-sm"
 										value={member.role}
 										aria-label={t('members.roleOf', { name: member.display_name })}
 										onchange={(e) => changeRole(member, e.currentTarget.value as Role)}
@@ -134,14 +134,14 @@
 		{#if canInvite}
 			<Card.Root>
 				<Card.Header>
-					<Card.Title><h2 class="text-lg font-semibold">{t('invitations.title')}</h2></Card.Title>
+					<Card.Title><h2 class="panel-title">{t('invitations.title')}</h2></Card.Title>
 					<Card.Description>{t('invitations.description')}</Card.Description>
 				</Card.Header>
 				<Card.Content class="space-y-4">
 					<form class="flex flex-wrap items-end gap-2" onsubmit={invite}>
 						<div class="space-y-2">
 							<Label for="invite-role">{t('invitations.role')}</Label>
-							<select id="invite-role" class="border-input bg-background h-8 rounded-md border px-2 text-sm" bind:value={inviteRole}>
+							<select id="invite-role" class="border-input bg-background h-10 rounded-lg border px-2.5 text-sm" bind:value={inviteRole}>
 								{#each roles as role (role)}
 									<option value={role}>{t(`role.${role}` as MessageKey)}</option>
 								{/each}

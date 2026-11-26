@@ -1,4 +1,6 @@
 <script lang="ts">
+	import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
+	import PageHeader from '#lib/components/app/PageHeader.svelte';
 	import { untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
@@ -326,20 +328,24 @@
 	} as const;
 
 	const detailsOpen = $derived(Boolean(f.type || f.corr || f.tags.length || f.from || f.to || f.trash || f.open || f.cur || f.source));
+	/** Phone: the filters are folded behind one button, so the list starts on the first screen. */
+	let filtersOpen = $state(false);
+	const activeFilters = $derived([f.kind, f.min, f.max, f.due, f.type, f.corr, f.tags.length, f.from || f.to, f.trash, f.open, f.cur, f.source].filter(Boolean).length);
 	const selectClass = 'border-input bg-background h-10 w-full rounded-lg border px-2.5 text-sm';
-	const presetClass = 'hover:bg-muted aria-pressed:bg-primary aria-pressed:text-primary-foreground focus-visible:ring-ring/50 rounded-full border px-3 py-1 text-xs focus-visible:ring-3 focus-visible:outline-none';
+	// time range: one segmented control (a scroll row on a phone, never a second line)
+	const presetClass = 'text-muted-foreground hover:text-foreground aria-pressed:bg-background aria-pressed:text-foreground aria-pressed:shadow-sm h-8 shrink-0 rounded-md px-3 text-[13px] font-medium whitespace-nowrap';
 	const thClass = 'px-3 py-2 text-left font-medium';
 </script>
 
 <svelte:window onkeydown={onWindowKey} />
 
-<h1 class="page-title mb-5">{tx('dms.title')}</h1>
+<PageHeader title={tx('dms.title')} lead={tx('dms.overview.lead')} />
 
 {#if workspace.can('dms.document.create')}
 	<UploadPanel tenant={tenantId} onSettled={refreshAfterUpload} />
 {/if}
 
-<section aria-labelledby="dms-list-title" class="space-y-3">
+<section aria-labelledby="dms-list-title" class="panel space-y-4">
 	<h2 id="dms-list-title" class="sr-only">{tx('dms.list.title')}</h2>
 
 	<form
@@ -356,14 +362,19 @@
 		</label>
 		<Button type="submit" data-testid="dms-search-submit">{tx('dms.search.submit')}</Button>
 	</form>
-	<p class="text-muted-foreground text-xs">{tx('dms.search.shortcuts')}</p>
+	<p class="text-muted-foreground text-[13px] max-[760px]:hidden">{tx('dms.search.shortcuts')}</p>
 
-	<div class="flex flex-wrap items-center gap-2" role="group" aria-label={tx('dms.preset.label')} data-testid="dms-presets">
-		<span class="text-muted-foreground text-xs">{tx('dms.preset.label')}</span>
+	<div class="flex flex-wrap items-center gap-2">
+	<div class="bg-muted flex max-w-full gap-1 overflow-x-auto rounded-lg p-1" role="group" aria-label={tx('dms.preset.label')} data-testid="dms-presets">
 		{#each [['today', 'dms.preset.today'], ['week', 'dms.preset.week'], ['month', 'dms.preset.month'], ['year', 'dms.preset.year']] as const as [key, label] (key)}
 			<button type="button" class={presetClass} aria-pressed={preset === key} onclick={() => applyPreset(key)} data-testid={`dms-preset-${key}`}>{tx(label)}</button>
 		{/each}
 		<button type="button" class={presetClass} aria-pressed={!f.from && !f.to} onclick={() => applyPreset(null)} data-testid="dms-preset-all">{tx('dms.preset.all')}</button>
+	</div>
+		<Button type="button" variant="outline" class="min-[761px]:hidden" aria-expanded={filtersOpen} aria-controls="dms-filter-area" onclick={() => (filtersOpen = !filtersOpen)} data-testid="dms-filter-toggle">
+			<SlidersHorizontal class="size-4" aria-hidden="true" />
+			{tx('dms.filter.toggle')}{activeFilters ? ` (${activeFilters})` : ''}
+		</Button>
 		{#if hasAnyFilter(f)}
 			<Button
 				type="button"
@@ -378,6 +389,7 @@
 		{/if}
 	</div>
 
+	<div id="dms-filter-area" class="space-y-3 {filtersOpen ? '' : 'max-[760px]:hidden'}">
 	<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5" data-testid="dms-quickfilters">
 		<label class="text-sm">
 			<span class="mb-1 block">{tx('dms.filter.kind')}</span>
@@ -414,8 +426,8 @@
 		<p role="alert" class="text-destructive text-xs" data-testid="dms-amount-invalid">{tx('dms.filter.amountInvalid')}</p>
 	{/if}
 
-	<details class="rounded-md border p-3" open={detailsOpen} data-testid="dms-filters">
-		<summary class="cursor-pointer text-sm font-medium">{tx('dms.filter.more')}</summary>
+	<details class="rounded-lg border px-3 py-1.5 open:pb-3" open={detailsOpen} data-testid="dms-filters">
+		<summary class="cursor-pointer py-1 text-sm font-medium">{tx('dms.filter.more')}</summary>
 		<div class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
 			<label class="text-sm">
 				<span class="mb-1 block">{tx('dms.field.type')}</span>
@@ -481,6 +493,7 @@
 		</div>
 
 	</details>
+	</div>
 
 	{#if listRoute}
 		<p class="text-muted-foreground text-xs" data-testid="dms-list-route-hint">{tx('dms.filter.listRouteTrash')}</p>
@@ -494,7 +507,7 @@
 					{#each entries ?? [] as entry (entry.value)}
 						<button
 							type="button"
-							class="hover:bg-muted aria-pressed:bg-primary aria-pressed:text-primary-foreground rounded-full border px-2.5 py-0.5 text-xs"
+							class="hover:bg-muted aria-pressed:bg-ui-accent-soft aria-pressed:text-ui-accent-ink aria-pressed:border-ui-accent min-h-8 rounded-full border px-3 py-1 text-xs"
 							aria-pressed={facetPressed(kind, entry.value)}
 							onclick={() => facetToggle(kind, entry.value)}
 							data-testid={`dms-facet-${kind}`}
@@ -519,22 +532,6 @@
 		{/if}
 	</p>
 
-	{#if showTotals}
-		<div class="rounded-md border px-3 py-2 text-sm" data-testid="dms-totals">
-			<p class="text-muted-foreground text-xs">{tx('dms.totals.title')}</p>
-			<ul class="mt-1 flex flex-wrap gap-x-6 gap-y-1">
-				{#each totals as total (total.currency ?? '')}
-					<li class="font-medium tabular-nums" data-testid="dms-total" data-currency={total.currency ?? ''}>
-						{#if total.currency}{tx('dms.totals.item', { sum: formatMoney(total.sum, total.currency, i18n.locale), count: total.count })}{:else}{tx('dms.totals.noCurrency', { sum: total.sum, count: total.count })}{/if}
-					</li>
-				{/each}
-			</ul>
-			<p class="text-muted-foreground mt-1 text-xs">{tx('dms.totals.scope')}</p>
-		</div>
-	{:else if f.q && !f.trash}
-		<p class="text-muted-foreground text-xs" data-testid="dms-totals-hint">{tx('dms.totals.hintQ')}</p>
-	{/if}
-
 	{#if !loading && rows.length === 0 && !error}
 		<p class="text-muted-foreground rounded-md border p-6 text-center" data-testid="dms-empty">
 			{#if searching}{tx('dms.list.noHits', { query: f.q })}{:else if f.trash}{tx('dms.list.trashEmpty')}{:else if hasAnyFilter(f)}{tx('dms.list.noMatch')}{:else}{tx('dms.list.empty')}{/if}
@@ -542,10 +539,10 @@
 	{/if}
 
 	{#if rows.length > 0}
-		<div class="overflow-x-auto rounded-lg border">
+		<div class="overflow-x-auto rounded-lg border max-[760px]:overflow-visible">
 			<!-- Roving tabindex: one tab stop for the table, arrow keys inside (AK-F4-3). -->
 			<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-			<table bind:this={tableEl} class="w-full text-sm" aria-label={tx('dms.list.title')} onkeydown={onTableKey} data-testid="dms-list">
+			<table bind:this={tableEl} class="table-cards w-full text-sm" aria-label={tx('dms.list.title')} onkeydown={onTableKey} data-testid="dms-list">
 				<thead class="bg-muted/50 text-muted-foreground text-xs">
 					<tr>
 						<th scope="col" class={thClass}>{tx('dms.col.kind')}</th>
@@ -590,7 +587,7 @@
 									{#if row.document_type_id}<span>{nameOf(masters.types, row.document_type_id)}</span>{/if}
 									{#if row.asn}<span>{tx('dms.field.asn')} {row.asn}</span>{/if}
 								</p>
-								<p class="text-muted-foreground mt-0.5 flex flex-wrap gap-x-3 text-xs lg:hidden">
+								<p class="text-muted-foreground mt-0.5 flex flex-wrap gap-x-3 text-xs max-[760px]:hidden lg:hidden">
 									{#if date}<span>{formatDate(date, i18n.locale)}</span>{/if}
 									{#if money}<span>{money}</span>{/if}
 									{#if ex?.due_date}<span class={overdue ? 'text-destructive font-medium' : ''}>{tx('dms.col.due')} {formatDate(ex.due_date, i18n.locale)}</span>{/if}
@@ -603,17 +600,18 @@
 									</p>
 								{/if}
 							</td>
-							<td class="hidden px-3 py-2 whitespace-nowrap md:table-cell" data-testid="dms-row-date">{date ? formatDate(date, i18n.locale) : '–'}</td>
-							<td class="hidden px-3 py-2 text-right whitespace-nowrap tabular-nums md:table-cell" data-testid="dms-row-amount">{money || '–'}</td>
-							<td class="hidden px-3 py-2 whitespace-nowrap lg:table-cell" data-testid="dms-row-due">
+							<td class="hidden px-3 py-2 whitespace-nowrap md:table-cell" data-testid="dms-row-date" data-label={tx('dms.col.date')} data-empty={!date ? '' : undefined}>{date ? formatDate(date, i18n.locale) : '–'}</td>
+							<td class="hidden px-3 py-2 text-right whitespace-nowrap tabular-nums md:table-cell" data-testid="dms-row-amount" data-label={tx('dms.col.amount')} data-empty={!money ? '' : undefined}>{money || '–'}</td>
+							<td class="hidden px-3 py-2 whitespace-nowrap lg:table-cell" data-testid="dms-row-due" data-label={tx('dms.col.due')} data-empty={!ex?.due_date ? '' : undefined}>
 								{#if ex?.due_date}
 									<span class={overdue ? 'text-destructive font-medium' : ''}>{formatDate(ex.due_date, i18n.locale)}</span>
 									{#if overdue}<span class="text-destructive block text-xs">{tx('dms.due.overdue')}</span>{/if}
 								{:else}–{/if}
 							</td>
-							<td class="hidden px-3 py-2 break-all lg:table-cell" data-testid="dms-row-reference">{ex?.reference || '–'}</td>
-							<td class="hidden px-3 py-2 whitespace-nowrap xl:table-cell" data-testid="dms-row-source">{row.source ? tx(SOURCE_LABEL[row.source]) : '–'}</td>
-							<td class="px-3 py-2">
+							<td class="hidden px-3 py-2 break-all lg:table-cell" data-testid="dms-row-reference" data-label={tx('dms.col.reference')} data-empty={!ex?.reference ? '' : undefined}>{ex?.reference || '–'}</td>
+							<td class="hidden px-3 py-2 whitespace-nowrap xl:table-cell" data-testid="dms-row-source" data-label={tx('dms.col.source')} data-empty={!row.source ? '' : undefined}>{row.source ? tx(SOURCE_LABEL[row.source]) : '–'}</td>
+							<td class="px-3 py-2" data-label={tx('dms.col.status')}>
+								<div>
 								{#if isQuarantined(processing[row.id])}
 									<span class="text-destructive font-medium" data-testid="dms-row-quarantine">{tx('dms.status.quarantine')}</span>
 								{:else if processing[row.id] && !isProcessingOver(processing[row.id])}
@@ -623,15 +621,32 @@
 								{/if}
 								{#if (row.open_suggestions ?? 0) > 0}
 									<span class="bg-secondary text-secondary-foreground mt-1 block w-fit rounded-md px-1.5 py-0.5 text-xs" data-testid="dms-row-suggestions">
-										{tx('dms.row.suggestions', { count: row.open_suggestions ?? 0 })}
+										{tx(row.open_suggestions === 1 ? 'dms.row.suggestion' : 'dms.row.suggestions', { count: row.open_suggestions ?? 0 })}
 									</span>
 								{/if}
+								</div>
 							</td>
 						</tr>
 					{/each}
 				</tbody>
 			</table>
 		</div>
+	{/if}
+
+	{#if showTotals}
+		<div class="bg-muted/50 rounded-lg px-4 py-3 text-sm" data-testid="dms-totals">
+			<p class="text-muted-foreground text-xs">{tx('dms.totals.title')}</p>
+			<ul class="mt-1 flex flex-wrap gap-x-6 gap-y-1">
+				{#each totals as total (total.currency ?? '')}
+					<li class="font-medium tabular-nums" data-testid="dms-total" data-currency={total.currency ?? ''}>
+						{#if total.currency}{tx('dms.totals.item', { sum: formatMoney(total.sum, total.currency, i18n.locale), count: total.count })}{:else}{tx('dms.totals.noCurrency', { sum: total.sum, count: total.count })}{/if}
+					</li>
+				{/each}
+			</ul>
+			<p class="text-muted-foreground mt-1 text-xs">{tx('dms.totals.scope')}</p>
+		</div>
+	{:else if f.q && !f.trash}
+		<p class="text-muted-foreground text-xs" data-testid="dms-totals-hint">{tx('dms.totals.hintQ')}</p>
 	{/if}
 
 	{#if nextCursor}

@@ -20,7 +20,7 @@
 	{t('app.name')}
 </p>
 
-<Card.Root class="w-full max-w-md">
+<Card.Root class="w-full max-w-md [--card-spacing:--spacing(6)] md:[--card-spacing:--spacing(7)]">
 	<Card.Header>
 		<Card.Title><h1 class="text-[21px] font-semibold tracking-tight">{title}</h1></Card.Title>
 		{#if description}<Card.Description>{description}</Card.Description>{/if}

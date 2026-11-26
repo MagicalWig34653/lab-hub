@@ -64,7 +64,7 @@
 		<button
 			bind:this={cancelButton}
 			type="button"
-			class="border-border bg-background hover:bg-muted focus-visible:ring-ring/50 h-8 rounded-lg border px-2.5 text-sm font-medium focus-visible:ring-3"
+			class="border-border bg-background hover:bg-muted focus-visible:ring-ring/50 h-10 rounded-lg border px-3 text-sm font-medium focus-visible:ring-3"
 			onclick={oncancel}
 			data-testid={`${testid}-cancel`}
 		>

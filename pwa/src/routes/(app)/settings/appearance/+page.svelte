@@ -62,7 +62,8 @@
 		items[(index + step + items.length) % items.length].focus();
 	}
 
-	const swatchMark = (hex: string) => accentTokens(hex, theme.dark)?.foreground ?? '#ffffff';
+	/** The check mark on a swatch: white or black, whichever is readable on the preset colour itself. */
+	const swatchMark = (hex: string) => (accentTokens(hex, false)?.foreground ?? '#ffffff');
 </script>
 
 <svelte:head><title>{t('settings.appearance')} · {t('app.name')}</title></svelte:head>
@@ -76,7 +77,7 @@
 
 	<Card.Root>
 		<Card.Header>
-			<Card.Title><h2 class="text-[17px] font-semibold">{t('appearance.mode.title')}</h2></Card.Title>
+			<Card.Title><h2 class="panel-title">{t('appearance.mode.title')}</h2></Card.Title>
 			<Card.Description>{t('appearance.mode.help')}</Card.Description>
 		</Card.Header>
 		<Card.Content>
@@ -103,7 +104,7 @@
 
 	<Card.Root>
 		<Card.Header>
-			<Card.Title><h2 class="text-[17px] font-semibold">{t('appearance.accent.title')}</h2></Card.Title>
+			<Card.Title><h2 class="panel-title">{t('appearance.accent.title')}</h2></Card.Title>
 			<Card.Description>{t('appearance.accent.help')}</Card.Description>
 		</Card.Header>
 		<Card.Content class="space-y-5">
@@ -120,7 +121,7 @@
 						onclick={() => save(preset.hex)}
 						data-testid={`accent-${preset.id}`}
 					>
-						<span class="flex size-8 items-center justify-center rounded-full" style="background: {preset.hex}; color: {swatchMark(preset.hex)}" aria-hidden="true">
+						<span class="ring-foreground/25 flex size-8 items-center justify-center rounded-full ring-1" style="background: {preset.hex}; color: {swatchMark(preset.hex)}" aria-hidden="true">
 							{#if checked}<Check class="size-4" />{/if}
 						</span>
 						{t(`appearance.accent.color.${preset.id}` as MessageKey)}
@@ -148,7 +149,7 @@
 					{t('appearance.accent.reset')}
 				</Button>
 			</form>
-			<p class="text-muted-foreground min-h-5 text-sm" role="status" data-testid="accent-status">{status}</p>
+			<p class="{status ? 'text-muted-foreground text-sm' : 'sr-only'}" role="status" data-testid="accent-status">{status}</p>
 
 			<div class="rounded-lg border p-4">
 				<p class="text-muted-foreground mb-3 text-[11px] font-semibold tracking-[0.06em] uppercase">{t('appearance.preview.title')}</p>
@@ -162,7 +163,7 @@
 	</Card.Root>
 
 	<Card.Root>
-		<Card.Header><Card.Title><h2 class="text-[17px] font-semibold">{t('appearance.language')}</h2></Card.Title></Card.Header>
+		<Card.Header><Card.Title><h2 class="panel-title">{t('appearance.language')}</h2></Card.Title></Card.Header>
 		<Card.Content><LanguageSwitch compact /></Card.Content>
 	</Card.Root>
 </div>

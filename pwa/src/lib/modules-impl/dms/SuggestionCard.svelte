@@ -37,7 +37,7 @@
 </script>
 
 <div class="flex flex-wrap items-start justify-between gap-3" data-testid="suggestion-card">
-	<div class="min-w-0 flex-1 space-y-1">
+	<div class="min-w-0 flex-1 basis-72 space-y-1">
 		<p class="text-sm">
 			{#if showDocument}
 				<a href={`/dms/${suggestion.document_id}`} class="font-medium underline-offset-2 hover:underline" tabindex={tabbable ? 0 : -1} data-row-link data-testid="suggestion-document">{suggestion.document_title}</a>
@@ -71,9 +71,10 @@
 			{#if showDocument}
 				<a
 					href={`/dms/${suggestion.document_id}`}
-					class="border-border bg-background hover:bg-muted focus-visible:ring-ring/50 inline-flex h-7 items-center rounded-lg border px-2.5 text-[0.8rem] font-medium focus-visible:ring-3"
+					class="border-border bg-background hover:bg-muted focus-visible:ring-ring/50 inline-flex h-8 items-center rounded-lg border px-3 text-[0.8rem] font-medium focus-visible:ring-3"
 					tabindex={tabbable ? 0 : -1}
 					data-testid="suggestion-change"
+					data-touch
 					aria-keyshortcuts="E"
 				>
 					{tx('dms.suggestion.change')}

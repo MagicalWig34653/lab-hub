@@ -156,6 +156,34 @@
 			font-size: 32px;
 		}
 	}
+	/* lead line under the page title */
+	.page-lead {
+		margin-top: 0.25rem;
+		color: var(--muted-foreground);
+	}
+	/* section card of a page (TimeTrack "panel"): 1 px border, radius 10, padding 17 / 22 / 28 px */
+	.panel {
+		background: var(--card);
+		border: 1px solid var(--border);
+		border-radius: 10px;
+		box-shadow: var(--shadow-card);
+		padding: 17px;
+	}
+	@media (min-width: 761px) {
+		.panel {
+			padding: 22px;
+		}
+	}
+	@media (min-width: 1101px) {
+		.panel {
+			padding: 28px;
+		}
+	}
+	.panel-title {
+		font-size: 17px;
+		line-height: 1.4;
+		font-weight: 600;
+	}
 	/* KPI value */
 	.kpi-value {
 		font-size: 34px;
@@ -189,6 +217,70 @@
 		background: var(--glass-header);
 		-webkit-backdrop-filter: var(--bf-header);
 		backdrop-filter: var(--bf-header);
+	}
+}
+
+/* Phone and tablet: every control is at least 40 px high (review finding 5). Unlayered, so it wins over size utilities. */
+@media (max-width: 1023px) {
+	button:not([role='switch']),
+	select,
+	summary,
+	input:not([type='checkbox']):not([type='radio']):not([type='hidden']),
+	[data-slot='button'],
+	a[data-touch] {
+		min-height: 2.5rem;
+	}
+	a[data-touch] {
+		display: inline-flex;
+		align-items: center;
+	}
+}
+
+/*
+ * Tables on a phone become a card list (review finding 2): one card per row, each cell with its column name from
+ * `data-label`; cells without a label (title, actions) use the full width.
+ */
+@media (max-width: 760px) {
+	table.table-cards,
+	table.table-cards tbody,
+	table.table-cards tr,
+	table.table-cards td {
+		display: block;
+		width: 100%;
+	}
+	table.table-cards thead {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+	}
+	table.table-cards tr {
+		padding: 0.75rem;
+	}
+	table.table-cards tbody tr + tr {
+		border-top: 1px solid var(--border);
+	}
+	table.table-cards td {
+		padding: 0.125rem 0;
+		text-align: left;
+		white-space: normal;
+	}
+	table.table-cards td[data-label] {
+		display: flex;
+		justify-content: space-between;
+		gap: 1rem;
+		text-align: right;
+	}
+	table.table-cards td[data-label]::before {
+		content: attr(data-label);
+		flex-shrink: 0;
+		color: var(--muted-foreground);
+		font-size: 13px;
+		text-align: left;
+	}
+	table.table-cards td[data-empty] {
+		display: none;
 	}
 }
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import PageHeader from '#lib/components/app/PageHeader.svelte';
 	import { ApiError, dmsAdminApi, type DmsMaster, type MasterResource } from '#lib/api/client';
 	import ConfirmDialog from '#lib/components/app/ConfirmDialog.svelte';
 	import ErrorBanner from '#lib/components/app/ErrorBanner.svelte';
@@ -214,8 +215,7 @@
 		f.kind === 'bool' ? tx((row as Record<string, unknown>)[f.key] === true ? 'dms.masters.yes' : 'dms.masters.no') : f.kind === 'group' ? groupName(text(row, f.key)) : text(row, f.key);
 </script>
 
-<h1 class="page-title mb-1" data-testid="masters-title">{tx('dms.masters.title')}</h1>
-<p class="text-muted-foreground mb-4 text-sm">{tx('dms.masters.intro')}</p>
+<PageHeader title={tx('dms.masters.title')} lead={tx('dms.masters.intro')} testid="masters-title" />
 
 <div role="group" aria-label={tx('dms.masters.sections')} class="mb-4 flex flex-wrap gap-2">
 	{#each sections as s (s.resource)}
@@ -231,7 +231,7 @@
 {#if active === 'types'}<p class="text-muted-foreground mb-3 text-xs">{tx('dms.masters.retentionNote')}</p>{/if}
 
 {#if editing !== undefined}
-	<form onsubmit={save} class="mb-5 space-y-3 rounded-lg border p-3" novalidate data-testid="masters-form">
+	<form onsubmit={save} class="mb-5 space-y-3 panel" novalidate data-testid="masters-form">
 		<h2 class="text-base font-medium">{tx(editing ? 'dms.masters.edit' : 'dms.masters.new')}</h2>
 		{#each section.fields as f (f.key)}
 			{#if !(editing && f.createOnly)}
@@ -287,7 +287,7 @@
 	<p class="text-muted-foreground" data-testid="masters-empty">{tx('dms.masters.empty')}</p>
 {:else}
 	<div class="overflow-x-auto">
-		<table class="w-full text-left text-sm" data-testid="masters-table">
+		<table class="table-cards w-full text-left text-sm" data-testid="masters-table">
 			<caption class="sr-only">{tx(section.label)}</caption>
 			<thead>
 				<tr class="text-muted-foreground border-b">
@@ -298,7 +298,7 @@
 			<tbody>
 				{#each items as row (row.id)}
 					<tr class="border-b" data-testid="masters-row">
-						{#each section.fields as f (f.key)}<td class="py-2 pr-3 break-words">{cell(row, f)}</td>{/each}
+						{#each section.fields as f (f.key)}<td data-label={tx(f.label)} data-empty={String(cell(row, f) ?? '').trim() ? undefined : ''} class="py-2 pr-3 break-words">{cell(row, f)}</td>{/each}
 						<td class="py-2">
 							{#if canManage}
 								<div class="flex gap-2">

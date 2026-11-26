@@ -54,7 +54,7 @@
 
 <Card.Root>
 	<Card.Header>
-		<Card.Title><h2 class="text-lg font-semibold">{t('sessions.title')}</h2></Card.Title>
+		<Card.Title><h2 class="panel-title">{t('sessions.title')}</h2></Card.Title>
 		<Card.Description>{t('sessions.description')}</Card.Description>
 	</Card.Header>
 	<Card.Content class="space-y-4">

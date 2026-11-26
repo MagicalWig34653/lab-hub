@@ -1,4 +1,5 @@
 <script lang="ts">
+	import PageHeader from '#lib/components/app/PageHeader.svelte';
 	import { dmsSourcesApi, type DmsSource, type DmsSourceTest } from '#lib/api/client';
 	import ConfirmDialog from '#lib/components/app/ConfirmDialog.svelte';
 	import ErrorBanner from '#lib/components/app/ErrorBanner.svelte';
@@ -113,17 +114,15 @@
 {#if editing !== undefined}
 	<SourceEditor tenant={tenantId} kind={editing.kind} source={editing.source} onsaved={onSaved} oncancel={() => (editing = undefined)} />
 {:else}
-	<div class="mb-3 flex flex-wrap items-center justify-between gap-3">
-		<h1 class="page-title" data-testid="sources-title">{tx('dms.sources.title')}</h1>
-		<div class="flex flex-wrap gap-2">
+	<PageHeader title={tx('dms.sources.title')} lead={tx('dms.sources.intro')} testid="sources-title">
+		{#snippet actions()}
 			<Button type="button" variant="outline" onclick={() => void load()} data-testid="source-refresh">{tx('dms.sources.refresh')}</Button>
 			{#if canManage}
 				<Button type="button" onclick={() => ((editing = { kind: 'mail', source: null }), (saved = null))} data-testid="source-new-mail">{tx('dms.sources.newMail')}</Button>
 				<Button type="button" onclick={() => ((editing = { kind: 'folder', source: null }), (saved = null))} data-testid="source-new-folder">{tx('dms.sources.newFolder')}</Button>
 			{/if}
-		</div>
-	</div>
-	<p class="text-muted-foreground mb-4 text-sm">{tx('dms.sources.intro')}</p>
+		{/snippet}
+	</PageHeader>
 	<ErrorBanner message={error} />
 	{#if saved}<p role="status" class="mb-3 text-sm" data-testid="source-saved">{tx('dms.sources.saved', { name: saved })}</p>{/if}
 
@@ -135,7 +134,7 @@
 		<ul class="space-y-3" data-testid="sources-list">
 			{#each sources as source (source.id)}
 				{@const test = tests[source.id]}
-				<li class="rounded-lg border p-3" data-testid="source-row" data-enabled={source.enabled} data-kind={source.kind} data-status={source.last_status ?? 'none'}>
+				<li class="bg-card rounded-[10px] border p-4" data-testid="source-row" data-enabled={source.enabled} data-kind={source.kind} data-status={source.last_status ?? 'none'}>
 					<div class="flex flex-wrap items-start justify-between gap-3">
 						<div>
 							<h2 class="text-base font-medium">

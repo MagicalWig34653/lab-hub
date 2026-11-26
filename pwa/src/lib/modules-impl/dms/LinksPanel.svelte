@@ -52,7 +52,7 @@
 
 {#if loaded && entries.length > 0}
 	<section class="mt-8" aria-labelledby="dms-links-title" data-testid="dms-links">
-		<h2 id="dms-links-title" class="mb-2 text-lg font-medium">{tx('dms.links.title')}</h2>
+		<h2 id="dms-links-title" class="mb-2 panel-title">{tx('dms.links.title')}</h2>
 		<ul class="divide-y rounded-md border text-sm">
 			{#each entries as entry (entry.linkId)}
 				<li class="flex flex-wrap items-center gap-x-3 p-3" data-testid="dms-link" data-role={entry.role}>

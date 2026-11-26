@@ -275,7 +275,7 @@
 		</ul>
 	{/if}
 
-	<section class="space-y-3 rounded-lg border p-3" aria-labelledby="rule-preview-title">
+	<section class="space-y-3 panel" aria-labelledby="rule-preview-title">
 		<h3 id="rule-preview-title" class="text-base font-medium">{tx('dms.rule.preview.title')}</h3>
 		<p class="text-muted-foreground text-xs">{tx('dms.rule.preview.hint')}</p>
 		<div class="flex flex-wrap items-end gap-3">

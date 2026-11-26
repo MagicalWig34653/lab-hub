@@ -1,4 +1,5 @@
 <script lang="ts">
+	import PageHeader from '#lib/components/app/PageHeader.svelte';
 	import { ApiError, dmsSourcesApi, type DmsSource } from '#lib/api/client';
 	import ErrorBanner from '#lib/components/app/ErrorBanner.svelte';
 	import { Button } from '#lib/components/ui/button';
@@ -92,10 +93,7 @@
 	}
 </script>
 
-<h1 class="page-title mb-1" data-testid="source-editor-title">
-	{tx(editing ? (kind === 'mail' ? 'dms.sources.editMail' : 'dms.sources.editFolder') : kind === 'mail' ? 'dms.sources.newMail' : 'dms.sources.newFolder')}
-</h1>
-<p class="text-muted-foreground mb-4 text-sm">{tx(kind === 'mail' ? 'dms.sources.mailIntro' : 'dms.sources.folderIntro')}</p>
+<PageHeader title={tx(editing ? (kind === 'mail' ? 'dms.sources.editMail' : 'dms.sources.editFolder') : kind === 'mail' ? 'dms.sources.newMail' : 'dms.sources.newFolder')} lead={tx(kind === 'mail' ? 'dms.sources.mailIntro' : 'dms.sources.folderIntro')} testid="source-editor-title" />
 <ErrorBanner message={error} />
 {#if fieldErrors.length > 0}
 	<div role="alert" data-testid="source-field-errors">

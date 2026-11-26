@@ -1,12 +1,18 @@
 <script lang="ts">
-	import { t } from '#lib/i18n/index.svelte';
+	import { page } from '$app/state';
+	import PageHeader from '#lib/components/app/PageHeader.svelte';
+	import { t, type MessageKey } from '#lib/i18n/index.svelte';
 
 	let { children } = $props();
+
+	const PAGES = ['profile', 'appearance', 'security', 'sessions', 'modules', 'members'];
+	const current = $derived(PAGES.find((name) => page.url.pathname.startsWith(`/settings/${name}`)));
 </script>
 
 <!-- The settings pages are listed in the sidebar group "Einstellungen" (WP-F4c). -->
-<div class="mb-7">
-	<h1 class="page-title">{t('settings.title')}</h1>
-	<p class="text-muted-foreground mt-1">{t('settings.subtitle')}</p>
-</div>
+{#if current}
+	<PageHeader title={t(`settings.${current}` as MessageKey)} lead={t(`settings.lead.${current}` as MessageKey)} />
+{:else}
+	<PageHeader title={t('settings.title')} />
+{/if}
 {@render children()}

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import PageHeader from '#lib/components/app/PageHeader.svelte';
 	import { Button } from '#lib/components/ui/button';
 	import { tx } from '#lib/i18n/index.svelte';
 
@@ -27,8 +28,7 @@
 	}
 </script>
 
-<h1 class="page-title mb-1" data-testid="scanner-title">{tx('dms.scanner.title')}</h1>
-<p class="text-muted-foreground mb-4 text-sm">{tx('dms.scanner.intro')}</p>
+<PageHeader title={tx('dms.scanner.title')} lead={tx('dms.scanner.intro')} testid="scanner-title" />
 
 <div class="space-y-6">
 	<section aria-labelledby="scanner-step1">

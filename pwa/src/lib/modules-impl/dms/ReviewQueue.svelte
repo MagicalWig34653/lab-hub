@@ -1,4 +1,5 @@
 <script lang="ts">
+	import PageHeader from '#lib/components/app/PageHeader.svelte';
 	import { tick } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { ApiError, dmsAdminApi, type DmsRule, type DmsSuggestion } from '#lib/api/client';
@@ -123,8 +124,7 @@
 	}
 </script>
 
-<h1 class="page-title mb-1" data-testid="review-title">{tx('dms.review.title')}</h1>
-<p class="text-muted-foreground mb-4 text-sm">{tx('dms.review.intro')}</p>
+<PageHeader title={tx('dms.review.title')} lead={tx('dms.review.intro')} testid="review-title" />
 
 <ErrorBanner message={error} />
 
@@ -153,7 +153,7 @@
 			<li
 				data-testid="review-row"
 				data-state={isStale(s) ? 'stale' : 'open'}
-				class="focus-within:border-ring rounded-lg border p-3 data-[active=true]:bg-muted/40"
+				class="focus-within:border-ring bg-card rounded-[10px] border p-4 data-[active=true]:bg-muted/40"
 				data-active={i === active}
 				onfocusin={() => (active = i)}
 			>

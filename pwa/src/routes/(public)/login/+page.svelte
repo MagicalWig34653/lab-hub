@@ -25,10 +25,10 @@
 </script>
 
 <AuthCard title={t('login.title')} description={t('login.description')} {error}>
-	<Button class="w-full" disabled={pending} onclick={signIn} data-testid="login-passkey">
+	<Button size="lg" class="w-full" disabled={pending} onclick={signIn} data-testid="login-passkey">
 		{pending ? t('login.pending') : t('login.passkey')}
 	</Button>
 	<p class="text-center text-sm">
-		<a class="text-muted-foreground underline underline-offset-4" href="/recover">{t('login.recoverLink')}</a>
+		<a class="text-muted-foreground underline underline-offset-4" href="/recover" data-touch>{t('login.recoverLink')}</a>
 	</p>
 </AuthCard>

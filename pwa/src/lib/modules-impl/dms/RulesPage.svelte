@@ -1,4 +1,5 @@
 <script lang="ts">
+	import PageHeader from '#lib/components/app/PageHeader.svelte';
 	import { dmsAdminApi, type DmsRule } from '#lib/api/client';
 	import ConfirmDialog from '#lib/components/app/ConfirmDialog.svelte';
 	import ErrorBanner from '#lib/components/app/ErrorBanner.svelte';
@@ -66,13 +67,13 @@
 {#if editing !== undefined}
 	<RuleEditor tenant={tenantId} rule={editing} {masters} onsaved={onSaved} oncancel={() => (editing = undefined)} />
 {:else}
-	<div class="mb-3 flex flex-wrap items-center justify-between gap-3">
-		<h1 class="page-title" data-testid="rules-title">{tx('dms.rules.title')}</h1>
+	<PageHeader title={tx('dms.rules.title')} lead={tx('dms.rules.intro')} testid="rules-title">
+		{#snippet actions()}
 		{#if canManage}
 			<Button type="button" onclick={() => ((editing = null), (saved = false))} data-testid="rule-new">{tx('dms.rule.new')}</Button>
 		{/if}
-	</div>
-	<p class="text-muted-foreground mb-4 text-sm">{tx('dms.rules.intro')}</p>
+		{/snippet}
+	</PageHeader>
 	<ErrorBanner message={error} />
 	{#if saved}<p role="status" class="mb-3 text-sm" data-testid="rule-saved">{tx('dms.rule.saved')}</p>{/if}
 
@@ -82,7 +83,7 @@
 		<p class="text-muted-foreground" data-testid="rules-empty">{tx('dms.rules.empty')}</p>
 	{:else}
 		<div class="overflow-x-auto">
-			<table class="w-full text-left text-sm" data-testid="rules-table">
+			<table class="table-cards w-full text-left text-sm" data-testid="rules-table">
 				<caption class="sr-only">{tx('dms.rules.title')}</caption>
 				<thead>
 					<tr class="text-muted-foreground border-b">
@@ -101,9 +102,9 @@
 								{#if !rule.enabled}<span class="text-muted-foreground ml-2 text-xs">({tx('dms.rules.disabled')})</span>{/if}
 								<span class="text-muted-foreground block text-xs">{tx('dms.rules.version', { version: rule.version })}</span>
 							</td>
-							<td class="py-2 pr-3">{rule.priority}</td>
-							<td class="py-2 pr-3" data-testid="rule-mode-cell">{tx(rule.mode === 'auto' ? 'dms.rule.mode.auto' : 'dms.rule.mode.suggest')}</td>
-							<td class="py-2 pr-3 text-xs">
+							<td data-label={tx('dms.rule.priority')} class="py-2 pr-3">{rule.priority}</td>
+							<td data-label={tx('dms.rule.mode')} class="py-2 pr-3" data-testid="rule-mode-cell">{tx(rule.mode === 'auto' ? 'dms.rule.mode.auto' : 'dms.rule.mode.suggest')}</td>
+							<td data-label={tx('dms.rules.stats')} class="py-2 pr-3 text-xs">
 								{tx('dms.rules.statsLine', {
 									suggested: rule.stats.suggested,
 									open: rule.stats.open,

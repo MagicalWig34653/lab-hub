@@ -1,4 +1,5 @@
 <script lang="ts">
+	import PageHeader from '#lib/components/app/PageHeader.svelte';
 	import { onDestroy } from 'svelte';
 	import { dmsAdminApi, type DmsIntegrityRun } from '#lib/api/client';
 	import ErrorBanner from '#lib/components/app/ErrorBanner.svelte';
@@ -85,9 +86,9 @@
 	const chainOk = (r: DmsIntegrityRun) => (r.chain_ok === null || r.chain_ok === undefined ? '–' : tx(r.chain_ok ? 'dms.masters.yes' : 'dms.masters.no'));
 </script>
 
-<h1 class="page-title mb-1" data-testid="integrity-title">{tx('dms.integrity.title')}</h1>
-<p class="text-muted-foreground mb-1 text-sm">{tx('dms.integrity.intro')}</p>
-<p class="text-muted-foreground mb-4 text-xs">{tx('dms.integrity.gobdNote')}</p>
+<PageHeader title={tx('dms.integrity.title')} lead={tx('dms.integrity.intro')} testid="integrity-title">
+	<p class="text-muted-foreground mt-1 text-[13px]">{tx('dms.integrity.gobdNote')}</p>
+</PageHeader>
 <ErrorBanner message={error} />
 
 <div class="mb-4 flex flex-wrap items-center gap-3">
@@ -95,7 +96,7 @@
 	<p role="status" class="text-sm" data-testid="integrity-running">{runs.some(isOpen) ? tx('dms.integrity.running') : ''}</p>
 </div>
 
-<section class="mb-5 rounded-lg border p-3" aria-labelledby="integrity-head-title">
+<section class="mb-5 panel" aria-labelledby="integrity-head-title">
 	<h2 id="integrity-head-title" class="mb-1 text-base font-medium">{tx('dms.integrity.headTitle')}</h2>
 	{#if head}
 		<p class="font-mono text-xs break-all" data-testid="integrity-head">{head}</p>
@@ -111,7 +112,7 @@
 	<p class="text-muted-foreground" data-testid="integrity-empty">{tx('dms.integrity.empty')}</p>
 {:else}
 	<div class="overflow-x-auto">
-		<table class="w-full text-left text-sm" data-testid="integrity-runs">
+		<table class="table-cards w-full text-left text-sm" data-testid="integrity-runs">
 			<caption class="sr-only">{tx('dms.integrity.runs')}</caption>
 			<thead>
 				<tr class="text-muted-foreground border-b">
@@ -126,11 +127,11 @@
 			<tbody>
 				{#each runs as run (run.id)}
 					<tr class="border-b" data-testid="integrity-run" data-state={run.state} aria-current={selected?.id === run.id ? 'true' : undefined}>
-						<td class="py-1 pr-3">{when(run.created_at)}</td>
-						<td class="py-1 pr-3">{tx(stateText[run.state])}</td>
-						<td class="py-1 pr-3">{run.files_checked}</td>
-						<td class="py-1 pr-3">{run.files_bad}</td>
-						<td class="py-1 pr-3">{chainOk(run)}</td>
+						<td data-label={tx('dms.integrity.col.created')} class="py-1 pr-3">{when(run.created_at)}</td>
+						<td data-label={tx('dms.integrity.col.state')} class="py-1 pr-3">{tx(stateText[run.state])}</td>
+						<td data-label={tx('dms.integrity.col.checked')} class="py-1 pr-3">{run.files_checked}</td>
+						<td data-label={tx('dms.integrity.col.bad')} class="py-1 pr-3">{run.files_bad}</td>
+						<td data-label={tx('dms.integrity.col.chain')} class="py-1 pr-3">{chainOk(run)}</td>
 						<td class="py-1">
 							<Button type="button" size="sm" variant="outline" onclick={() => (selectedId = run.id)} data-testid="integrity-show">{tx('dms.integrity.show')}</Button>
 						</td>
@@ -142,7 +143,7 @@
 
 	{#if selected}
 		<section class="mt-5" aria-labelledby="integrity-report-title" data-testid="integrity-report" data-state={selected.state}>
-			<h2 id="integrity-report-title" class="mb-2 text-lg font-medium">{tx('dms.integrity.report')}</h2>
+			<h2 id="integrity-report-title" class="mb-2 panel-title">{tx('dms.integrity.report')}</h2>
 			{#if selected.state === 'passed'}
 				<div role="status"><Alert.Root><Alert.Description data-testid="integrity-passed">{tx('dms.integrity.passed')}</Alert.Description></Alert.Root></div>
 			{:else if selected.state === 'failed' || selected.state === 'error'}
@@ -186,7 +187,7 @@
 				<h3 class="mt-4 mb-1 text-base font-medium">{tx('dms.integrity.findings')}</h3>
 				{#if selected.report.truncated}<p class="text-sm" data-testid="integrity-truncated">{tx('dms.integrity.truncated')}</p>{/if}
 				<div class="overflow-x-auto">
-					<table class="w-full text-left text-sm" data-testid="integrity-findings">
+					<table class="table-cards w-full text-left text-sm" data-testid="integrity-findings">
 						<caption class="sr-only">{tx('dms.integrity.findings')}</caption>
 						<thead>
 							<tr class="text-muted-foreground border-b">
@@ -198,9 +199,9 @@
 						<tbody>
 							{#each selected.report.findings as f, i (i)}
 								<tr class="border-b" data-testid="integrity-finding">
-									<td class="py-1 pr-3"><a class="underline-offset-2 hover:underline" href={`/dms/${f.document_id}`}>{f.document_id.slice(0, 8)}</a></td>
-									<td class="py-1 pr-3">{f.role}</td>
-									<td class="py-1">{tx(problemText[f.problem])}</td>
+									<td data-label={tx('dms.integrity.f.document')} class="py-1 pr-3"><a class="underline-offset-2 hover:underline" href={`/dms/${f.document_id}`}>{f.document_id.slice(0, 8)}</a></td>
+									<td data-label={tx('dms.integrity.f.role')} class="py-1 pr-3">{f.role}</td>
+									<td data-label={tx('dms.integrity.f.problem')} class="py-1">{tx(problemText[f.problem])}</td>
 								</tr>
 							{/each}
 						</tbody>

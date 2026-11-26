@@ -12,7 +12,7 @@
 <label class="text-muted-foreground flex items-center gap-2 text-sm">
 	<span class={compact ? 'sr-only' : ''}>{t('common.language')}</span>
 	<select
-		class="border-input bg-background text-foreground h-9 rounded-lg border px-2 text-sm"
+		class="bg-background text-foreground h-9 rounded-lg border px-2 text-sm {compact ? 'hover:bg-muted border-transparent' : 'border-input'}"
 		value={i18n.locale}
 		{onchange}
 		data-testid="language-switch"

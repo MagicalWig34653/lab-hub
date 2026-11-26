@@ -1,4 +1,5 @@
 <script lang="ts">
+	import PageHeader from '#lib/components/app/PageHeader.svelte';
 	import { onDestroy } from 'svelte';
 	import { apiTokenApi, type ApiToken } from '#lib/api/client';
 	import ConfirmDialog from '#lib/components/app/ConfirmDialog.svelte';
@@ -91,9 +92,9 @@
 	}
 </script>
 
-<h1 class="page-title mb-1" data-testid="tokens-title">{tx('dms.tokens.title')}</h1>
-<p class="text-muted-foreground mb-1 text-sm">{tx('dms.tokens.intro')}</p>
-<p class="mb-4 text-sm"><a class="text-ui-accent-ink underline" href="/dms/scanner" data-testid="tokens-to-scanner">{tx('dms.tokens.toScanner')}</a></p>
+<PageHeader title={tx('dms.tokens.title')} lead={tx('dms.tokens.intro')} testid="tokens-title">
+	<p class="mt-1 text-sm"><a class="text-ui-accent-ink underline" href="/dms/scanner" data-testid="tokens-to-scanner">{tx('dms.tokens.toScanner')}</a></p>
+</PageHeader>
 <ErrorBanner message={error} />
 
 {#if fresh}
@@ -110,7 +111,7 @@
 	</section>
 {/if}
 
-<form onsubmit={create} class="mb-5 flex flex-wrap items-end gap-3 rounded-lg border p-3" novalidate data-testid="token-form">
+<form onsubmit={create} class="mb-5 flex flex-wrap items-end gap-3 panel" novalidate data-testid="token-form">
 	<label class="text-sm">
 		<span class="mb-1 block">{tx('dms.tokens.name')}</span>
 		<Input class="w-64" bind:value={name} maxlength={80} aria-invalid={submitted && !nameValid} data-testid="token-name" />
@@ -138,7 +139,7 @@
 	<p class="text-muted-foreground" data-testid="tokens-empty">{tx('dms.tokens.empty')}</p>
 {:else}
 	<div class="overflow-x-auto">
-		<table class="w-full text-left text-sm" data-testid="tokens-table">
+		<table class="table-cards w-full text-left text-sm" data-testid="tokens-table">
 			<caption class="sr-only">{tx('dms.tokens.title')}</caption>
 			<thead>
 				<tr class="text-muted-foreground border-b">
@@ -156,11 +157,11 @@
 					{@const state = stateOf(token)}
 					<tr class="border-b align-top" data-testid="token-row" data-state={state}>
 						<td class="py-2 pr-3 font-medium">{token.name}</td>
-						<td class="py-2 pr-3 font-mono text-xs">{token.scopes.join(', ')}</td>
-						<td class="py-2 pr-3">{formatDateTime(token.created_at, i18n.locale)}</td>
-						<td class="py-2 pr-3">{formatDateTime(token.expires_at, i18n.locale)}</td>
-						<td class="py-2 pr-3">{token.last_used_at ? formatDateTime(token.last_used_at, i18n.locale) : tx('dms.tokens.neverUsed')}</td>
-						<td class="py-2 pr-3" data-testid="token-state">
+						<td data-label={tx('dms.tokens.scope')} class="py-2 pr-3 font-mono text-xs">{token.scopes.join(', ')}</td>
+						<td data-label={tx('dms.tokens.created')} class="py-2 pr-3">{formatDateTime(token.created_at, i18n.locale)}</td>
+						<td data-label={tx('dms.tokens.expires')} class="py-2 pr-3">{formatDateTime(token.expires_at, i18n.locale)}</td>
+						<td data-label={tx('dms.tokens.lastUsed')} class="py-2 pr-3">{token.last_used_at ? formatDateTime(token.last_used_at, i18n.locale) : tx('dms.tokens.neverUsed')}</td>
+						<td data-label={tx('dms.tokens.state')} class="py-2 pr-3" data-testid="token-state">
 							{tx(state === 'active' ? 'dms.tokens.state.active' : state === 'revoked' ? 'dms.tokens.state.revoked' : 'dms.tokens.state.expired')}
 						</td>
 						<td class="py-2">

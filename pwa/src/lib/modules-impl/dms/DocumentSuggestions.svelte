@@ -60,12 +60,12 @@
 
 {#if loaded && (items.length > 0 || error)}
 	<section class="mt-8" aria-labelledby="dms-suggestions-title" data-testid="dms-doc-suggestions">
-		<h2 id="dms-suggestions-title" class="mb-2 text-lg font-medium">{tx('dms.suggestion.docTitle')}</h2>
+		<h2 id="dms-suggestions-title" class="mb-2 panel-title">{tx('dms.suggestion.docTitle')}</h2>
 		<ErrorBanner message={error} />
 		<ul class="space-y-2">
 			{#each items as s (s.id)}
 				{@const stale = staleIds.has(s.id) || targetMissing(s, masters)}
-				<li class="rounded-lg border p-3" data-testid="doc-suggestion" data-state={stale ? 'stale' : 'open'}>
+				<li class="bg-card rounded-[10px] border p-4" data-testid="doc-suggestion" data-state={stale ? 'stale' : 'open'}>
 					<SuggestionCard
 						suggestion={s}
 						{masters}

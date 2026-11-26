@@ -57,7 +57,7 @@
 
 <section class="mt-8" aria-labelledby="dms-facts-title" data-testid="dms-facts">
 	<div class="mb-2 flex flex-wrap items-center justify-between gap-2">
-		<h2 id="dms-facts-title" class="text-lg font-medium">{tx('dms.facts.title')}</h2>
+		<h2 id="dms-facts-title" class="panel-title">{tx('dms.facts.title')}</h2>
 		{#if canRerun}
 			<Button type="button" size="sm" variant="outline" disabled={running} onclick={rerun} data-testid="dms-extraction-rerun">{tx('dms.facts.rerun')}</Button>
 		{/if}

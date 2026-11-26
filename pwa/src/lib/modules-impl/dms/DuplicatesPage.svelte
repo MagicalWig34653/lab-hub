@@ -1,4 +1,5 @@
 <script lang="ts">
+	import PageHeader from '#lib/components/app/PageHeader.svelte';
 	import { dmsAdminApi, dmsApi, type DmsDocument, type DmsDuplicate } from '#lib/api/client';
 	import ErrorBanner from '#lib/components/app/ErrorBanner.svelte';
 	import { Button } from '#lib/components/ui/button';
@@ -101,8 +102,7 @@
 	};
 </script>
 
-<h1 class="page-title mb-1" data-testid="duplicates-title">{tx('dms.duplicates.title')}</h1>
-<p class="text-muted-foreground mb-4 text-sm">{tx('dms.duplicates.intro')}</p>
+<PageHeader title={tx('dms.duplicates.title')} lead={tx('dms.duplicates.intro')} testid="duplicates-title" />
 <ErrorBanner message={error} />
 
 <label class="mb-4 block text-sm">
@@ -123,7 +123,7 @@
 	<ul class="space-y-3" data-testid="duplicates-list">
 		{#each items as d (d.id)}
 			{@const cmp = compare[d.id]}
-			<li class="rounded-lg border p-3" data-testid="duplicate-row" data-state={d.state}>
+			<li class="bg-card rounded-[10px] border p-4" data-testid="duplicate-row" data-state={d.state}>
 				<div class="grid gap-3 sm:grid-cols-2">
 					<div>
 						<p class="text-muted-foreground text-xs">{tx('dms.duplicates.newer')}</p>

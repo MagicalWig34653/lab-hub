@@ -57,6 +57,17 @@ for (const device of devices) {
 			await expect(page.getByTestId('dms-row')).toHaveCount(4);
 			await shot(page, name('dms'));
 
+			for (const [route, shotName] of [
+				['/dms/inbox', 'inbox'],
+				['/dms/rules', 'rules'],
+				['/dms/masters', 'masters'],
+				['/settings/members', 'members']
+			]) {
+				await page.goto(route);
+				await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+				await shot(page, name(shotName));
+			}
+
 			await page.goto('/settings/appearance');
 			await expect(page.getByTestId('accent-teal')).toBeVisible();
 			await shot(page, name('appearance'));

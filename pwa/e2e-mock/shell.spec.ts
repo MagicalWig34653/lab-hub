@@ -23,7 +23,7 @@ async function bootstrap(page: Page, context: Parameters<typeof addVirtualAuthen
 test('AK-F2-1 menu shows only active modules; owner switches a module on and off (AK-F2-2)', async ({ page, context }) => {
 	await bootstrap(page, context);
 	const sidebar = page.getByTestId('sidebar');
-	await expect(sidebar).toContainText('Übersicht');
+	await expect(sidebar).toContainText('Start');
 	await expect(page.getByTestId('nav-dms')).toHaveCount(0);
 
 	await page.getByTestId('nav-settings').click();

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import PageHeader from '#lib/components/app/PageHeader.svelte';
 	import { ApiError, dmsAdminApi, dmsApi, type DmsDeletionLogEntry, type DmsDocument, type DmsRetention } from '#lib/api/client';
 	import ConfirmDialog from '#lib/components/app/ConfirmDialog.svelte';
 	import ErrorBanner from '#lib/components/app/ErrorBanner.svelte';
@@ -150,9 +151,9 @@
 	const shortHash = (h: string) => `${h.slice(0, 12)}…`;
 </script>
 
-<h1 class="page-title mb-1" data-testid="trash-title">{tx('dms.trash.title')}</h1>
-<p class="text-muted-foreground mb-1 text-sm">{tx('dms.trash.intro')}</p>
-<p class="text-muted-foreground mb-4 text-xs" data-testid="trash-gobd">{tx('dms.trash.gobdNote')}</p>
+<PageHeader title={tx('dms.trash.title')} lead={tx('dms.trash.intro')} testid="trash-title">
+	<p class="text-muted-foreground mt-1 text-[13px]" data-testid="trash-gobd">{tx('dms.trash.gobdNote')}</p>
+</PageHeader>
 
 <ErrorBanner message={error} />
 {#if notice}<p role="status" class="mb-3 text-sm" data-testid="trash-notice">{notice}</p>{/if}
@@ -165,7 +166,7 @@
 	<ul class="space-y-3" data-testid="trash-list">
 		{#each docs as doc (doc.id)}
 			{@const r = retention[doc.id]}
-			<li class="rounded-lg border p-3" data-testid="trash-row" data-can-purge={r?.can_purge ?? false}>
+			<li class="bg-card rounded-[10px] border p-4" data-testid="trash-row" data-can-purge={r?.can_purge ?? false}>
 				<div class="flex flex-wrap items-start justify-between gap-3">
 					<div class="min-w-0">
 						<a class="font-medium break-words underline-offset-2 hover:underline" href={`/dms/${doc.id}`} data-testid="trash-doc-title">{doc.title}</a>
@@ -227,13 +228,13 @@
 {/if}
 {#if !canPurge}<p class="text-muted-foreground mt-3 text-xs" data-testid="trash-owner-only">{tx('dms.trash.ownerOnly')}</p>{/if}
 
-<h2 class="mt-8 mb-2 text-lg font-medium">{tx('dms.trash.logTitle')}</h2>
+<h2 class="mt-8 mb-2 panel-title">{tx('dms.trash.logTitle')}</h2>
 <p class="text-muted-foreground mb-2 text-xs">{tx('dms.trash.logIntro')}</p>
 {#if log.length === 0}
 	<p class="text-muted-foreground text-sm" data-testid="deletion-log-empty">{tx('dms.trash.logEmpty')}</p>
 {:else}
 	<div class="overflow-x-auto">
-		<table class="w-full text-left text-sm" data-testid="deletion-log">
+		<table class="table-cards w-full text-left text-sm" data-testid="deletion-log">
 			<caption class="sr-only">{tx('dms.trash.logTitle')}</caption>
 			<thead>
 				<tr class="text-muted-foreground border-b">
@@ -249,13 +250,13 @@
 			<tbody>
 				{#each log as e (e.id)}
 					<tr class="border-b" data-testid="deletion-log-row">
-						<td class="py-1 pr-3">{formatDateTime(e.purged_at, i18n.locale)}</td>
-						<td class="py-1 pr-3">{e.asn ?? '–'}</td>
-						<td class="py-1 pr-3">{formatDate(e.doc_date, i18n.locale) || '–'}</td>
-						<td class="py-1 pr-3">{formatDate(e.retention_until, i18n.locale) || '–'}</td>
-						<td class="py-1 pr-3 font-mono text-xs" title={e.original_sha256}>{shortHash(e.original_sha256)}</td>
-						<td class="py-1 pr-3">{formatBytes(e.original_size, i18n.locale)}</td>
-						<td class="py-1">{e.file_count}</td>
+						<td data-label={tx('dms.trash.log.purgedAt')} class="py-1 pr-3">{formatDateTime(e.purged_at, i18n.locale)}</td>
+						<td data-label={tx('dms.field.asn')} class="py-1 pr-3">{e.asn ?? '–'}</td>
+						<td data-label={tx('dms.field.date')} class="py-1 pr-3">{formatDate(e.doc_date, i18n.locale) || '–'}</td>
+						<td data-label={tx('dms.trash.retentionUntil')} class="py-1 pr-3">{formatDate(e.retention_until, i18n.locale) || '–'}</td>
+						<td data-label={tx('dms.field.sha')} class="py-1 pr-3 font-mono text-xs" title={e.original_sha256}>{shortHash(e.original_sha256)}</td>
+						<td data-label={tx('dms.trash.log.size')} class="py-1 pr-3">{formatBytes(e.original_size, i18n.locale)}</td>
+						<td data-label={tx('dms.trash.log.files')} class="py-1">{e.file_count}</td>
 					</tr>
 				{/each}
 			</tbody>

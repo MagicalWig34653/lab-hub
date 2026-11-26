@@ -55,7 +55,7 @@
 
 <div class="space-y-6">
 	<Card.Root>
-		<Card.Header><Card.Title><h2 class="text-lg font-semibold">{t('passkeys.title')}</h2></Card.Title></Card.Header>
+		<Card.Header><Card.Title><h2 class="panel-title">{t('passkeys.title')}</h2></Card.Title></Card.Header>
 		<Card.Content class="space-y-4">
 			<ErrorBanner message={error} />
 			<ul class="divide-y" data-testid="passkey-list">

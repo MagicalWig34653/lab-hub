@@ -1,13 +1,15 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { onMount, untrack } from 'svelte';
+	import { onMount, tick, untrack } from 'svelte';
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import Layers from '@lucide/svelte/icons/layers';
 	import LogOut from '@lucide/svelte/icons/log-out';
 	import MenuIcon from '@lucide/svelte/icons/menu';
 	import Palette from '@lucide/svelte/icons/palette';
+	import SettingsIcon from '@lucide/svelte/icons/settings';
+	import XIcon from '@lucide/svelte/icons/x';
 	import UserRound from '@lucide/svelte/icons/user-round';
 	import LanguageSwitch from '#lib/components/app/LanguageSwitch.svelte';
 	import * as Alert from '#lib/components/ui/alert';
@@ -99,6 +101,18 @@
 	let mobile = $state(false);
 	let navEl = $state<HTMLElement | null>(null);
 
+	// The open drawer takes the focus and the page behind it is inert; closing it gives the focus back to the menu button.
+	async function openDrawer() {
+		drawer = true;
+		await tick();
+		document.querySelector<HTMLElement>('[data-testid="menu-close"]')?.focus();
+	}
+	async function closeDrawer() {
+		drawer = false;
+		await tick();
+		document.querySelector<HTMLElement>('[data-testid="menu-toggle"]')?.focus();
+	}
+
 	onMount(() => {
 		const media = window.matchMedia('(max-width: 1023px)');
 		const update = () => {
@@ -108,7 +122,7 @@
 		update();
 		media.addEventListener('change', update);
 		const onKey = (event: KeyboardEvent) => {
-			if (event.key === 'Escape' && drawer) drawer = false;
+			if (event.key === 'Escape' && drawer) void closeDrawer();
 		};
 		window.addEventListener('keydown', onKey);
 		return () => {
@@ -148,18 +162,23 @@
 		inert={mobile && !drawer}
 		data-testid="sidebar"
 	>
-		<a href="/dashboard" class="mx-3 flex h-[60px] shrink-0 items-center gap-2.5 rounded-lg px-2 text-[17px] font-semibold tracking-tight">
-			<span class="bg-background text-ui-accent-ink flex size-[34px] items-center justify-center rounded-lg border" aria-hidden="true">
-				<Layers class="size-[18px]" />
-			</span>
-			{t('app.name')}
-		</a>
+		<div class="mx-3 flex h-[60px] shrink-0 items-center gap-2">
+			<a href="/dashboard" class="flex min-w-0 flex-1 items-center gap-2.5 self-stretch rounded-lg px-2 text-[17px] font-semibold tracking-tight">
+				<span class="bg-background text-ui-accent-ink flex size-[34px] items-center justify-center rounded-lg border" aria-hidden="true">
+					<Layers class="size-[18px]" />
+				</span>
+				{t('app.name')}
+			</a>
+			<Button variant="ghost" size="icon" class="transition-colors lg:hidden" aria-label={t('shell.closeMenu')} onclick={closeDrawer} data-testid="menu-close">
+				<XIcon class="size-[18px]" aria-hidden="true" />
+			</Button>
+		</div>
 		<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-		<nav aria-label={t('shell.navigation')} class="min-h-0 flex-1 overflow-y-auto px-3 pb-3" bind:this={navEl} onkeydown={navKeydown}>
+		<nav aria-label={t('shell.navigation')} class="flex min-h-0 flex-1 flex-col overflow-y-auto px-3 pb-3" bind:this={navEl} onkeydown={navKeydown}>
 			{#each groups as group (group.id)}
 				{#if group.labelKey}
 					{@const isOpen = open.has(group.id)}
-					<div class="mt-3 first:mt-0">
+					<div class="mt-3 shrink-0 first:mt-0 {group.id === 'settings' ? 'mt-auto border-t pt-2' : ''}">
 						<button
 							type="button"
 							data-nav-item
@@ -179,7 +198,7 @@
 						</ul>
 					</div>
 				{:else}
-					<ul class="mb-1 space-y-0.5">
+					<ul class="mb-1 shrink-0 space-y-0.5">
 						{#each group.items as item (item.id)}
 							{@render link(item, true)}
 						{/each}
@@ -187,12 +206,13 @@
 				{/if}
 			{/each}
 		</nav>
-		<div class="shrink-0 border-t p-3 lg:hidden">
-			<Button variant="outline" class="w-full" onclick={logout}><LogOut class="size-4" aria-hidden="true" />{t('shell.logout')}</Button>
+		<div class="grid shrink-0 gap-2 border-t p-3 lg:hidden">
+			<Button variant="outline" href="/settings/profile" data-testid="drawer-settings"><SettingsIcon class="size-4" aria-hidden="true" />{t('nav.settings')}</Button>
+			<Button variant="outline" onclick={logout} data-testid="drawer-logout"><LogOut class="size-4" aria-hidden="true" />{t('shell.logout')}</Button>
 		</div>
 	</aside>
 	{#if drawer}
-		<button type="button" class="fixed inset-0 z-30 bg-black/30 backdrop-blur-[2px] lg:hidden" aria-label={t('shell.closeMenu')} onclick={() => (drawer = false)}></button>
+		<button type="button" class="fixed inset-0 z-30 bg-black/30 backdrop-blur-[2px] lg:hidden" aria-label={t('shell.closeMenu')} tabindex="-1" onclick={closeDrawer}></button>
 	{/if}
 {/if}
 
@@ -214,16 +234,20 @@
 	</li>
 {/snippet}
 
-<div class={session.isRecovery ? '' : 'lg:pl-64'}>
+<div class={session.isRecovery ? '' : 'lg:pl-64'} inert={mobile && drawer} data-testid="shell-content">
 	<header class="glass-header sticky top-0 z-20 border-b">
-		<div class="flex min-h-[60px] flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-2 min-[1101px]:px-10">
-			<div class="flex min-w-0 items-center gap-2">
+		<div class="flex min-h-[60px] items-center justify-between gap-2 px-4 py-2 sm:gap-3 min-[1101px]:px-10">
+			<div class="flex min-w-0 flex-1 items-center gap-2">
 				{#if !session.isRecovery}
-					<Button variant="outline" size="icon" class="lg:hidden" aria-label={t('shell.openMenu')} aria-expanded={drawer} aria-controls="app-sidebar" onclick={() => (drawer = true)} data-testid="menu-toggle">
+					<Button variant="ghost" size="icon" class="lg:hidden" aria-label={t('shell.openMenu')} aria-expanded={drawer} aria-controls="app-sidebar" onclick={openDrawer} data-testid="menu-toggle">
 						<MenuIcon class="size-[18px]" aria-hidden="true" />
 					</Button>
 				{/if}
-				<a href="/dashboard" class="truncate font-semibold {session.isRecovery ? '' : 'lg:hidden'}">{t('app.name')}</a>
+				{#if session.isRecovery}
+					<a href="/dashboard" class="truncate font-semibold">{t('app.name')}</a>
+				{:else}
+					<p class="truncate font-semibold lg:hidden" data-testid="header-title">{currentItem ? tx(currentItem.labelKey) : t('app.name')}</p>
+				{/if}
 				{#if currentItem && !session.isRecovery}
 					<p class="flex min-w-0 items-center gap-1.5 text-sm max-lg:hidden" data-testid="breadcrumbs">
 						{#if crumbGroup}
@@ -234,12 +258,12 @@
 					</p>
 				{/if}
 			</div>
-			<div class="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
+			<div class="flex shrink-0 items-center justify-end gap-1 sm:gap-3">
 				{#if workspace.memberships.length > 1 && !session.isRecovery}
 					<label class="text-muted-foreground flex items-center gap-2 text-sm">
-						<span class="max-sm:sr-only">{t('shell.tenant')}</span>
+						<span class="sr-only">{t('shell.tenant')}</span>
 						<select
-							class="border-input bg-background text-foreground h-9 max-w-[9.5rem] rounded-lg border px-2 text-sm sm:max-w-56"
+							class="hover:bg-muted bg-background text-foreground h-9 max-w-[7.5rem] truncate rounded-lg border border-transparent px-1 text-sm font-medium sm:max-w-56"
 							value={workspace.activeId ?? ''}
 							onchange={onTenantChange}
 							data-testid="tenant-switch"
