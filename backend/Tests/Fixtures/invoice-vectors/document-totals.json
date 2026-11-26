@@ -1,6 +1,6 @@
 {
   "suite": "document-totals",
-  "note": "Synthetic. Reference: TaxlabCore DocumentCalculator.calculate. Rounding only per tax rate on document level. Prices are in the input mode (net or gross). Decimal strings only.",
+  "note": "Synthetic. Document totals. Rounding only per tax rate on document level. Prices are in the input mode (net or gross). Decimal strings only.",
   "vectors": [
     {"id": "net-single-19", "input": {"priceMode": "net", "lines": [{"taxRate": "19", "unitPrice": "100", "quantity": "1", "secondQuantity": null, "discount": null}], "charges": [], "documentDiscountPercent": "0", "documentDiscountAmount": null, "rounding": {"mode": "halfAwayFromZero", "scale": 2}},
      "expected": {"byRate": [{"rate": "19", "net": "100", "tax": "19", "gross": "119"}], "net": "100", "tax": "19", "gross": "119", "documentDiscount": "0"}},

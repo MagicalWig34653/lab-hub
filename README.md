@@ -1,8 +1,8 @@
 # LAB hub
 
-Selbst hostbares Backend mit PWA für eine Familie modularer Produkte. Jedes Produkt ist ein Modul (ein-/ausschaltbar je Betreiber und Mandant); mit Backend arbeiten alle Module über einen gemeinsamen Kern (Mandanten, Nutzer, Rechte, Kontakte, Dateien, Zähler, Suche, Audit, Events). Der Hub ist vollständig ohne Swift-App nutzbar (Backend + PWA); die Swift-Apps (z. B. Taxlab) sind optionale Clients und laufen weiterhin eigenständig ohne Backend.
+Selbst hostbares Backend mit PWA für eine Familie modularer Produkte. Jedes Produkt ist ein Modul (ein-/ausschaltbar je Betreiber und Mandant); mit Backend arbeiten alle Module über einen gemeinsamen Kern (Mandanten, Nutzer, Rechte, Kontakte, Dateien, Zähler, Suche, Audit, Events). Der Hub ist vollständig ohne Swift-App nutzbar (Backend + PWA); die Swift-Apps (je Modul) sind optionale Clients und laufen weiterhin eigenständig ohne Backend.
 
-Geplante Module: **Rechnung** (heute Taxlab, Fachlogik im Repo `taxlab`) und **DMS** (Dokumentenmanagement, Grundidee Paperless-ngx, neu gedacht). Später Steuer, Zeit, Projekte.
+Geplante Module: **Rechnung** (Nachfolge einer bestehenden Rechnungs-App) und **DMS** (Dokumentenmanagement, Grundidee Paperless-ngx, neu gedacht). Später Steuer, Zeit, Projekte.
 
 ## Status (01.11.2026)
 
@@ -24,7 +24,7 @@ Geplante Module: **Rechnung** (heute Taxlab, Fachlogik im Repo `taxlab`) und **D
 | `docs/PAPERLESS-ABLOESUNG.md` | Was zur Ablösung von paperless-ngx fehlt, Reihenfolge, Probelauf |
 | `docs/ARCHITEKTUR.md` | Schichten, Modul-System, gemeinsamer Kern, API-Stil, Sync-Entwurf, Datenschutz, Betrieb |
 | `docs/MODUL-DMS.md` | Paperless-Analyse, Problem/Lösung, Datenmodell, Ingest, OCR, Suche, Revisionssicherheit, API, Import |
-| `docs/MODUL-RECHNUNG.md` | Umfang des Rechnungsmoduls, Renderer-Frage, E-Rechnung, Migration aus Taxlab |
+| `docs/MODUL-RECHNUNG.md` | Umfang des Rechnungsmoduls, Renderer-Frage, E-Rechnung, Übernahme aus der bisherigen App |
 | `docs/FRONTEND.md` | PWA-Architektur, Modul-Manifest, i18n, Offline, Tests, Verzeichnislayout |
 | `docs/OFFENE-FRAGEN.md` | Entscheidungen des Nutzers mit Empfehlung |
 | `docs/decisions/` | ADRs 0001–0007 |

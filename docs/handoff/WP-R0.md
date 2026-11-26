@@ -1,18 +1,13 @@
 # Handoff WP-R0 – Spike Rechenkern unter Linux
 
-Stand 01.11.2026. Status: Spike abgeschlossen, Ergebnis in `docs/MODUL-RECHNUNG.md` Abschnitt 12.
+Stand 01.11.2026. Status: Spike abgeschlossen, Zusammenfassung in `docs/MODUL-RECHNUNG.md` Abschnitt 12.
 
 ## Ergebnis
-- `TaxlabCore` und `TaxlabModel` (inkl. Nummernformat) bauen und testen unter `swift:6.2` (Swift 6.2.4) ohne Änderung: 53 bzw. 135 Tests grün.
-- `TaxlabReports` ohne PDF-Export: 101 Tests grün (1 Quelldatei, 2 Testdateien abgetrennt).
-- `TaxlabEInvoice`: Bibliothek baut nach Abtrennen von PDF/A-3 und Reader-PDF-Teil plus `FoundationXML`-Import; Tests wegen `RenderData` (in `TaxlabRender`) nicht gelaufen.
-- `TaxlabLayout` (CoreFoundation) und `TaxlabRender` (CoreGraphics) brauchen Portierung, Sache von WP-R6a.
-- 50 synthetische Testvektoren (Dezimal-Strings) unter `backend/Tests/Fixtures/taxlab-vectors/`, erzeugt mit der taxlab-Referenz unter Linux.
+- Geprüft wurde, ob der Rechenkern der bisherigen Rechnungs-App unter Linux (`swift:6.2`) nutzbar ist. Einzelheiten zum fremden Quellcode stehen nicht in diesem Repository.
+- 50 synthetische Testvektoren (Dezimal-Strings) unter `backend/Tests/Fixtures/invoice-vectors/`.
+- Die Hilfsskripte des Spikes gehören nicht mehr zum aktuellen Stand; sie setzten den Quellcode der App voraus.
 
-## Ausgeführt
-`scripts/spike-r0/linux-build.sh` (Core/Model grün; Layout/Storage unverändert Fehler wie dokumentiert), `linux-patched.sh` (Reports grün; EInvoice-Bibliothek baut, Tests ohne `RenderData` nicht ausführbar), `linux-patched-einvoice.sh` (Render-Build scheitert noch an `FoundationXML` und Type-Check), `generate-vectors.sh`. Docker-Image `swift:6.2`. taxlab nur lesend: gefilterte Kopie der `*.swift`/`Package.swift` außerhalb beider Repos; Docker (Colima) muss den Ordner mounten können (ein Ordner unter dem Home-Verzeichnis, nicht `/tmp`).
-
-## Offen
-- Entscheidung F-27 (Nutzer): Option A (gemeinsames Repo) vs. B (Neuimplementierung); Empfehlung A für Core/Model, siehe Abschnitt 12.
-- Hub-Konformitätstest, der die Vektoren liest, entsteht in WP-R2 (R0 enthält keinen Hub-Code).
-- Skonto-Regeln nicht im Rechenkern gefunden (R3).
+## Entscheidung und offen
+- F-27 (07.11.2026): Neuimplementierung im Hub gegen die Vektoren; Konformitätstest seit WP-R2.
+- Skonto-Regeln nicht in der Referenz gefunden (F-32).
+- Renderer-Frage: WP-R6a (F-08).

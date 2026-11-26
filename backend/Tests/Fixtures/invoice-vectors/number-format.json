@@ -1,6 +1,6 @@
 {
   "suite": "number-format",
-  "note": "Synthetic. Reference: TaxlabModel NumberFormat (format, counterScope, seriesKey, match). expected is either a string or {error}.",
+  "note": "Synthetic. Number format (formatted number, counter scope, series key, parsed match). expected is either a string or {error}.",
   "vectors": [
     {"id": "year-month-counter5", "input": {"template": "{YYYY}-{MM}-{N:5}", "year": 2026, "month": 3, "counter": 42, "abbreviation": null, "clientNumber": null, "projectCode": null},
      "expected": {"formatted": "2026-03-00042", "counterScope": "perMonth", "seriesKey": "invoice-2026-3", "match": {"year": 2026, "month": 3, "counter": 42}}},

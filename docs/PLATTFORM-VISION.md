@@ -7,21 +7,21 @@ Stand: 28.10.2026 (überarbeitet nach den Nutzerentscheidungen vom selben Tag). 
 ## 1. Grundidee (Nutzer)
 
 - Eine komplette Unternehmensorganisation soll abbildbar sein, aufgeteilt in eigenständige Produkte.
-- Das bisherige Taxlab (Rechnungen, Angebote, EÜR, Layout-Designer, Totals-Grundlage) wird das **Invoice-Ninja-Äquivalent** und bekommt einen neuen Namen (Arbeitstitel „LAB rev“ oder „LAB income“; Name nicht final).
+- Die bisherige Rechnungs-App (Rechnungen, Angebote, EÜR, Layout-Designer) wird das **Invoice-Ninja-Äquivalent** und bekommt einen neuen Namen (Arbeitstitel „LAB rev“ oder „LAB income“; Name nicht final).
 - Ein **DMS** (Dokumentenmanagement) mit den Funktionen von Paperless-ngx.
-- Später ein **„LAB tax“** als vereinfachter Steuerprofi-Klon (der Name „LAB tax“ wird heute noch vom Rechnungsprogramm als Anzeigename genutzt und wird dann frei).
+- Später ein **„LAB tax“** als vereinfachter Steuerprofi-Klon (der Name wird erst mit der Umbenennung der Rechnungs-App frei).
 - Ein **Backend**, das alle Plattformen zusammenführt und die Daten aller Produkte hält. Jedes Produkt ist dort ein **Modul**, das sich aktivieren und deaktivieren lässt.
 - Ein **PWA-Frontend**, das alle Produkte bedient.
 - Je Produkt eine **Swift-App**, die komplett eigenständig (lokal, optional iCloud) oder mit Backend laufen kann.
 
 ## 2. Was dafür schon da ist
 
-Die Architektur von Taxlab trennt bereits Fachkern und Infrastruktur (siehe `STORAGE-SCHNITTSTELLEN.md`, `SYNC.md`):
+Die bisherige Rechnungs-App trennt bereits Fachkern und Infrastruktur:
 
-- `DocumentStore`, `AttachmentStore`, `NumberAllocator` und `SyncTransport` sind Protokolle. Ein Server-Backend wäre eine weitere Implementierung neben SQLite und CloudKit.
-- Fachkern (`TaxlabCore`, `TaxlabModel`) ohne Persistenz- oder CloudKit-Abhängigkeit.
+- Speicher, Anhänge, Nummernvergabe und Sync liegen hinter Protokollen. Ein Server-Backend wäre eine weitere Implementierung.
+- Der Fachkern hängt weder an Persistenz noch an einem Cloud-Dienst.
 - Mandantentrennung (Unternehmen) und Zähler-Untergrenzen existieren; ein Berechtigungsmodell (Rollen, später Kundenzugang) ist noch nicht gebaut.
-- Der zentrale Nummernzähler ist heute CloudKit (CAS). Im Backend wäre er ein atomarer Datenbankzähler je Unternehmen und Serie.
+- Der Nummernzähler der App ist heute cloudbasiert. Im Backend wäre er ein atomarer Datenbankzähler je Unternehmen und Serie.
 
 ## 3. Zielbild (Vorschlag)
 
@@ -46,7 +46,7 @@ Gemeinsame Bausteine über alle Produkte (eigene Swift-Pakete bzw. Backend-Diens
 3. **Dokumente und Anhänge**: Ein Dateispeicher mit Prüfsumme (heute SHA-256 im Anhangsspeicher), Rechnungs-PDFs landen automatisch im DMS.
 4. **Verknüpfungen statt Kopien**: Beleg im DMS ↔ Ausgabe ↔ Bankbuchung ↔ Rechnung als Links mit Quelle.
 5. **Ereignisse**: Module melden Ereignisse („Rechnung finalisiert“, „Beleg eingegangen“); andere Module reagieren. Das hält Module entkoppelt.
-6. **Design-System** (heute `DesignKit`/`Theme`) als gemeinsames Paket, damit alle Apps gleich wirken.
+6. **Design-System** als gemeinsames Paket, damit alle Apps gleich wirken.
 
 Betriebsarten je Produkt: (a) komplett lokal, (b) lokal plus iCloud (heute), (c) Backend. Wichtig: Der Wechsel zwischen den Betriebsarten ist ein Export/Import mit definierter Migration, kein stilles Umschalten (Lehre aus dem Sync-Fehlerbild: Nummernzähler und Sync-Zustand dürfen nie still wechseln).
 
@@ -58,7 +58,7 @@ Familienmarke „LAB“ bleibt. Die Namen sind Ideen; **Marken- und Domainprüfu
 
 | Aufgabe | Namensideen |
 | --- | --- |
-| Rechnungen, Angebote, EÜR (heute Taxlab) | LAB rev, LAB income, LAB bill, LAB invoice, LAB ledger |
+| Rechnungen, Angebote, EÜR (bisherige App) | LAB rev, LAB income, LAB bill, LAB invoice, LAB ledger |
 | DMS (Paperless-ngx-Äquivalent) | LAB docs, LAB archive, LAB vault, LAB shelf, LAB paper |
 | Steuer (vereinfachter Steuerprofi) | LAB tax |
 | Backend/Zentrale | LAB hub, LAB core, LAB base |
@@ -77,7 +77,7 @@ Empfehlung: Produktnamen nach dem Nutzen benennen („income“, „docs“, „
 
 ## 5. Module (Vorschlag für die Reihenfolge)
 
-1. **Rechnung** (heute Taxlab): Version 1 stabilisieren, dann Umbenennung.
+1. **Rechnung** (bisherige App): Version 1 stabilisieren, dann Umbenennung.
 2. **DMS**: Import (Ordner, E-Mail, Scan, Teilen-Menü), OCR (Apple Vision lokal), Tags, Korrespondenten, Dokumenttypen, Speicherpfade, Regeln/automatische Zuordnung, Volltextsuche, Aufbewahrungsfristen, Papierkorb mit Wiederherstellung, Verknüpfung mit Belegen/Ausgaben. Die Funktionsliste lehnt sich an Paperless-ngx an; **Code von Paperless-ngx (GPL-3.0) wird nicht übernommen**, nur Funktionen sind Vorbild.
 3. **Backend-Kern** mit Sync-API, Dateispeicher, Zähler, Rechte.
 4. **PWA** zuerst für Rechnung und DMS (Erfassung, Liste, PDF, Upload), später alle Module.
@@ -93,8 +93,8 @@ Empfehlung: Produktnamen nach dem Nutzen benennen („income“, „docs“, „
 | Datenbank | Arbeitsstand MariaDB, SQLite für Einzelinstanzen (wie in `timetrack-backend`). PostgreSQL hat für DMS-Suche und Invarianten Vorteile (6.1a); Entscheidung nach Suchspike. |
 | Betrieb | Selbst hostbar (Docker Compose, später Swarm). Je Kunde ein eigener Server beziehungsweise eigene Datenbank. |
 | Lizenz | AGPL-3.0-only, Open Source. Einnahmen nur über Betreuung und Dienstleistungen, nicht über Softwarepreise. |
-| Umbenennung | Bundle-IDs und iCloud-Container werden bei Bedarf geändert; Daten werden vorher exportiert und danach importiert. Nur zwei Tester betroffen. |
-| Steuer-App | Später. Zuerst DMS (Paperless-Klon) und das heutige Taxlab abschließen. |
+| Umbenennung | Bundle-IDs und iCloud-Container werden bei Bedarf geändert; Daten werden vorher exportiert und danach importiert. |
+| Steuer-App | Später. Zuerst DMS (Paperless-Klon) und die bisherige Rechnungs-App abschließen. |
 | Datenschutz | Konzept in Abschnitt 9, Nutzer prüft. |
 
 ### 6.1 Warum MariaDB als Arbeitsstand?
@@ -114,7 +114,7 @@ Technischer Vergleich aus meinem Wissen, **nicht per Prototyp belegt** (Versions
 | Volltextsuche | `tsvector` mit Sprachwörterbuch (deutsche Wortstämme), Ranking, `unaccent`, Ähnlichkeitssuche mit `pg_trgm` (Tippfehler) | InnoDB-FULLTEXT ohne Wortstämme, schwächeres Ranking | **Hoch für DMS** (OCR-Text, „Rechnung“ findet „Rechnungen“) |
 | Vektorsuche (KI) | Erweiterung `pgvector` | Vektortyp seit 11.7 vorhanden (neuer, weniger verbreitet) | Mittel, wenn später lokale Einbettungen für „ähnliche Dokumente“ |
 | Teil-Indizes | `UNIQUE … WHERE status = 'final'` direkt | nicht vorhanden, Umweg über generierte Spalten | **Hoch**: Invarianten wie „Rechnungsnummer je Serie nur einmal unter finalen Belegen“ |
-| JSON | `jsonb` mit GIN-Index, Abfragen in den Datensätzen | JSON ist Text mit Funktionen, Index über generierte Spalten | Mittel: Taxlab speichert Fachobjekte als JSON-Dokumente |
+| JSON | `jsonb` mit GIN-Index, Abfragen in den Datensätzen | JSON ist Text mit Funktionen, Index über generierte Spalten | Mittel: Fachobjekte lassen sich als JSON-Dokumente speichern |
 | Migrationen | DDL ist transaktional (Fehler rollt alles zurück) | DDL committet implizit | Mittel (sicherere Updates beim Kunden) |
 | Isolation | echte Serializable-Isolation (SSI) | Serializable über Sperren | Mittel für Zähler und Zahlungssalden |
 | Sperren | Advisory Locks, `SKIP LOCKED` | `GET_LOCK`, `FOR UPDATE`, `SKIP LOCKED` | Gleichwertig für den Nummernzähler |
@@ -172,7 +172,7 @@ Ausgangslage (Nutzer): Pro Kunde ein eigener Server beziehungsweise eigene Daten
 **Daten und Verschlüsselung.**
 - Transport: TLS am Reverse Proxy (vorhanden); interne Verbindungen Hub ↔ DB nur im privaten Netz.
 - Ruhende Daten: Festplatten-/Volume-Verschlüsselung des Hosts als Pflicht; Dateispeicher (Anhänge, DMS-Dokumente) optional zusätzlich anwendungsseitig verschlüsselt (Schlüssel je Kunde, nicht im Repository, Rotation beschreiben).
-- Backups verschlüsselt (wie die heutigen App-Backups: AES-256-GCM, Schlüsselableitung mit hoher Iterationszahl), Wiederherstellung regelmäßig getestet; Aufbewahrung und Löschfristen dokumentiert.
+- Backups verschlüsselt (AES-256-GCM, Schlüsselableitung mit hoher Iterationszahl), Wiederherstellung regelmäßig getestet; Aufbewahrung und Löschfristen dokumentiert.
 - Geheimnisse (DB-Passwort, Mail, OIDC) nur als Docker-Secrets/Umgebung, nie im Image oder Git.
 
 **Zugriff.**
@@ -187,7 +187,7 @@ Ausgangslage (Nutzer): Pro Kunde ein eigener Server beziehungsweise eigene Daten
 
 **Betroffenenrechte und Löschung.**
 - Auskunft/Export je Kontakt und je Unternehmen (maschinenlesbar), Löschung mit Prüfung gesetzlicher Aufbewahrungsfristen (Rechnungen und Buchungsbelege bis zu 8–10 Jahre; als Hinweis, nicht als Rechtsberatung). Gelöschte Datensätze verschwinden auch aus Suchindex und Backups nach definierter Frist.
-- Unveränderlichkeit finalisierter Belege (heute schon umgesetzt) gilt auch im Backend; Löschung nur über dokumentierten Ablauf.
+- Unveränderlichkeit finalisierter Belege gilt auch im Backend; Löschung nur über dokumentierten Ablauf.
 
 **Betrieb.**
 - Updates mit Migrationsjob und Rollback-Plan; Sicherheitsupdates für Basis-Images; Abhängigkeits-Lizenzen und bekannte Schwachstellen im CI prüfen.
@@ -197,8 +197,8 @@ Ausgangslage (Nutzer): Pro Kunde ein eigener Server beziehungsweise eigene Daten
 
 ## 10. Nächste Schritte (Vorschlag)
 
-1. Taxlab Version 1 fertig testen (Geräteabnahme, Sync läuft seit 28.10.).
+1. Version 1 der bisherigen Rechnungs-App fertig testen.
 2. DMS-Prototyp als eigene Swift-App mit lokalem Speicher und OCR (Dokument rein, Text suchbar, Tag/Korrespondent/Typ).
 3. Spike: Hub-Kern aus `TimetrackKit` herauslösen oder neues Hub-Repo (Entscheidung 6.2) mit zwei Modulen (Rechnung, DMS) und der Ereignis-/Link-Tabelle.
-4. Server-Implementierungen von `DocumentStore`, `AttachmentStore`, `NumberAllocator`, `SyncTransport` gegen die vorhandenen Protokolltests.
+4. Server-Implementierungen der Speicher-, Anhang-, Zähler- und Sync-Protokolle der App.
 5. PWA (Svelte + shadcn) für Rechnung und DMS, dann weitere Module.

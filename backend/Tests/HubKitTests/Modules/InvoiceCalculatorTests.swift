@@ -2,13 +2,13 @@ import XCTest
 import Foundation
 @testable import HubKit
 
-/// WP-R2: Rechenkern des Rechnungsmoduls gegen die gemeinsamen Testvektoren (`Tests/Fixtures/taxlab-vectors/`, F-27: Neuimplementierung, kein Eingriff ins taxlab-Repo).
+/// WP-R2: Rechenkern des Rechnungsmoduls gegen die gemeinsamen Testvektoren (`Tests/Fixtures/invoice-vectors/`, F-27: Neuimplementierung).
 /// Vergleich numerisch (die Referenz lässt Nachkomma-Nullen weg, `"291.9"`). Nur synthetische Daten.
 final class InvoiceCalculatorTests: XCTestCase {
 
     private func vectors(_ file: String) throws -> [[String: Any]] {
         let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-            .appendingPathComponent("Fixtures/taxlab-vectors/\(file)")
+            .appendingPathComponent("Fixtures/invoice-vectors/\(file)")
         let root = try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
         return root["vectors"] as! [[String: Any]]
     }

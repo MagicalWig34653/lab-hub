@@ -4,5 +4,5 @@ Alle Regeln stehen in `AGENTS.md` (Lesereihenfolge, Stack, Build/Test mit Scratc
 
 Claude-spezifisch:
 - Nächste Arbeit: `docs/ROADMAP.md`; offene Entscheidungen: `docs/OFFENE-FRAGEN.md`.
-- Private Bestandsdaten (Paperless, Taxlab-Datenbanken, Kundenlayouts) nie in den Kontext holen.
+- Private Bestandsdaten (Paperless, Datenbanken anderer Anwendungen (insbesondere der bisherigen Rechnungs-App), Kundenlayouts) nie in den Kontext holen.
 - Subagents erhalten Grenzen (Dateien, WP-ID, Akzeptanzkriterien) und die Regel „kein Secret, keine Nutzerdaten“.

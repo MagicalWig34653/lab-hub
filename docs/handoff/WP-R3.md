@@ -18,7 +18,7 @@ Zuerst rot: `lab-hub-postgres.sh --filter 'InvoicePaymentTests|InvoiceLinkTests'
 - Angepasst: Revert-Tests AK-R1-12 und AK-R2-14 bauen `invoice_029_payments` zuerst zurück; Tabellenliste der Testdatenbank ergänzt.
 
 ## Annahmen (zur Bestätigung durch den Nutzer)
-1. **Skonto (`OFFENE-FRAGEN.md` F-32):** In `taxlab` gibt es keine Rechenregel (R0-Befund). Angenommen: eine Stufe (Satz und Frist in Tagen ab **Belegdatum**), Frist gilt für das **Zahldatum** der ausgleichenden Zahlung, höchstens Satz × (Brutto − Gutschriften), kaufmännisch auf Cent, nur wenn der Rest damit vollständig ausgeglichen ist. Keine Kulanz über Frist oder Satz hinaus. Keine USt-Korrekturbuchung (gehört zu R7).
+1. **Skonto (`OFFENE-FRAGEN.md` F-32):** In der bisherigen App gibt es keine Rechenregel (R0-Befund). Angenommen: eine Stufe (Satz und Frist in Tagen ab **Belegdatum**), Frist gilt für das **Zahldatum** der ausgleichenden Zahlung, höchstens Satz × (Brutto − Gutschriften), kaufmännisch auf Cent, nur wenn der Rest damit vollständig ausgeglichen ist. Keine Kulanz über Frist oder Satz hinaus. Keine USt-Korrekturbuchung (gehört zu R7).
 2. **Zuordnung:** auch bei eindeutigem Treffer nie automatisch; `confirmed: true` plus Beleg und Betrag aus der Anfrage. Nur auf finale Rechnungen gleicher Währung. Je Zahlung und Beleg höchstens eine aktive Zuordnung.
 3. **Rechte:** Erfassen, Zuordnen und Stornieren nur Buchhaltung und Owner (wie Finalisieren).
 4. **Gutschrift:** Entwurf mit negierten Mengen; beim Finalisieren negativ, gleicher Kontakt, gleiche Währung, in Summe nie mehr als die Rechnung. Eine Gutschrift ohne Verknüpfung (von Hand angelegt) bleibt möglich und wirkt auf keinen Saldo.

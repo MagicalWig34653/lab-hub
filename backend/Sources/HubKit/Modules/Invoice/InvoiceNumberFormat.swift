@@ -2,7 +2,7 @@ import Foundation
 import SQLKit
 
 // WP-R1: Nummernformat der Serien (Syntax wie im Rechenkern der App, F-27: Neuimplementierung gegen die gemeinsamen Testvektoren
-// `Tests/Fixtures/taxlab-vectors/number-format.json`). Reine Funktionen ohne Zustand; Vergabe der Nummer selbst (Kernzähler) kommt mit WP-R2.
+// `Tests/Fixtures/invoice-vectors/number-format.json`). Reine Funktionen ohne Zustand; Vergabe der Nummer selbst (Kernzähler) kommt mit WP-R2.
 //
 // Syntax: Literaltext mit Platzhaltern `{YYYY}`, `{YY}`, `{MM}`, `{N}`/`{N:<Stellen>}` (genau einmal), `{ABBR}`, `{CLIENT}`, `{PROJECT}`; `{{` und `}}` sind Klammern.
 
@@ -40,7 +40,7 @@ struct InvoiceNumberFormat: Sendable, Equatable {
         case literal(String), year4, year2, month, counter(digits: Int), abbreviation, client, project
     }
 
-    static let maxDigits = 12   // Annahme (Taxlab-Grenze nicht dokumentiert): Zähler ist bigint, 12 Stellen reichen für jede Serie
+    static let maxDigits = 12   // Annahme (keine dokumentierte Grenze): Zähler ist bigint, 12 Stellen reichen für jede Serie
 
     let parts: [Part]
 

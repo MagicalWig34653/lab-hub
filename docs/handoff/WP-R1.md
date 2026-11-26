@@ -13,8 +13,8 @@ AK-R1-1 Modul aus = 404 `module_disabled` auf allen Routen (zwei Instanzen, anon
 
 ## Annahmen (nichts still entschieden; zur Bestätigung durch den Nutzer)
 1. **Rollen**: `invoice.master.read` für accountant/member/tax_advisor/owner, `invoice.master.manage` für accountant/owner. `customer_viewer` bekommt **keinen** Zugriff (MODUL-RECHNUNG nennt keine Matrix; Bankdaten und Preise sind nicht für Kunden bestimmt; K2 sieht für ihn nur Mandanten-Lesezugriff vor).
-2. **Belegarten** (`kind`): `quote`, `order_confirmation`, `delivery_note`, `invoice`, `credit_note` (aus dem Rechnungsumfeld abgeleitet, taxlab-Fachmodell nicht eingesehen). Kein automatisches Anlegen von Standard-Belegtypen beim Aktivieren (Namen wären Nutzertext im Backend); Vorlagen gehören in die PWA (F6).
-3. **Steuerregime**: `standard`, `small_business`; Zeiträume inklusive Ende, offenes Ende erlaubt. Feldumfang von `TaxRegimePeriod` der App nicht abgeglichen.
+2. **Belegarten** (`kind`): `quote`, `order_confirmation`, `delivery_note`, `invoice`, `credit_note` (aus dem Rechnungsumfeld abgeleitet, Fachmodell der bisherigen App nicht eingesehen). Kein automatisches Anlegen von Standard-Belegtypen beim Aktivieren (Namen wären Nutzertext im Backend); Vorlagen gehören in die PWA (F6).
+3. **Steuerregime**: `standard`, `small_business`; Zeiträume inklusive Ende, offenes Ende erlaubt. Feldumfang nicht mit der bisherigen App abgeglichen.
 4. **Nummernformat** nach der Syntax der Testvektoren; Stellenobergrenze `{N:n}` 1…12 (Annahme). `{CLIENT}`/`{PROJECT}` werden akzeptiert, ihre Werte liefert erst WP-R2 (Vorschau ist dann `null`). Zählerschlüssel `invoice:<serie-uuid>[-jjjj[-mm]]` (MODUL-RECHNUNG schrieb `invoice.<serie>`; Kernzähler trennt `space:name`). Aktueller Zeitraum nach UTC-Datenbankuhr; keine Mandanten-Zeitzone.
 5. **Anfangsnummer** (`start_number` beim Anlegen) hebt nur den Zähler des laufenden Zeitraums an; nachträgliches Anheben/Importe bleiben F-09/WP-R4. Eine Serie mit Zählerzeile gilt als benutzt (Format/Löschen gesperrt).
 6. Artikelpreis darf negativ sein (Rabattartikel), `unit_price` ohne Vorzeichengrenze; `price_includes_tax` ist am Artikel gespeichert. Bestand (`stock_quantity`) wird nur gespeichert, nur mit `track_stock`.
@@ -26,4 +26,4 @@ AK-R1-1 Modul aus = 404 `module_disabled` auf allen Routen (zwei Instanzen, anon
 - **Kernkatalog**: `Tenancy/Roles.swift` (`Permissions.catalog`) enthält bereits `invoice.document.read|create|update|finalize`; die Modulregistrierung verbietet Namen aus dem Kernkatalog. R2 muss diese vier Einträge dort entfernen (und die Rollentabelle), bevor das Modul sie selbst deklariert. R1 benutzt sie deshalb nicht.
 - `nav.invoice` (Navigationsschlüssel) hat noch keinen PWA-Text; kommt mit F6 (Manifest wie `modules-impl/dms`).
 - Kein Reviewer-Lauf. Nicht geprüft: Verhalten bei sehr vielen Serien/Artikeln, Lastverhalten der Mandantensperre für Steuerzeiträume (Advisory-Lock je Mandant, nur beim Schreiben).
-- Nächster Schritt: WP-R2 (Belege, Berechnung gegen `taxlab-vectors`, Finalisieren mit `CounterService.next(on:)` und den Schlüsseln aus `InvoiceNumbering.counterKey`).
+- Nächster Schritt: WP-R2 (Belege, Berechnung gegen `invoice-vectors`, Finalisieren mit `CounterService.next(on:)` und den Schlüsseln aus `InvoiceNumbering.counterKey`).

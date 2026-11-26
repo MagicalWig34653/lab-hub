@@ -9,7 +9,7 @@ Status: Entwurf, Stand 01.11.2026. Entschieden sind nur ADR 0001–0003 (Postgre
 | Begriff | Bedeutung |
 | --- | --- |
 | Installation | Ein Stack beim Kunden (eine Datenbank, ein Objektspeicher, n Backend-Repliken). ADR 0002: ein Stack je Kunde |
-| Mandant (`tenant`) | Ein Unternehmen innerhalb einer Installation. Entspricht `Organization` in Taxlab (`taxlab/docs/FACHMODELL.md`). Spalte `tenant_id` in allen Fachtabellen (vorhanden in `counters`, `idempotency_keys`) |
+| Mandant (`tenant`) | Ein Unternehmen innerhalb einer Installation. Spalte `tenant_id` in allen Fachtabellen (vorhanden in `counters`, `idempotency_keys`) |
 | Nutzer (`user`) | Person der Installation; über `memberships` mehreren Mandanten mit je einer Rolle zugeordnet |
 | Modul | Fachpaket (`rechnung`, `dms`, später `steuer` …), implementiert `HubModule` (Abschnitt 3) |
 | Kern | Immer aktive Bausteine ohne Fachlogik (Abschnitt 4) |
@@ -17,7 +17,7 @@ Status: Entwurf, Stand 01.11.2026. Entschieden sind nur ADR 0001–0003 (Postgre
 ## 2. Schichten
 
 ```
-Clients:  PWA (pwa/)   Swift-Apps (Taxlab …)   MCP-Clients   Webhooks (aus)
+Clients:  PWA (pwa/)   Swift-Apps (je Modul)   MCP-Clients   Webhooks (aus)
               │ REST/JSON + OpenAPI (/api/v1)        │
 Backend:  ┌───▼──────────────────────────────────────▼───┐
           │ HTTP-Schicht: Middleware (Auth, Mandant, Modul-Guard, Idempotency, Fehlerformat, Rate-Limit)
@@ -130,7 +130,7 @@ Rollen (Vorschlag aus `PLATTFORM-VISION.md` 8.8): `owner`, `accountant`, `member
 
 ### 4.3 Kontakte (WP-K5)
 
-Ein Kontakt gehört einem Mandanten und ist modulübergreifend (Kunde, Lieferant, Korrespondent im DMS). Felder und Regeln aus Taxlab nachlesen, nicht kopieren: `taxlab/docs/FACHMODELL.md` (`Contact`, `Address`, `ContactPerson`, `BankAccount`, `ContactDefaults`). Der Kern speichert Stammdaten (Name, Anschriften, Ansprechpartner, USt-ID, IBAN, Rollenkennzeichen `is_customer/is_supplier/is_correspondent`); modulspezifische Vorgaben (Zahlungsziel, Standardserie) liegen im Modul (`invoice_contact_settings(contact_id …)`). Dubletten: Hinweis bei gleicher USt-ID/IBAN, nie stilles Zusammenführen; Zusammenführen erzeugt Audit-Eintrag und schreibt `links`/Fremdschlüssel um.
+Ein Kontakt gehört einem Mandanten und ist modulübergreifend (Kunde, Lieferant, Korrespondent im DMS). Felder und Regeln orientieren sich an der bisherigen Rechnungs-App (nachlesen, nicht kopieren). Der Kern speichert Stammdaten (Name, Anschriften, Ansprechpartner, USt-ID, IBAN, Rollenkennzeichen `is_customer/is_supplier/is_correspondent`); modulspezifische Vorgaben (Zahlungsziel, Standardserie) liegen im Modul (`invoice_contact_settings(contact_id …)`). Dubletten: Hinweis bei gleicher USt-ID/IBAN, nie stilles Zusammenführen; Zusammenführen erzeugt Audit-Eintrag und schreibt `links`/Fremdschlüssel um.
 
 ### 4.4 Dokumente und Dateien
 
@@ -143,7 +143,7 @@ Protokoll `ObjectStore` (ADR 0003 Nr. 2 nannte `AttachmentStore`; hier vereinhei
 
 ### 4.6 Zähler
 
-`CounterService.next(tenant:key:)` ist ein atomarer Upsert (vorhanden, getestet). Der Hub-Zähler vergibt Rechnungsnummern **und** DMS-Archiv-Seriennummern (`dms.asn`) über denselben Dienst mit unterschiedlichem `key`. Lücken-/Freigaberegeln der Rechnungsnummern: `taxlab/docs/NUMMERNVERGABE.md`; Erweiterung (Nummernformat mit Jahr/Serie, Nummernlücke dokumentiert freigeben, Untergrenzen) in WP-K6.
+`CounterService.next(tenant:key:)` ist ein atomarer Upsert (vorhanden, getestet). Der Hub-Zähler vergibt Rechnungsnummern **und** DMS-Archiv-Seriennummern (`dms.asn`) über denselben Dienst mit unterschiedlichem `key`. Lücken-/Freigaberegeln der Rechnungsnummern: `MODUL-RECHNUNG.md` Abschnitt 4; Erweiterung (Nummernformat mit Jahr/Serie, Nummernlücke dokumentiert freigeben, Untergrenzen) in WP-K6.
 
 ### 4.7 Suche
 
@@ -180,11 +180,11 @@ Ein Kernindex `search_documents(tenant_id, entity_type, entity_id, title, body, 
 
 Die Apps sind optionale Clients; der Hub ist ohne sie vollständig. Sync ist daher Komfort (Offline, Eigenständigkeit), keine Voraussetzung.
 
-Ausgangslage: Taxlab arbeitet lokal (SQLite) mit CloudKit-Sync und zentralem Nummernzähler (CloudKit-CAS), siehe `taxlab/docs/SYNC.md`, `STORAGE-SCHNITTSTELLEN.md` (Protokolle `DocumentStore`, `AttachmentStore`, `NumberAllocator`, `SyncTransport`). Leitregel aus `PLATTFORM-VISION.md` 3: Wechsel der Betriebsart (lokal / iCloud / Hub) ist **Export/Import mit definierter Migration, nie stilles Umschalten**.
+Ausgangslage: Die bisherige Rechnungs-App arbeitet lokal mit iCloud-Sync und zentralem Nummernzähler. Leitregel aus `PLATTFORM-VISION.md` 3: Wechsel der Betriebsart (lokal / iCloud / Hub) ist **Export/Import mit definierter Migration, nie stilles Umschalten**.
 
 Stufen (Vorschlag):
-1. **Stufe 0 – Import/Export (V1 des Hubs).** Taxlab-Export (Format: F-09) wird im Rechnungsmodul importiert (`MODUL-RECHNUNG.md` Abschnitt 8); Gegenrichtung als Export. Kein laufender Abgleich.
-2. **Stufe 1 – Hub-Modus der App.** Die App implementiert hinter den Protokollen eine `HubDocumentStore`/`HubNumberAllocator`/`HubAttachmentStore`-Variante (REST). Quelle der Wahrheit ist der Hub; Offline-Betrieb mit lokaler Warteschlange, Nummern nur online finalisierbar (Nutzerentscheidung Nummernvergabe: Finalisieren nur online, zentraler atomarer Zähler).
+1. **Stufe 0 – Import/Export (V1 des Hubs).** Der Export der bisherigen App (Format: F-09) wird im Rechnungsmodul importiert (`MODUL-RECHNUNG.md` Abschnitt 8); Gegenrichtung als Export. Kein laufender Abgleich.
+2. **Stufe 1 – Hub-Modus der App.** Die App implementiert hinter ihren Speicher-, Anhang- und Zählerprotokollen eine Hub-Variante (REST). Quelle der Wahrheit ist der Hub; Offline-Betrieb mit lokaler Warteschlange, Nummern nur online finalisierbar (Nutzerentscheidung Nummernvergabe: Finalisieren nur online, zentraler atomarer Zähler).
 3. **Stufe 2 – Zwei-Wege-Sync** (nur wenn Bedarf): Änderungs-Feed `GET /changes?since=<cursor>` pro Mandant, Delta mit Tombstones.
 
 Konfliktregeln (Entwurf):
@@ -193,7 +193,7 @@ Konfliktregeln (Entwurf):
 - Zähler: serverseitig; Client darf keine Nummer lokal vergeben, sobald Hub-Modus aktiv ist.
 - Löschen: Tombstone; Löschung finalisierter oder aufbewahrungspflichtiger Objekte verboten.
 
-Offene Fragen: Wer ist Quelle der Wahrheit beim ersten Hub-Verbinden (Übernahme lokaler Nummernkreise, F-09)? Ob CloudKit parallel weiterläuft (nein, empfohlen: pro Mandant exakt ein Sync-Ziel, F-10)? Auth der Apps (Passkey im System-Browser + Token oder Geräte-Token, F-05)? Format für Anhänge und Layouts (Layout-Designer-Daten gehören zur App, `LAYOUT-DESIGNER.md` in taxlab)?
+Offene Fragen: Wer ist Quelle der Wahrheit beim ersten Hub-Verbinden (Übernahme lokaler Nummernkreise, F-09)? Ob CloudKit parallel weiterläuft (nein, empfohlen: pro Mandant exakt ein Sync-Ziel, F-10)? Auth der Apps (Passkey im System-Browser + Token oder Geräte-Token, F-05)? Format für Anhänge und Layouts (Layout-Designer-Daten gehören zur App)?
 
 ## 7. Datenschutz und Sicherheit
 

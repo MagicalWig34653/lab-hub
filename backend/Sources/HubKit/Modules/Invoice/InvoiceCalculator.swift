@@ -1,7 +1,7 @@
 import Foundation
 
 // WP-R2: Rechenkern des Rechnungsmoduls (MODUL-RECHNUNG.md Abschnitt 3, F-27: Neuimplementierung gegen die gemeinsamen Testvektoren
-// `Tests/Fixtures/taxlab-vectors/`, kein Eingriff ins taxlab-Repo). Rein und deterministisch: keine Datenbank, keine Uhr, kein Gleitkomma.
+// `Tests/Fixtures/invoice-vectors/`). Rein und deterministisch: keine Datenbank, keine Uhr, kein Gleitkomma.
 // Gerundet wird nur auf Belegebene je Steuersatz (nie je Position); Summen netto/Steuer/brutto sind die Summen der gerundeten Steuersatz-Summen.
 
 /// Rundungsregel eines Belegs (Modus und Nachkommastellen). Standard: kaufmännisch auf Cent.

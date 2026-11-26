@@ -131,7 +131,7 @@ final class InvoicePaymentTests: InvoicePaymentTestBase, @unchecked Sendable {
     /// AK-R3-1: Alle fünf Salden-Vektoren (`balances.json`) Ende-zu-Ende: Rechnung, Zahlungen, Zuordnungen, Gutschrift, Saldo über die API.
     func testAKR3_1_BalanceVectors() async throws {
         let s = try await setup()
-        let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("../../Fixtures/taxlab-vectors/balances.json").standardized
+        let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("../../Fixtures/invoice-vectors/balances.json").standardized
         let vectors = try JSONDecoder().decode(Vectors.self, from: Data(contentsOf: url)).vectors
         XCTAssertEqual(vectors.count, 5)
         for v in vectors {

@@ -1,6 +1,6 @@
 {
   "suite": "rounding",
-  "note": "Synthetic. Reference: TaxlabCore RoundingRule.apply. Values are decimal strings.",
+  "note": "Synthetic. Rounding of a single value by mode and scale. Values are decimal strings.",
   "vectors": [
     {"id": "half-up-pos", "mode": "halfAwayFromZero", "scale": 2, "input": "2.675", "expected": "2.68"},
     {"id": "half-up-neg", "mode": "halfAwayFromZero", "scale": 2, "input": "-2.675", "expected": "-2.68"},

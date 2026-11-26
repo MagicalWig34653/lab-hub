@@ -205,6 +205,6 @@ Befehle (festgeschrieben mit WP-F1, alle im Verzeichnis `pwa/`; `test:e2e:pwa` f
 
 Da der Hub ohne App nutzbar sein muss, braucht die PWA Layouts für Belege. Stufen:
 1. **V1 (WP-F6):** Standardlayouts wählen, Parameter (Logo-Upload, Farben, Schrift aus freigegebener Liste, Kopf-/Fußtexte, Platzhalter-Vorschau); PDF-Vorschau kommt vom Server-Renderer (`invoice.render`), nicht aus dem Browser.
-2. **WP-F7a:** Layoutliste, Versionen, Import vorhandener Layouts (Taxlab-/Totals-Importformat), Zuordnung je Belegtyp/Serie, Vorschau mit Beispieldaten.
-3. **WP-F7b:** Grafischer Designer (Elemente, Ebenen, Seiten, Inspector, Tastatur) nach dem Konzept der App (taxlab `docs/LAYOUT-DESIGNER.md`, `docs/DESIGNER.md`); gemeinsames Layoutmodell mit Server-Renderer, Canvas-Vorschau nur zur Bearbeitung, maßgeblich ist das Serverergebnis.
+2. **WP-F7a:** Layoutliste, Versionen, Import vorhandener Layouts (Importformate der bisherigen App und eines Altsystems), Zuordnung je Belegtyp/Serie, Vorschau mit Beispieldaten.
+3. **WP-F7b:** Grafischer Designer (Elemente, Ebenen, Seiten, Inspector, Tastatur) nach dem Konzept der App; gemeinsames Layoutmodell mit Server-Renderer, Canvas-Vorschau nur zur Bearbeitung, maßgeblich ist das Serverergebnis.
 Akzeptanz F7: Layout-Roundtrip (speichern, laden, rendern) ohne Verlust; a11y der Bedienelemente (Tastaturalternative zu Drag&Drop); Mandantentrennung der Layouts.

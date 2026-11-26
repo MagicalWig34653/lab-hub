@@ -58,7 +58,8 @@ Eine Instanz hält keinen korrektheitsrelevanten Zustand. Verboten: In-Memory-Ca
 
 - Keine Kundendaten, Zugangsdaten, Tokens, echten Belege im Repo, in Tests, Logs oder Ausgaben. Nur synthetische Testdaten. `.env` nie committen, nur `.env.example` mit Platzhaltern.
 - Keine privaten Pfade, Hostnamen, IPs, Domains, E-Mail-Adressen oder Personennamen (außer erfundenen) in Dateien (Platzhalter `hub.example.org`; für die Person „der Nutzer“).
-- Private Bestandsdaten (Paperless-Archive, Taxlab-Datenbanken, Kundenlayouts) nie lesen oder in den Modellkontext bringen; Import-Code nur mit synthetischen Fixtures entwickeln.
+- Keine Namen, Pfade oder Interna privater Projekte in Dateien oder Commit-Texten; die Vorgänger-App heißt hier „bisherige Rechnungs-App“.
+- Private Bestandsdaten (Paperless-Archive, Datenbanken anderer Anwendungen (insbesondere der bisherigen Rechnungs-App), Kundenlayouts) nie lesen oder in den Modellkontext bringen; Import-Code nur mit synthetischen Fixtures entwickeln.
 - Externe Dienste und KI nur mit ausdrücklicher Freigabe je Kunde (Opt-in, protokolliert, deaktivierbar). Standard: lokal. Keine Telemetrie.
 - Jede Abfrage mandantengefiltert (`tenant_id`); jedes Modul liefert Mandantentrennungs-Tests (fremde ID liefert 404).
 - Geldbeträge: Dezimalarithmetik (`Decimal`/`numeric`), nie Gleitkomma.

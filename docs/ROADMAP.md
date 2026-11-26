@@ -45,7 +45,7 @@ Ausgangsstand (vorhanden, getestet laut `deploy/README.md`/Tests): `migrate`, `s
 | | R1 | Stammdaten Rechnung | K3, K5, R0 | M | | umgesetzt (Branch wp-R1, `docs/handoff/WP-R1.md`) |
 | | R2 | Belege, Berechnung, Finalisieren mit Hub-Zähler | R1, K6 | L | | umgesetzt (Branch wp-R2, `docs/handoff/WP-R2.md`) |
 | | R3 | Zahlungen, Gutschrift, Umwandlung | R2 | M | | umgesetzt (`docs/handoff/WP-R3.md`) |
-| | R4 | Taxlab-Import/Export | R2 | M | P R3 | offen |
+| | R4 | Import/Export der bisherigen App | R2 | M | P R3 | offen |
 | | R5 | E-Rechnung Erzeugung (Server) | R2 | M | P R3, R4 | offen |
 | | R6a | Spike Renderer: Optionen (a)/(b)/(c) gegen Referenz-PDFs | R0 | M | P R1, R2 | offen |
 | | R6 | Server-Renderer und Layout-Engine (Pflicht, Linux) | R6a, R2 | L | | offen |
@@ -195,8 +195,8 @@ Grundsatz: Hub ohne Swift-App nutzbar (`AGENTS.md`); die Rechnungsphase ist dahe
 
 (Details `MODUL-RECHNUNG.md`. Vollständigkeit ohne App: Belege erstellen/bearbeiten/finalisieren, Nummern, PDF, E-Rechnung, Zahlungen, Berichte. Entscheidungen F-08/F-27/F-31 neu bewertet, F-09/F-26 offen.)
 
-**WP-R0 Spike Rechenkern (S–M).** Ziel: `TaxlabCore`/`TaxlabModel` (+ Nummernformat, `TaxlabReports`, E-Rechnung ohne Rendering) unter Linux bauen und testen; bei Erfolg Auslagerung in gemeinsames SwiftPM-Repo planen, sonst Neuimplementierung gegen Testvektoren. Akzeptanz: dokumentiertes Ergebnis (Ja/Nein, nötige Änderungen) in `MODUL-RECHNUNG.md`; gemeinsame Testvektoren (JSON) aus taxlab-Tests abgeleitet (synthetisch). Teststrategie: Docker `swift:6.2` Build der Pakete. Abh.: K0. **P**.
-*Status WP-R0: Ja für Core/Model (unverändert Linux-tauglich, 53 + 135 Tests grün), teilweise für Reports/E-Rechnung; 50 Testvektoren; siehe `MODUL-RECHNUNG.md` Abschnitt 12 und `docs/handoff/WP-R0.md`. Entscheidung F-27 offen.*
+**WP-R0 Spike Rechenkern (S–M).** Ziel: Rechenkern der bisherigen App (mit Nummernformat, Berichten und E-Rechnung ohne Rendering) unter Linux bauen und testen; bei Erfolg Auslagerung in gemeinsames SwiftPM-Repo planen, sonst Neuimplementierung gegen Testvektoren. Akzeptanz: dokumentiertes Ergebnis (Ja/Nein, nötige Änderungen) in `MODUL-RECHNUNG.md`; gemeinsame synthetische Testvektoren (JSON). Teststrategie: Docker `swift:6.2` Build der Pakete. Abh.: K0. **P**.
+*Status WP-R0: abgeschlossen; 50 synthetische Testvektoren; siehe `MODUL-RECHNUNG.md` Abschnitt 12 und `docs/handoff/WP-R0.md`. F-27 entschieden (07.11.2026): Neuimplementierung gegen die Vektoren.*
 
 **WP-R1 Stammdaten (M).** Einstellungen, Steuerzeiträume, Serien, Belegtypen, Artikel. Mandantentrennung/Rechte. Abh.: K3, K5, R0.
 *Status WP-R1: umgesetzt (Modul `invoice`: Einstellungen/Absender, Steuerzeiträume, Belegtypen, Nummernserien über den Kernzähler, Artikel; Details und Annahmen `MODUL-RECHNUNG.md` Abschnitt 13 und `docs/handoff/WP-R1.md`). Nächster Schritt: WP-R2 (Belege, Finalisieren).*
@@ -207,15 +207,15 @@ Grundsatz: Hub ohne Swift-App nutzbar (`AGENTS.md`); die Rechnungsphase ist dahe
 **WP-R3 Zahlungen, Gutschrift, Umwandlung (M).** Skonto, Zuordnung nie still, Verknüpfungen Beleg↔Beleg. Abh.: R2.
 *Status WP-R3: umgesetzt (Zahlungen mit Skonto, Zuordnung nur nach Bestätigung, Gutschrift, Umwandlung, Verknüpfungen, Salden gegen die Testvektoren, E2E über HTTP gegen Postgres; Details `MODUL-RECHNUNG.md` Abschnitt 15 und `docs/handoff/WP-R3.md`). Skontoregeln sind Annahme (F-32). Nächste Schritte: R4, R5, R6a, danach Bankimport (R3b), R7.*
 
-**WP-R4 Taxlab-Import/Export (M).** `MODUL-RECHNUNG.md` Abschnitt 8; Format nach F-09. Akzeptanz: Fixture-Import identisch, idempotent, Zähler gesetzt. Abh.: R2.
+**WP-R4 Import/Export der bisherigen App (M).** `MODUL-RECHNUNG.md` Abschnitt 8; Format nach F-09. Akzeptanz: Fixture-Import identisch, idempotent, Zähler gesetzt. Abh.: R2.
 
 **WP-R5 E-Rechnung (M).** Erzeugung CII/XRechnung aus finalem Beleg; Validierung nach F-26. Abh.: R2.
 
-**WP-R6a Spike Renderer (M).** Ziel: Entscheidungsgrundlage F-08: Optionen (a) Swift-Portierung `TaxlabLayout`/`TaxlabRender` mit Swift-PDF-Bibliothek, (b) HTML/CSS + headless Chromium, (c) Typst-Pipeline. Akzeptanz: je Option dieselben 5 synthetischen Layouts (Briefkopf, Positionstabelle, mehrseitig, Summenblock, Fußzeile; Vorbild `tools/layoutcheck` in taxlab) → PDF; Vergleich Treue (Seitenzahl, Textpositionen ±Toleranz, extrahierter Text), Determinismus, Laufzeit, Image-Größe, Lizenz, PDF/A-3-Fähigkeit; Ergebnis als ADR 0008 (vorgeschlagen). Abh.: R0. **P**.
+**WP-R6a Spike Renderer (M).** Ziel: Entscheidungsgrundlage F-08: Optionen (a) Swift-Portierung des App-Renderers mit Swift-PDF-Bibliothek, (b) HTML/CSS + headless Chromium, (c) Typst-Pipeline. Akzeptanz: je Option dieselben 5 synthetischen Layouts (Briefkopf, Positionstabelle, mehrseitig, Summenblock, Fußzeile) → PDF; Vergleich Treue (Seitenzahl, Textpositionen ±Toleranz, extrahierter Text), Determinismus, Laufzeit, Image-Größe, Lizenz, PDF/A-3-Fähigkeit; Ergebnis als ADR 0008 (vorgeschlagen). Abh.: R0. **P**.
 
-**WP-R6 Server-Renderer und Layout-Engine (L).** Linux-tauglicher Renderer als Worker-Job (`invoice.render`, Lease wie ADR 0006), Layoutmodell (Import des Taxlab-/Totals-Layoutformats nach `IMPORT-ADAPTER.md`/`LAYOUT-DESIGNER.md`), Platzhalter, Seitenumbruch, Standardlayouts. Akzeptanz: Referenz-Layoutfälle aus R6a bestehen mit festgelegter Toleranz; Finalisieren speichert PDF + Layoutversion + Inhalt-Hash (nie neu erzeugt); zwei Worker erzeugen genau ein PDF je Beleg. Abh.: R6a, R2.
+**WP-R6 Server-Renderer und Layout-Engine (L).** Linux-tauglicher Renderer als Worker-Job (`invoice.render`, Lease wie ADR 0006), Layoutmodell (Import vorhandener Layouts), Platzhalter, Seitenumbruch, Standardlayouts. Akzeptanz: Referenz-Layoutfälle aus R6a bestehen mit festgelegter Toleranz; Finalisieren speichert PDF + Layoutversion + Inhalt-Hash (nie neu erzeugt); zwei Worker erzeugen genau ein PDF je Beleg. Abh.: R6a, R2.
 
-**WP-R7 Ausgaben und Berichte (L).** EÜR/USt serverseitig, Vergleich mit Referenzwerten aus taxlab (synthetische Fälle). Abh.: R3.
+**WP-R7 Ausgaben und Berichte (L).** EÜR/USt serverseitig, Vergleich mit Referenzwerten der bisherigen App (synthetische Fälle). Abh.: R3.
 
 **WP-F6 Rechnungs-UI (L).** Kontakte, Artikel, Belegliste/-editor mit Live-Summenvorschau, Finalisieren, PDF-Vorschau/-Download, E-Rechnung, Zahlungen, Berichte (EÜR/USt). Akzeptanz: E2E ohne App: Beleg anlegen → finalisieren → Nummer → PDF → Zahlung → Bericht. Abh.: F2, R2, R6.
 
@@ -297,7 +297,7 @@ Grundlage: `docs/APP-DMS.md`. Je Modul eine eigene native App, an den Hub anbind
 
 **APP-M0 bis APP-M7 (App „docs“).** Inhalt und „Fertig, wenn“ je Meilenstein: `docs/APP-DMS.md` Abschnitt 9; Integrationen je Meilenstein Abschnitt 5.
 
-**WP-APP-I0 App „invoice“ (S, Konzept).** Annahme: Die vorhandene Rechnungs-App (heute Taxlab) wird die native App des Moduls. Akzeptanz: AK-APP-I0-1 Konzept für das Anbinden an den Hub (Anmeldung und gemeinsame Pakete aus `APP-DMS.md` Abschnitt 7, Betrieb mit und ohne Hub, Übernahme der Daten über R4); AK-APP-I0-2 nötige Hub-WPs benannt; kein Eingriff in das App-Repository ohne Absprache.
+**WP-APP-I0 App „invoice“ (S, Konzept).** Annahme: Die vorhandene Rechnungs-App (Bestandsprodukt) wird die native App des Moduls. Akzeptanz: AK-APP-I0-1 Konzept für das Anbinden an den Hub (Anmeldung und gemeinsame Pakete aus `APP-DMS.md` Abschnitt 7, Betrieb mit und ohne Hub, Übernahme der Daten über R4); AK-APP-I0-2 nötige Hub-WPs benannt; kein Eingriff in das App-Repository ohne Absprache.
 
 ## Pflege dieser Datei
 

@@ -290,7 +290,7 @@ final class InvoiceMasterTests: InvoiceTestBase {
 
     // MARK: AK-R1-6 Nummernserien
 
-    /// AK-R1-6: Nummernformat wird geprüft (Taxlab-Syntax), Gültigkeitsbereich folgt aus dem Format, Anfangsnummer über den Kernzähler (Audit), nach Nummernvergabe weder Format noch Löschen.
+    /// AK-R1-6: Nummernformat wird geprüft (Platzhalter-Syntax), Gültigkeitsbereich folgt aus dem Format, Anfangsnummer über den Kernzähler (Audit), nach Nummernvergabe weder Format noch Löschen.
     func testAKR1_6_Series() async throws {
         let w = try await world()
         let sBase = base(w.tenantA) + "/series"
@@ -548,10 +548,10 @@ final class InvoiceMasterTests: InvoiceTestBase {
 
     // MARK: AK-R1-13 Nummernformat gegen Testvektoren
 
-    /// AK-R1-13: Nummernformat entspricht den gemeinsamen Testvektoren (`Tests/Fixtures/taxlab-vectors/number-format.json`, F-27: Neuimplementierung gegen Vektoren).
+    /// AK-R1-13: Nummernformat entspricht den gemeinsamen Testvektoren (`Tests/Fixtures/invoice-vectors/number-format.json`, F-27: Neuimplementierung gegen Vektoren).
     func testAKR1_13_NumberFormatMatchesVectors() throws {
         let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-            .appendingPathComponent("Fixtures/taxlab-vectors/number-format.json")
+            .appendingPathComponent("Fixtures/invoice-vectors/number-format.json")
         let root = try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
         let vectors = root["vectors"] as! [[String: Any]]
         XCTAssertEqual(vectors.count, 15)

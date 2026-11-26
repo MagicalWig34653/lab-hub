@@ -1,6 +1,6 @@
 {
   "suite": "balances",
-  "note": "Synthetic. Reference: TaxlabCore Balances.compute for document id 'doc'. Payment.allocations map document id to amount.",
+  "note": "Synthetic. Balances for document id 'doc'. Payment allocations map document id to amount.",
   "vectors": [
     {"id": "unpaid", "input": {"gross": "119", "payments": [], "linkedDocuments": []},
      "expected": {"paid": "0", "openBalance": "119", "totalBalance": "119"}},
