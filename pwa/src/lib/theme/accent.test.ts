@@ -42,3 +42,22 @@ describe('accent hover', () => {
 		}
 	});
 });
+
+describe('accent fill against the page', () => {
+	it('AK-ST7-3 buttons stay distinguishable: the fill reaches 3:1 against the page, light and dark (review finding 12)', () => {
+		const colours = [...ACCENT_PRESETS.map((p) => p.hex), '#ffff00', '#ffffff', '#000000', '#111111'];
+		for (const hex of colours) {
+			for (const dark of [false, true]) {
+				const tokens = accentTokens(hex, dark)!;
+				expect(contrastRatio(tokens.primary, dark ? '#09090b' : '#ffffff'), `${hex} dark=${dark}`).toBeGreaterThanOrEqual(3);
+				expect(contrastRatio(tokens.foreground, tokens.primary), `${hex} fg dark=${dark}`).toBeGreaterThanOrEqual(4.5);
+			}
+		}
+	});
+
+	it('leaves a colour that already stands out untouched', () => {
+		expect(accentTokens('#2563eb', false)!.primary).toBe('#2563eb');
+		expect(accentTokens('#2563eb', true)!.primary).toBe('#2563eb');
+		expect(accentTokens('#3f3f46', true)!.primary).not.toBe('#3f3f46');
+	});
+});
