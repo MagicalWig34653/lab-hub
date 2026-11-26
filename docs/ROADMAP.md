@@ -1,6 +1,6 @@
 # Roadmap und Arbeitspakete
 
-Status: Entwurf, Stand 01.11.2026, ergänzt 25.11.2026 (Phasen 7–10; **nächste Arbeit zuerst:** ST1, dann PA1 und ST4). Reihenfolge: Kern → DMS M1 → OCR/Suche → PWA + DMS-UI → Rechnungsmodul → Verknüpfung → Hardening. Aufwand: S ≈ 1 Agent-Session, M ≈ 2–4, L ≈ 5+ (Schätzungen, keine Zusage). **P** = parallelisierbar mit den genannten WPs (kein gemeinsamer Dateibesitz: Migrationen und `contracts/openapi.yaml` nur von einem Agent zugleich ändern, `AGENTS.md` Abschnitt 7).
+Status: Entwurf, Stand 01.11.2026, ergänzt 25.11.2026 (Phasen 7–10; **nächste Arbeit zuerst:** PA1 und ST4; ST1 ist fertig). Reihenfolge: Kern → DMS M1 → OCR/Suche → PWA + DMS-UI → Rechnungsmodul → Verknüpfung → Hardening. Aufwand: S ≈ 1 Agent-Session, M ≈ 2–4, L ≈ 5+ (Schätzungen, keine Zusage). **P** = parallelisierbar mit den genannten WPs (kein gemeinsamer Dateibesitz: Migrationen und `contracts/openapi.yaml` nur von einem Agent zugleich ändern, `AGENTS.md` Abschnitt 7).
 
 Statusspalte pflegen: `offen` · `in Arbeit (Agent/Branch)` · `fertig (Commit)`. Jedes WP erfüllt die Definition of Done aus `AGENTS.md` Abschnitt 8; sie wird unten nicht wiederholt. Testkennungen `AK-<WP>-<n>`.
 
@@ -71,7 +71,7 @@ Ausgangsstand (vorhanden, getestet laut `deploy/README.md`/Tests): `migrate`, `s
 | | H15 | Codex-Befund 9: DMS-Detail speichert mit der rev des Formulars (`formRev`, nur von `fillForm` gesetzt), nicht mit der vom OCR-Polling aktualisierten; 412 zeigt Konflikt und Knopf „Aktuellen Stand laden“ | H14 | S | | fertig (Branch wp-H15, Übergabe `docs/handoff/WP-H15.md`) |
 | | H16 | Lastempfindliche Tests stabilisieren: `testIdempotencyMiddlewareParallelRunsWorkOnce` (Test-Fixture legte `idempotency_keys` ohne `locked_at` an, Takeover-Pfad lieferte 500 unter Last; jetzt echte Migrationen) und `testHugeInputIsBounded` (Wanduhr-Frist unter Last; jetzt Zeichenbudget deterministisch, Produktfrist unverändert) | H12, H10 | S | | fertig (Branch wp-H16, Übergabe `docs/handoff/WP-H16.md`) |
 | | H17 | Codex-Befund 8 (Rest): Scheitert ein `dms.ocr`-Job endgültig (Absturzschleife im Kern, Versuche erschöpft, `permanent`), setzt ein Trigger auf `jobs` (Migration `dms_027_ocr_quarantine_sync`, mit Backfill) den Ingest-Eintrag in derselben Transaktion auf `failed_permanent`; Übersicht zählt `failed` statt `queued`, Banner und Retry der PWA greifen, Retry bleibt einmalig (zweiter 409). Regression `DMSH17Tests` (kontrollierte Zeit per Lease in der Datenbank) und echtes E2E `scripts/e2e-dms-ocr-failure.sh` (Backend, Postgres, Worker-Prozess, ohne Mocks), Handoff `docs/handoff/WP-H17.md` | erledigt (lokal grün) |
-| 7 Struktur | ST1 | GitHub-CI (Backend mit Postgres, PWA, Vertrag; ohne Image/Release) | – | S | P zu allen | offen |
+| 7 Struktur | ST1 | GitHub-CI (Backend mit Postgres, PWA, Vertrag; ohne Image/Release) | – | S | P zu allen | fertig (auf main, Übergabe `docs/handoff/WP-ST1.md`) |
 |  | ST2 | Kern vom DMS-Modul entkoppeln (Job-Handler, Token-Scopes, Link-Schutz, Fehlertyp) | ST1 | M |  | offen |
 |  | ST3 | Swift-Targets `HubCore`/`HubModule*` (F-14) | ST2 | M | nicht parallel zu Backend-WPs | offen |
 |  | ST4 | PWA Darstellung: System/Hell/Dunkel mit Einstellungsseite | – | S | P ST1–ST3 | offen |
