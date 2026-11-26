@@ -141,7 +141,9 @@ class AuthTestCase: XCTestCase, @unchecked Sendable {
         for (k, v) in extra { headers.replaceOrAdd(name: k, value: v) }
         var body: ByteBuffer?
         if let json {
-            body = ByteBuffer(data: try JSONSerialization.data(withJSONObject: json))
+            // Sortierte Schlüssel: gleiche Eingabe = gleiche Bytes. Sonst wechselt die Reihenfolge zufällig, und eine Wiederholung mit
+            // `Idempotency-Key` gilt dem Server (Hash über den Body) als anderer Inhalt.
+            body = ByteBuffer(data: try JSONSerialization.data(withJSONObject: json, options: [.sortedKeys]))
             headers.contentType = .json
         }
         let box = RespBox()

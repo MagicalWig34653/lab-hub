@@ -14,7 +14,7 @@ import type { NavGroupDef } from '#lib/modules/manifest';
 import { P } from './permissions';
 
 /**
- * Sidebar sections of the DMS (WP-F4c): "Dokumente" for daily work, "Verwaltung" for rules, master data, sources and checks.
+ * Sidebar sections of the DMS (WP-F4c): "docs" (module name, WP-ST6) for daily work, "Verwaltung" for rules, master data, sources and checks.
  * Items appear only with their permission (visibility; the backend authorizes). Test ids keep the former tab names
  * (`dms-nav-<segment>`), the overview carries `nav-dms`.
  */

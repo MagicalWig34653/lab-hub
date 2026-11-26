@@ -30,8 +30,8 @@ test('AK-F2-1 menu shows only active modules; owner switches a module on and off
 	await page.getByTestId('settings-tab-modules').click();
 	await page.getByTestId('module-toggle-dms').click();
 	await expect(page.getByTestId('nav-dms')).toBeVisible();
-	// WP-F4c: the module is a sidebar group "Dokumente"; its first entry is the overview.
-	await expect(page.getByTestId('nav-group-dms.documents')).toHaveText('Dokumente');
+	// WP-F4c/ST6: the module is a sidebar group "docs"; its first entry is the overview.
+	await expect(page.getByTestId('nav-group-dms.documents')).toHaveText('docs');
 	await expect(page.getByTestId('nav-dms')).toHaveText('Übersicht');
 
 	await page.getByTestId('nav-dms').click();

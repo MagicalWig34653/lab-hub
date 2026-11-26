@@ -7,7 +7,8 @@ import Foundation
 /// Einstellungen der Anmeldung (aus `HubConfig`; Zeiten in Sekunden). Tests dürfen Werte nach `configure` überschreiben.
 public struct AuthSettings: Sendable {
     public var rpID: String
-    public var rpName = "lab-hub"
+    /// Anzeigename im Passkey-Dialog (WP-ST6). Die Bindung der Passkeys hängt nur an `rpID`.
+    public var rpName = "LAB hub"
     public var origin: String
     public var setupToken: String?
     public var sessionTTL = 30 * 24 * 3600

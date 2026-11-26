@@ -2,7 +2,7 @@ import type { MessageKey } from './de';
 
 // Record<MessageKey, string> makes a missing or surplus key a compile error.
 export const en: Record<MessageKey, string> = {
-	'app.name': 'lab-hub',
+	'app.name': 'LAB hub',
 	'common.loading': 'Loading …',
 	'common.language': 'Language',
 	'common.language.de': 'Deutsch',
@@ -100,7 +100,7 @@ export const en: Record<MessageKey, string> = {
 	'recovery.copyFailed': 'Copying failed. Please write the codes down by hand.',
 	'recovery.confirm': 'I have stored the codes safely.',
 	'recovery.done': 'Done',
-	'recovery.fileTitle': 'lab-hub recovery codes (each code works once)',
+	'recovery.fileTitle': 'LAB hub recovery codes (each code works once)',
 	'sessions.title': 'Signed-in devices',
 	'sessions.description': 'End sessions you no longer need.',
 	'sessions.current': 'This device (current session)',

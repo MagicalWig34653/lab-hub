@@ -8,6 +8,16 @@ import Crypto
 /// Alle Daten synthetisch.
 final class AuthTests: AuthTestCase {
 
+    // MARK: AK-ST6-1 Produktname im Passkey-Dialog
+
+    func testAKST6_1_PasskeyDialogShowsProductName() async throws {
+        let o = try await call(app1, .POST, "api/v1/auth/bootstrap/options", json: ["setup_token": setupToken, "handle": "alice", "display_name": "Alice"])
+        XCTAssertEqual(o.status, .ok)
+        let rp = (o.json["public_key"] as? [String: Any])?["rp"] as? [String: Any]
+        XCTAssertEqual(rp?["name"] as? String, "LAB hub")
+        XCTAssertEqual(rp?["id"] as? String, app1.authSettings?.rpID, "Der Anzeigename ändert die Passkey-Bindung nicht")
+    }
+
     // MARK: AK-K1-1 Setup-Token-Bootstrap
 
     func testAKK1_1_BootstrapNeedsSetupTokenAndClosesAfterFirstUser() async throws {

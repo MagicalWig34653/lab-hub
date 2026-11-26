@@ -19,6 +19,14 @@ test('AK-F1-2 bootstrap, invitation -> passkey -> dashboard, passkey login', asy
 	await owner.getByRole('button', { name: 'Passkey anlegen und starten' }).click();
 	await expect(owner).toHaveURL(/\/dashboard$/);
 	await expect(owner.getByTestId('tenant-list')).toBeVisible();
+	// AK-ST6-1/2: product name and module names as the real backend lists them.
+	await expect(owner).toHaveTitle(/· LAB hub$/);
+	await owner.getByTestId('nav-settings').click();
+	await owner.getByTestId('settings-tab-modules').click();
+	await expect(owner.locator('li[data-module=dms] div.font-medium')).toHaveText('docs');
+	await expect(owner.locator('li[data-module=invoice] div.font-medium')).toHaveText('invoice');
+	await owner.getByTestId('module-toggle-dms').click();
+	await expect(owner.getByTestId('nav-group-dms.documents')).toHaveText('docs');
 
 	// 2. Owner creates an invitation through the API (the invitation UI follows with WP-F2).
 	const session = (await (await ownerContext.request.get('/api/v1/auth/session')).json()) as {

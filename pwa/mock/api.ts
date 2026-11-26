@@ -250,7 +250,7 @@ export function createMockApi(): MockApi {
 				? { challenge, rpId: undefined, timeout: 60000, userVerification: 'required' }
 				: {
 						challenge,
-						rp: { name: 'lab-hub' },
+						rp: { name: 'LAB hub' },
 						user: {
 							id: Buffer.from(randomUUID()).toString('base64url'),
 							name: handle ?? 'user',

@@ -1,6 +1,6 @@
 // Reference catalogue: keys are English, values German. en.ts must provide exactly the same keys (compile time + test).
 export const de = {
-	'app.name': 'lab-hub',
+	'app.name': 'LAB hub',
 	'common.loading': 'Lade …',
 	'common.language': 'Sprache',
 	'common.language.de': 'Deutsch',
@@ -98,7 +98,7 @@ export const de = {
 	'recovery.copyFailed': 'Kopieren nicht möglich. Bitte die Codes von Hand abschreiben.',
 	'recovery.confirm': 'Ich habe die Codes sicher gespeichert.',
 	'recovery.done': 'Fertig',
-	'recovery.fileTitle': 'lab-hub Recovery-Codes (jeder Code gilt einmal)',
+	'recovery.fileTitle': 'LAB hub Recovery-Codes (jeder Code gilt einmal)',
 	'sessions.title': 'Angemeldete Geräte',
 	'sessions.description': 'Beende Sitzungen, die du nicht mehr brauchst.',
 	'sessions.current': 'Dieses Gerät (aktuelle Sitzung)',

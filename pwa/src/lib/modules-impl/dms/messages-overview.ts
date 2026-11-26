@@ -1,6 +1,6 @@
 /** Texts of the document overview, inbox, facts and links (WP-F4c). Merged into the manifest. */
 export const overviewDe: Record<string, string> = {
-	'dms.nav.group.documents': 'Dokumente',
+	'dms.nav.group.documents': 'docs',
 	'dms.nav.group.admin': 'Verwaltung',
 	'dms.nav.overview': 'Übersicht',
 	'dms.nav.inbox': 'Eingang',
@@ -161,7 +161,7 @@ export const overviewDe: Record<string, string> = {
 };
 
 export const overviewEn: Record<string, string> = {
-	'dms.nav.group.documents': 'Documents',
+	'dms.nav.group.documents': 'docs',
 	'dms.nav.group.admin': 'Administration',
 	'dms.nav.overview': 'Overview',
 	'dms.nav.inbox': 'Inbox',

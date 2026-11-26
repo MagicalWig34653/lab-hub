@@ -275,7 +275,7 @@ test('sidebar: grouped navigation, collapsible groups remembered, current page m
 	await bootstrap(page, context);
 	await seedMix(request);
 	const sidebar = page.getByTestId('sidebar');
-	await expect(sidebar.getByTestId('nav-group-dms.documents')).toHaveText(/Dokumente/);
+	await expect(sidebar.getByTestId('nav-group-dms.documents')).toHaveText(/docs/);
 	await expect(sidebar.getByTestId('nav-group-dms.admin')).toHaveText(/Verwaltung/);
 	await expect(sidebar.getByTestId('nav-settings')).toHaveText(/Einstellungen/);
 	await expect(sidebar.getByTestId('dms-nav-inbox')).toBeVisible();

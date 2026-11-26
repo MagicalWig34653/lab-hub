@@ -13,8 +13,8 @@ export const dmsManifest: ModuleManifest = {
 	navigation: dmsNavigation,
 	messages: {
 		de: {
-			'nav.dms': 'Dokumente',
-			'dms.title': 'Dokumente',
+			'nav.dms': 'docs',
+			'dms.title': 'docs',
 			'dms.noPermission': 'Für die Dokumente fehlt die Berechtigung.',
 
 			'dms.upload.title': 'Hochladen',
@@ -111,8 +111,8 @@ export const dmsManifest: ModuleManifest = {
 			...overviewDe
 		},
 		en: {
-			'nav.dms': 'Documents',
-			'dms.title': 'Documents',
+			'nav.dms': 'docs',
+			'dms.title': 'docs',
 			'dms.noPermission': 'You lack the permission to view documents.',
 
 			'dms.upload.title': 'Upload',
