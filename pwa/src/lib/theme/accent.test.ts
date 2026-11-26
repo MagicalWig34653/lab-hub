@@ -1,0 +1,35 @@
+import { describe, expect, it } from 'vitest';
+import { ACCENT_PRESETS, DEFAULT_ACCENT, accentTokens, contrastRatio, normalizeHex } from './accent';
+
+// WP-ST7: accent colour per user. The tokens must keep text readable (WCAG 4.5:1) for every colour, light and dark.
+describe('accent', () => {
+	it('normalises #rgb and #rrggbb, rejects everything else', () => {
+		expect(normalizeHex('#AbC')).toBe('#aabbcc');
+		expect(normalizeHex(' #0D9488 ')).toBe('#0d9488');
+		for (const bad of ['red', '#12345', '#gggggg', '2563eb', '#2563eb00', '']) expect(normalizeHex(bad)).toBeNull();
+	});
+
+	it('AK-ST7-3 ink and foreground reach 4.5:1 for every preset and extreme colours, light and dark', () => {
+		const colours = [...ACCENT_PRESETS.map((p) => p.hex), '#ffff00', '#ffffff', '#000000', '#00ffff', '#111111'];
+		for (const hex of colours) {
+			for (const dark of [false, true]) {
+				const tokens = accentTokens(hex, dark)!;
+				expect(contrastRatio(tokens.foreground, tokens.primary), `${hex} fg`).toBeGreaterThanOrEqual(4.5);
+				for (const surface of tokens.checkedSurfaces) {
+					expect(contrastRatio(tokens.ink, surface), `${hex} ink on ${surface} dark=${dark}`).toBeGreaterThanOrEqual(4.5);
+				}
+			}
+		}
+	});
+
+	it('keeps the chosen colour as ink when it is already readable', () => {
+		expect(accentTokens('#1e3a8a', false)!.ink).toBe('#1e3a8a');
+		expect(accentTokens('#fde047', false)!.ink).not.toBe('#fde047');
+	});
+
+	it('falls back to null for an invalid colour and has a valid default', () => {
+		expect(accentTokens('nope', false)).toBeNull();
+		expect(normalizeHex(DEFAULT_ACCENT)).toBe(DEFAULT_ACCENT);
+		expect(new Set(ACCENT_PRESETS.map((p) => p.hex)).size).toBe(ACCENT_PRESETS.length);
+	});
+});
