@@ -4,7 +4,11 @@ import FluentPostgresDriver
 import NIOSSL
 import SQLKit
 
-extension DatabaseID { static var hub: DatabaseID { .psql } }
+extension DatabaseID {
+    static var hub: DatabaseID { .psql }
+    /// Eigener Pool nur für den Advisory Lock der Migration.
+    static var migrationLock: DatabaseID { DatabaseID(string: "psql_migration_lock") }
+}
 
 extension Application {
     private struct ConfigKey: StorageKey { typealias Value = HubConfig }
@@ -24,6 +28,9 @@ public func configureDatabase(_ app: Application, _ config: HubConfig) throws {
                                       password: config.dbPassword, database: config.dbName, tls: tls)
     pg.coreConfiguration.options.connectTimeout = .seconds(5)
     app.databases.use(.postgres(configuration: pg, connectionPoolTimeout: .seconds(5)), as: .psql)
+    // Der Lock hält eine Verbindung, während die Migration eine zweite braucht; ein Pool hat nur eine je Event-Loop
+    // (auf einem Kern: Timeout). Wartende Läufe stehen hier an, daher die lange Frist. Verbindungen entstehen erst bei Bedarf.
+    app.databases.use(.postgres(configuration: pg, connectionPoolTimeout: .minutes(10)), as: .migrationLock)
     app.migrations.add(HubMigrations.all, to: .psql)
     app.migrations.add(app.hubModules.migrations, to: .psql)  // WP-K3: Migrationen aller Module laufen immer, auch bei deaktiviertem Modul
     app.hubConfig = config

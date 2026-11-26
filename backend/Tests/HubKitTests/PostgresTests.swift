@@ -47,6 +47,21 @@ final class PostgresTests: XCTestCase {
         let curTrue = await schemaIsCurrent(app!); XCTAssertTrue(curTrue)
     }
 
+    /// Wie auf einem Rechner mit einem Kern: ein Event-Loop, also eine Verbindung je Pool (WP-ST1, Befund aus der CI).
+    func testMigrationOnSingleEventLoop() async throws {
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+        let single = try await Application.make(.testing, .shared(group))
+        do {
+            try configure(single, environment: HubTestDB.env)
+            try await migrateWithLock(single)
+            let current = await schemaIsCurrent(single); XCTAssertTrue(current)
+        } catch {
+            XCTFail("Migration mit einem Event-Loop: \(error)")
+        }
+        try await single.asyncShutdown()
+        try await group.shutdownGracefully()
+    }
+
     func testCounterIsAtomicUnderConcurrency() async throws {
         try await migrateWithLock(app)
         let tenant = UUID(), counters = CounterService(db!)
