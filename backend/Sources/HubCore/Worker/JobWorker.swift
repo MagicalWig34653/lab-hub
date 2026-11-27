@@ -120,10 +120,12 @@ public final class JobWorker: @unchecked Sendable {
                     logger.warning("Abschluss abgelehnt (Lease nicht mehr gültig)", metadata: ["job": "\(job.id)"])
                 }
             case .failure(let error):
-                if isShuttingDown {
-                    try await jobs.release(job.id, owner: owner)
-                } else if let permanent = error as? PermanentJobError {
+                // Ein `PermanentJobError` ist ein endgültiges Ergebnis des Handlers (wie Erfolg) und wird auch im Shutdown verbucht;
+                // nur ein unklarer Fehler (Abbruch durch den Shutdown) gibt die Lease frei.
+                if let permanent = error as? PermanentJobError {
                     _ = try await jobs.fail(job.id, owner: owner, code: permanent.code, retryAfterSeconds: 0, permanent: true)
+                } else if isShuttingDown {
+                    try await jobs.release(job.id, owner: owner)
                 } else {
                     let delay = retryBackoffSeconds * (1 << min(max(job.attempts - 1, 0), 10))
                     let outcome = try await jobs.fail(job.id, owner: owner, code: "handler_error", retryAfterSeconds: delay)

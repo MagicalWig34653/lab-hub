@@ -191,6 +191,20 @@ final class JobWorkerTests: JobTestBase {
         XCTAssertEqual(lastError, "unsupported_input")
     }
 
+    /// Flake H6-7: Ein endgültiges Ergebnis des Handlers (`PermanentJobError`) bleibt endgültig, auch wenn der Shutdown zwischen Handler-Ende und
+    /// Verbuchung kommt. Vorher gab der Worker den Job dann frei (`queued`), er lief erneut und ein späterer manueller Retry fand zwei wartende Jobs.
+    func testPermanentErrorIsRecordedWhenShutdownArrivesAfterHandlerFinished() async throws {
+        final class Box: @unchecked Sendable { var worker: JobWorker? }
+        let box = Box()
+        let id = try await jobs.enqueue(kind: "t.perm")
+        let worker = makeWorker(["t.perm": { _, _ in box.worker?.requestShutdown(); throw PermanentJobError(code: "unsupported_input") }])
+        box.worker = worker
+        let run = Task { await worker.run() }
+        await run.value
+        let row = try await jobRow(id)
+        XCTAssertEqual(row.state, "failed_permanent"); XCTAssertEqual(row.lastError, "unsupported_input"); XCTAssertNil(row.owner)
+    }
+
     /// AK-O1-4 (in-Prozess): Shutdown während eines Jobs bricht den Handler ab und gibt die Lease sofort frei.
     func testAKO1_4_shutdownReleasesLeaseOfRunningJob() async throws {
         let started = Counter()
