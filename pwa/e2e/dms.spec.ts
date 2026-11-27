@@ -180,12 +180,13 @@ test('AK-F4-1 real: bootstrap, invitation, passkey, scan upload, OCR done, searc
 	await expectNoSeriousA11y(page);
 
 	// 10. WP-F5b: sources UI against the real backend (SECRET_KEY set): a mail source whose server refuses the connection
-	// reports `imap_connect_failed` as a text, the password is never shown; disable, delete.
+	// reports `imap_connect_failed` as a text, the password is never shown; disable, delete. WP-H10 refuses IP literals, internal names and ports other than 993
+	// (`ip_literal_not_allowed`, `target_not_allowed`, `port_not_allowed`), so the unreachable server is a name under the reserved `.invalid` TLD (RFC 2606, never resolves) on port 993.
 	await page.getByTestId('dms-nav-sources').click();
 	await page.getByTestId('source-new-mail').click();
 	await page.getByTestId('source-name').fill('E2E Postfach');
-	await page.getByTestId('source-host').fill('127.0.0.1');
-	await page.getByTestId('source-port').fill('1');
+	await page.getByTestId('source-host').fill('imap.example.invalid');
+	await page.getByTestId('source-port').fill('993');
 	await page.getByTestId('source-username').fill('e2e@example.org');
 	await page.getByTestId('source-password').fill('E2E-Not-A-Real-Password');
 	await page.getByTestId('source-save').click();
