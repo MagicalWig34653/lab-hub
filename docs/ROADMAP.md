@@ -73,7 +73,7 @@ Ausgangsstand (vorhanden, getestet laut `deploy/README.md`/Tests): `migrate`, `s
 | | H17 | Codex-Befund 8 (Rest): Scheitert ein `dms.ocr`-Job endgültig (Absturzschleife im Kern, Versuche erschöpft, `permanent`), setzt ein Trigger auf `jobs` (Migration `dms_027_ocr_quarantine_sync`, mit Backfill) den Ingest-Eintrag in derselben Transaktion auf `failed_permanent`; Übersicht zählt `failed` statt `queued`, Banner und Retry der PWA greifen, Retry bleibt einmalig (zweiter 409). Regression `DMSH17Tests` (kontrollierte Zeit per Lease in der Datenbank) und echtes E2E `scripts/e2e-dms-ocr-failure.sh` (Backend, Postgres, Worker-Prozess, ohne Mocks), Handoff `docs/handoff/WP-H17.md` | erledigt (lokal grün) |
 | 7 Struktur | ST1 | GitHub-CI (Backend mit Postgres, PWA, Vertrag; ohne Image/Release) | – | S | P zu allen | fertig (auf main, Übergabe `docs/handoff/WP-ST1.md`) |
 |  | ST2 | Kern vom DMS-Modul entkoppeln (Job-Handler, Token-Scopes, Link-Schutz, Fehlertyp) | ST1 | M |  | fertig (auf main, Übergabe `docs/handoff/WP-ST2.md`) |
-|  | ST3 | Swift-Targets `HubCore`/`HubModule*` (F-14) | ST2 | M | nicht parallel zu Backend-WPs | offen |
+|  | ST3 | Swift-Targets `HubCore`/`HubModule*` (F-14) | ST2 | M | nicht parallel zu Backend-WPs | fertig (auf main, Übergabe `docs/handoff/WP-ST3.md`) |
 |  | ST4 | PWA Darstellung: System/Hell/Dunkel mit Einstellungsseite | – | S | P ST1–ST3 | fertig (mit ST7, Übergabe `docs/handoff/WP-ST7.md`) |
 |  | ST5 | PWA Grundbausteine: Fehlertexte, Versions-/Fähigkeitsprüfung, Betreiber-Modulschalter | ST4 | M | P ST2 | offen |
 |  | ST6 | PWA-Namen: „LAB hub“, Module „docs“ und „invoice“ (F-01) | – | S | P ST1–ST3 | fertig (Übergabe `docs/handoff/WP-ST6.md`) |
@@ -120,7 +120,7 @@ Grundsatz: Hub ohne Swift-App nutzbar (`AGENTS.md`); die Rechnungsphase ist dahe
 
 **WP-K3 Modul-System (M).** Ziel: `HubModule`, Registry, `tenant_modules`, `ModuleGuard`, `/api/v1/modules`, Beispielmodul `ping` (nur Test). Akzeptanz: AK-K3-1…6 (`ARCHITEKTUR.md` 3.5). Test: Zwei-Instanzen-Aktivierung, Guard-Test über alle Routen, Migration deaktivierter Module. Abh.: K2. ADR 0004 auf „akzeptiert“ setzen, wenn Nutzer bestätigt.
 
-*Status WP-K3: AK-K3-1…6 umgesetzt und getestet (Branch wp-K3); offen: Aufteilung in Swift-Targets (F-14) beim ersten echten Modul, Events/Jobs/Suchindex-Hook im Protokoll, siehe `docs/handoff/WP-K3.md`.*
+*Status WP-K3: AK-K3-1…6 umgesetzt und getestet (Branch wp-K3); Aufteilung in Swift-Targets (F-14) mit WP-ST3 erledigt; offen: Events/Jobs/Suchindex-Hook im Protokoll, siehe `docs/handoff/WP-K3.md`.*
 
 **WP-K4 API-Vertrag (M).** Ziel: `contracts/openapi.yaml`, Problem-Details-Fehler, Cursor-Pagination-Helfer, `Idempotency-Key`-Middleware (nutzt `IdempotencyService`), `X-Request-Id`, Versionsendpunkt. Akzeptanz: AK-K4-1…3 (`ARCHITEKTUR.md` Abschnitt 5). Test: Vertragstest Routen↔Vertrag (Vorbild `timetrack-backend/Tests/.../Contract/`), Pagination-Parallelitätstest. Abh.: K0.
 
@@ -246,7 +246,7 @@ Grundlage: `docs/ARCHITEKTUR-ABGLEICH-TIMETRACK.md` (25.11.2026). Timetrack ist 
 
 **WP-ST2 Kern entkoppeln (M).** Akzeptanz: AK-ST2-1 Module liefern Job-Handler über `HubModule`, `WorkerCommand` nennt kein `DMS*`; ST2-2 Token-Scopes deklarieren die Module; ST2-3 Link-Schutz als Haken des Moduls, `LinkService` und `ApiTokens` ohne `DMS*`; ST2-4 Test, der `DMS`/`Invoice`-Bezeichner außerhalb von `Modules/<Name>` und der Modulliste verbietet; volle Suite unverändert grün.
 
-**WP-ST3 Swift-Targets (M).** F-14 (Nutzer 07.11.2026: spätestens vor dem zweiten Modul). Akzeptanz: AK-ST3-1 `HubCore`, `HubModuleDMS`, `HubModuleInvoice`, Zusammenbau in `HubKit`/`App`; ST3-2 Module importieren einander nicht (Package-Manifest erzwingt es); ST3-3 Images, SBOM und Tests grün. Abh.: ST2.
+**WP-ST3 Swift-Targets (M).** F-14 (Nutzer 07.11.2026: spätestens vor dem zweiten Modul). Akzeptanz: AK-ST3-1 `HubCore`, `HubModuleDMS`, `HubModuleInvoice`, Zusammenbau in `HubKit`/`App`; ST3-2 Module importieren einander nicht (Package-Manifest erzwingt es); ST3-3 Images, SBOM und Tests grün. Abh.: ST2. *Status 27.11.2026: umgesetzt, Belege je Kriterium in `docs/handoff/WP-ST3.md`.*
 
 **WP-ST4 PWA Darstellung (S).** Akzeptanz: AK-ST4-1 Standard folgt `prefers-color-scheme`, Wahl System/Hell/Dunkel bleibt je Gerät; ST4-2 kein Aufblitzen der falschen Farbe beim Laden (mit der CSP aus H9 verträglich); ST4-3 Playwright-Bilder und axe-Kontrast für Kernseiten hell und dunkel, angesehen.
 
