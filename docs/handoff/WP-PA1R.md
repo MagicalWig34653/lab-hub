@@ -102,7 +102,7 @@ Rest-Risiko, bewusst: Das Token liegt während eines laufenden Laufs verschlüss
 - **Grün** nach den Fixes: `DMSImportReview*`: 7 Tests, 0 Fehler.
 - **Volle Suite lokal** (`swift test`, eigener Postgres-Container): **565 Tests, 27 übersprungen, 0 Fehler** (übersprungen: 11 OCR-Werkzeugtests ohne `ocrmypdf`, 1 Messlauf, die übrigen Tests, die Linux-Werkzeuge oder Mail brauchen; sichtbar im Log).
 - **E2E** `scripts/e2e-paperless-import.sh` gegen paperless-ngx 3.5.1 (lokal, erfundene Daten): vor den Fixes **67 ok, 0 Fehler**; nach den Fixes mit drei neuen SSRF-Zeilen (`%2F`-Host, `%40`-Host, `0127.0.0.1`, jeweils 422 am Hub ohne Entwicklungsschalter) **70 ok, 0 Fehler**. Die drei neuen Zeilen wurden erst nach dem Fix ergänzt (kein roter E2E-Lauf dazu; der rote Beleg ist der Verbindungstest oben).
-- GitHub-CI zum Commit: siehe Commit-Nachricht und `docs/ROADMAP.md`.
+- **GitHub-CI** zu b6d9623 (Fixes und Bericht): Lauf 46076225907, **grün** (PWA/Vertrag/Skripte, Renderer arm64, Backend-Tests mit Postgres 17). Der vorangehende Commit 7ea600a (rote Tests) wurde zusammen mit b6d9623 gepusht, daher gibt es für ihn keinen eigenen Lauf.
 - Die Probe zum Host-Unterschied (macOS und Linux-Container `swift:6.4-noble`) ist in Befund 1 mit ihren Ergebnissen beschrieben; das Skript lag im Scratchpad der Sitzung und ist nicht im Repo.
 
 ## Für PA3
