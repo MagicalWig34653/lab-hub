@@ -8,7 +8,7 @@ import Crypto
 // WP-R6b: Render-Werkzeugkette (Typst, qpdf) und Standardlayout 1. Nur synthetische Belege (`Tests/Fixtures/invoice-render/`).
 // Zwei Gruppen:
 //  - Ohne Werkzeuge lauffähig: Aufbereitung der Belegdaten, Factur-X-XMP, Zeitlimit, Prozessumgebung, Image-Definition.
-//  - Mit Typst/pdftotext/qpdf (Worker-Test-Image, `scripts/render-test.sh`): Referenzfälle, Bytegleichheit, Anhang. Fehlen die Werkzeuge,
+//  - Mit Typst/pdftotext/qpdf (Worker-Test-Image, `scripts/ci-backend.sh`): Referenzfälle, Bytegleichheit, Anhang. Fehlen die Werkzeuge,
 //    werden diese Tests mit Meldung übersprungen. Lokal außerhalb des Images: `LH_TEST_TYPST`, `LH_TEST_FONT_DIR`, `LH_TEST_QPDF`, `LH_TEST_RENDER_TMP`.
 //  `LH_RENDER_OUT` schreibt die erzeugten PDFs für veraPDF (`scripts/verapdf-check.sh`), `LH_RENDER_UPDATE=1` schreibt die Referenzen neu.
 
@@ -57,7 +57,7 @@ enum RenderFixtures {
         if !FileManager.default.fileExists(atPath: tools.fontDirectory + "/Inter-Regular.ttf") { missing.append("Schriften") }
         if await !available("pdftotext", ["-v"]) { missing.append("pdftotext") }
         if qpdf, await !available(tools.qpdf, ["--version"]) { missing.append("qpdf") }
-        if !missing.isEmpty { throw XCTSkip("Render-Werkzeuge fehlen (\(missing.joined(separator: ", "))); sie laufen im Worker-Test-Image (scripts/render-test.sh)") }
+        if !missing.isEmpty { throw XCTSkip("Render-Werkzeuge fehlen (\(missing.joined(separator: ", "))); sie laufen im Worker-Test-Image (scripts/ci-backend.sh)") }
     }
 
     /// Seitenzahl und Text in Inhaltsreihenfolge, Leerraum je Zeile vereinheitlicht (unabhängig von der poppler-Version).
@@ -151,6 +151,31 @@ final class InvoiceRenderDataTests: XCTestCase {
         let contradicting = try prepared("invoice") { $0["tax_regime"] = "small_business" }.data
         XCTAssertFalse(contradicting.notes.contains(InvoiceRenderData.smallBusinessNote))
         XCTAssertTrue(contradicting.totals.contains { $0.label.hasPrefix("USt 19 %") })
+    }
+
+    /// Der gedruckte Summenblock geht auf: gerundete Positionswerte, die nicht zur gespeicherten Summe passen, zeigen die Differenz als eigene Zeile.
+    func testAKR6b_1_summaryAddsUpWithRoundingDifference() throws {
+        let data = try prepared("invoice") { doc in
+            let line = (doc["lines"] as? [[String: Any]] ?? [])[0].merging(["quantity": "2.5", "unit_price": "0.99", "tax_rate": "19"]) { _, new in new }
+            doc["lines"] = [line, line]
+            doc["charges"] = [["description": "Versand", "amount": "1", "tax_rate": "19"]]
+            doc["discount_percent"] = "0"; doc["discount_total"] = "0.00"
+            doc["net_total"] = "5.95"; doc["gross_total"] = "7.08"; doc["tax_totals"] = [["rate": "19", "net": "5.95", "tax": "1.13"]]
+        }.data
+        XCTAssertEqual(data.totals.prefix(4).map(\.label), ["Zwischensumme", "Versand (USt 19 %)", "Rundungsdifferenz", "Nettobetrag"])
+        XCTAssertEqual(data.totals.prefix(4).map(\.value), ["4,96 €", "1,00 €", "-0,01 €", "5,95 €"])
+        // ohne Rabatt und Zusatzkosten ebenso
+        let bare = try prepared("quote") { doc in
+            let line = (doc["lines"] as? [[String: Any]] ?? [])[0].merging(["quantity": "2.5", "unit_price": "0.99"]) { _, new in new }
+            doc["lines"] = [line, line]
+            doc["gross_total"] = "4.95"; doc["net_total"] = "4.16"; doc["tax_totals"] = [["rate": "19", "net": "4.16", "tax": "0.79"]]
+        }.data
+        XCTAssertEqual(bare.totals.prefix(3).map(\.label), ["Zwischensumme", "Rundungsdifferenz", "Gesamtbetrag"])
+    }
+
+    func testSkontoNoteForZeroAndOneDay() throws {
+        XCTAssertEqual(try prepared("invoice") { $0["skonto_days"] = 1 }.data.notes, ["Bei Zahlung innerhalb von 1 Tag ab Rechnungsdatum gewähren wir 2 % Skonto."])
+        XCTAssertEqual(try prepared("invoice") { $0["skonto_days"] = 0 }.data.notes, ["Bei Zahlung am Rechnungsdatum gewähren wir 2 % Skonto."])
     }
 
     /// Interne Notiz bleibt intern; der Zeitstempel des PDF ist der Finalisierungszeitpunkt.
@@ -371,6 +396,33 @@ final class InvoiceRenderToolTests: XCTestCase {
         do { _ = try await InvoiceRenderer(tools: tools).render(RenderFixtures.document("order_confirmation")); XCTFail("kein Zeitlimit") } catch {
             XCTAssertEqual(error as? InvoiceRenderError, .timeout)
         }
+    }
+
+    /// Viele oder lange Zusatzkosten (erlaubt: 50 zu je 200 Zeichen) dürfen den Summenblock nicht über Fußzeile oder Seitenrand schieben.
+    func testLongSummaryStaysOnThePage() async throws {
+        try await RenderFixtures.requireTools()
+        let data = try RenderFixtures.document("invoice") { doc in
+            doc["charges"] = (1...50).map { ["description": "Zusatz \($0)" + String(repeating: "\nweitere Zeile", count: 3), "amount": "1", "tax_rate": "19"] }
+        }
+        let pdf = try await renderer.render(data)
+        let dir = try RenderFixtures.scratch(); defer { try? FileManager.default.removeItem(at: dir) }
+        try pdf.write(to: dir.appendingPathComponent("in.pdf"))
+        let result = try await ToolProcess.run("pdftotext", ["-bbox", "in.pdf", "out.html"], workDir: dir, timeout: 60)
+        XCTAssertEqual(result.exitCode, 0, result.stderr)
+        let html = String(decoding: try Data(contentsOf: dir.appendingPathComponent("out.html")), as: UTF8.self)
+        // A4 ist 842 pt hoch, die Fußzeile beginnt unterhalb von 740 pt: Inhalt des Summenblocks endet davor
+        var bottoms: [String: [Double]] = [:]
+        for line in html.split(separator: "\n") where line.contains("<word ") {
+            guard let y = line.range(of: "yMax=\""), let end = line[y.upperBound...].firstIndex(of: "\""), let bottom = Double(line[y.upperBound..<end]),
+                  let open = line.range(of: "\">"), let close = line.range(of: "</word>") else { continue }
+            bottoms[String(line[open.upperBound..<close.lowerBound]), default: []].append(bottom)
+        }
+        for word in ["Gesamtbetrag", "Nettobetrag", "Zusatz", "weitere"] {
+            let found = bottoms[word] ?? []
+            XCTAssertFalse(found.isEmpty, word)
+            XCTAssertLessThan(found.max() ?? 999, 745, word)
+        }
+        XCTAssertEqual(bottoms["Zusatz"]?.count, 50)
     }
 
     /// Größter zulässiger Beleg (500 Positionen) bleibt innerhalb des Standard-Zeit- und Speicherlimits.

@@ -13,9 +13,15 @@ if [ "${#files[@]}" -lt "$minimum" ]; then echo "FEHLER: ${#files[@]} PDF in $di
 
 args=()
 for f in "${files[@]}"; do args+=("/tmp/check/$(basename "$f")"); done
+# veraPDF läuft im Container nicht als root und `docker cp` übernimmt die Rechte: Kopien mit Leserecht für alle (z. B. ist `mktemp -d` 0700)
+staging=$(mktemp -d)
+container=""
+trap 'rm -rf "$staging"; [ -z "$container" ] || docker rm -f "$container" >/dev/null' EXIT
+cp "${files[@]}" "$staging/"
+chmod 755 "$staging"
+chmod 644 "$staging"/*.pdf
 container=$(docker create --network none "$IMAGE" --flavour 3b --format text "${args[@]}")
-trap 'docker rm -f "$container" >/dev/null' EXIT
-docker cp "$dir/." "$container:/tmp/check"
+docker cp "$staging/." "$container:/tmp/check"
 status=0
 report=$(docker start -a "$container") || status=$?
 printf '%s\n' "$report"

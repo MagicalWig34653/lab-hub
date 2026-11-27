@@ -174,7 +174,9 @@ struct InvoiceRenderData: Encodable, Sendable {
 
         // Summenblock
         let discountTotal = try decimal(doc.discount_total)
-        if discountTotal != 0 || !doc.charges.isEmpty {
+        // Gerundet wird je Steuersatz (`InvoiceCalculator`), gedruckt werden gerundete Positionswerte: damit die Spalte aufgeht, steht eine Abweichung da.
+        let difference = try decimal(gross ? doc.gross_total : doc.net_total) - (sum - discountTotal + doc.charges.reduce(Decimal(0)) { try $0 + decimal($1.amount) })
+        if discountTotal != 0 || !doc.charges.isEmpty || difference != 0 {
             data.totals.append(.init(label: "Zwischensumme", value: amount(sum)))
             if discountTotal != 0 {
                 let percent = doc.discount_amount == nil ? doc.discount_percent.map { " " + InvoiceRenderFormat.number($0) + " %" } : nil
@@ -183,6 +185,7 @@ struct InvoiceRenderData: Encodable, Sendable {
             for charge in doc.charges {
                 data.totals.append(.init(label: "\(charge.description) (USt \(InvoiceRenderFormat.number(try validated(charge.tax_rate))) %)", value: money(try validated(charge.amount))))
             }
+            if difference != 0 { data.totals.append(.init(label: "Rundungsdifferenz", value: money(InvoiceDecimal.string(difference, scale: 4)))) }
         }
         let hasTax = try doc.tax_totals.contains { try decimal($0.tax) != 0 }
         // Kleinunternehmer ohne Steuer: nur der Gesamtbetrag und der Hinweis. Steht gespeicherte Steuer da, wird sie gezeigt und der Hinweis
@@ -197,7 +200,8 @@ struct InvoiceRenderData: Encodable, Sendable {
 
         if smallBusiness { data.notes.append(smallBusinessNote) }
         if doc.kind == "invoice", let percent = doc.skonto_percent, let days = doc.skonto_days {
-            data.notes.append("Bei Zahlung innerhalb von \(days) Tagen ab Rechnungsdatum gewähren wir \(InvoiceRenderFormat.number(try validated(percent))) % Skonto.")
+            let when = days == 0 ? "am Rechnungsdatum" : "innerhalb von \(days) \(days == 1 ? "Tag" : "Tagen") ab Rechnungsdatum"
+            data.notes.append("Bei Zahlung \(when) gewähren wir \(InvoiceRenderFormat.number(try validated(percent))) % Skonto.")
         }
         return Prepared(data: data, createdAt: createdAt)
     }

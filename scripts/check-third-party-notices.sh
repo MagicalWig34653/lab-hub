@@ -47,7 +47,7 @@ done <<'SUMS'
 80ac46fb7d70f1c30bf0c14d3408e6a6f0f9cc9997a00b592aa0d2c8a5243a9d legal/third-party/typst-assets/NOTICE
 262481e844521b326f5ecd053e59b98c8b2da78c8ee1bdbb6e8174305e54935a legal/third-party/inter/LICENSE.txt
 SUMS
-for word in "Apache License" ; do grep -q "$word" legal/third-party/typst/LICENSE 2>/dev/null || err "Typst-LICENSE ohne $word"; done
+grep -q "Apache License" legal/third-party/typst/LICENSE 2>/dev/null || err "Typst-LICENSE ohne Apache-Text"
 for word in "Libertinus" "NewComputerModern" "DejaVu" "SIL OPEN FONT LICENSE" "GUST Font License" "Bitstream Vera"; do
   grep -qi "$word" legal/third-party/typst-assets/NOTICE 2>/dev/null || err "Schriftlizenzen von Typst ohne $word"
 done

@@ -43,7 +43,7 @@ ENV OCR_TMPDIR=/tmp HOME=/tmp
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 CMD ["worker", "--kinds", "dms.ocr"]
 
-# Nur für Tests: Swift-Toolchain plus dieselben Werkzeuge (swift test mit echtem ocrmypdf und Typst, siehe scripts/ocr-container-test.sh, scripts/render-test.sh)
+# Nur für Tests: Swift-Toolchain plus dieselben Werkzeuge (swift test mit echtem ocrmypdf und Typst, siehe scripts/ocr-container-test.sh, scripts/ci-backend.sh)
 FROM swift:6.2-noble AS worker-test
 ARG OCR_PACKAGES
 RUN apt-get update && apt-get install -y --no-install-recommends ${OCR_PACKAGES} git && rm -rf /var/lib/apt/lists/*

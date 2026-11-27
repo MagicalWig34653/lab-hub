@@ -83,11 +83,10 @@ enum InvoiceStandardLayout {
       }).flatten(),
     )
 
-    // Summenblock
+    // Summenblock: zusammenhalten, solange er auf eine Seite passt; ein höherer (viele Zusatzkosten) bricht um, statt über den Rand zu laufen
     #if d.totals.len() > 0 {
-      v(2mm)
-      block(breakable: false, width: 100%, align(right, table(
-        columns: 2, stroke: none, inset: (x: 3pt, y: 2.5pt), align: (left, right),
+      let summary = table(
+        columns: (auto, auto), stroke: none, inset: (x: 3pt, y: 2.5pt), align: (left, right),
         ..d.totals.map(t => {
           if t.strong {
             (table.hline(stroke: 0.8pt), text(weight: "bold")[#t.label], text(weight: "bold")[#t.value])
@@ -95,7 +94,12 @@ enum InvoiceStandardLayout {
             ([#t.label], [#t.value])
           }
         }).flatten(),
-      )))
+      )
+      v(2mm)
+      layout(size => {
+        let tall = measure(summary, width: size.width).height > 120mm
+        block(breakable: tall, width: 100%, align(right, summary))
+      })
     }
 
     #for note in d.notes {
