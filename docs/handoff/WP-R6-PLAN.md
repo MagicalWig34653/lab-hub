@@ -1,6 +1,6 @@
 # Plan WP-R6 – Server-Renderer und Layout-Engine
 
-Stand 27.11.2026. Status: **R6b und R6c umgesetzt** (`docs/handoff/WP-R6b.md`, `docs/handoff/WP-R6c.md`), R6d und R6e Plan. Grundlage: F-08 entschieden (Typst + Factur-X-Metadatenschritt, ADR 0008), Spike `docs/spikes/WP-R6a/BERICHT.md`, `MODUL-RECHNUNG.md` Abschnitte 5 und 14, ADR 0003/0006.
+Stand 27.11.2026. Status: **R6b, R6c und R6d umgesetzt** (`docs/handoff/WP-R6b.md`, `docs/handoff/WP-R6c.md`, `docs/handoff/WP-R6d.md`), R6e Plan. Grundlage: F-08 entschieden (Typst + Factur-X-Metadatenschritt, ADR 0008), Spike `docs/spikes/WP-R6a/BERICHT.md`, `MODUL-RECHNUNG.md` Abschnitte 5 und 14, ADR 0003/0006.
 
 WP-R6 (L) wird in vier Pakete geschnitten. Jedes ist einzeln testbar und pushbar.
 
@@ -11,7 +11,7 @@ WP-R6 (L) wird in vier Pakete geschnitten. Jedes ist einzeln testbar und pushbar
 | R6d | Layoutmodell V1, Parameter, Zuordnung, Vorschau | R6c | M |
 | R6e | Import vorhandener Layouts | R6d, Importformat | M |
 
-WP-F6 (Rechnungs-UI) braucht R6b–R6d; WP-F7a braucht zusätzlich R6e. Nächster Schritt: **R6d**.
+WP-F6 (Rechnungs-UI) braucht R6b–R6d; WP-F7a braucht zusätzlich R6e. Nächster Schritt: **R6e** (blockiert durch das Importformat, F-09/F-31).
 
 ## Ausgangslage im Code
 
@@ -63,13 +63,15 @@ Akzeptanz:
 - AK-R6c-5: kein Aufräum- oder Löschpfad (DMS, Objektspeicher) entfernt eine referenzierte Beleg-Datei.
 - AK-R6c-6: E2E mit echtem Worker: Beleg anlegen → finalisieren → PDF laden.
 
-## R6d – Layoutmodell V1
+## R6d – Layoutmodell V1 (fertig, 27.11.2026)
+
+Umsetzung und Belege: `docs/handoff/WP-R6d.md`. Entschieden im WP: Vorschau als Job `invoice.preview`, Ergebnis 15 Minuten als `bytea` in `invoice_previews` (ADR 0008 Nachtrag R6d).
 
 Umfang: `invoice_layouts` als versionierte Mandantendaten, Parameter (Logo, Farben, Schrift aus freigegebener Liste, Kopf-/Fußtexte, Platzhalter) nach `FRONTEND.md` Abschnitt 13 Stufe 1, Zuordnung je Belegart/Serie, Vorschau eines Entwurfs. Das Layoutmodell ist so zu entwerfen, dass der spätere Designer (F7b) es teilt.
 
 Akzeptanz: Roundtrip speichern → laden → rendern ohne Verlust; finale Belege behalten ihre Layoutversion; Logo-Upload nur geprüfte Formate und Größen; Mandantentrennung.
 
-Offen in R6d: Das API-Image hat kein Typst. Die Vorschau läuft deshalb über den Worker; wo ihr kurzlebiges Ergebnis liegt (Ablaufzeit, Aufräumen), wird im WP entschieden und im ADR nachgetragen.
+Offen in R6d (entschieden): Das API-Image hat kein Typst. Die Vorschau läuft über den Worker; Ablage in der Datenbank, Ablauf 15 Minuten, Aufräumen beim nächsten Anfordern und mit jedem Vorschau-Job (ADR 0008 Nachtrag R6d).
 
 ## R6e – Import vorhandener Layouts
 

@@ -48,10 +48,10 @@ Ausgangsstand (vorhanden, getestet laut `deploy/README.md`/Tests): `migrate`, `s
 | | R4 | Import/Export der bisherigen App | R2 | M | P R3 | offen |
 | | R5 | E-Rechnung Erzeugung (Server) | R2 | M | P R3, R4 | offen |
 | | R6a | Spike Renderer: Optionen (a)/(b)/(c) gegen Referenz-PDFs | R0 | M | P R1, R2 | fertig (35b8fe7), F-08 entschieden: Typst (Bericht `docs/spikes/WP-R6a/BERICHT.md`; Übergabe `docs/handoff/WP-R6a.md`) |
-| | R6 | Server-Renderer und Layout-Engine (Pflicht, Linux), geteilt in R6b–R6e | R6a, R2 | L | | R6b und R6c fertig, R6d und R6e offen (`docs/handoff/WP-R6-PLAN.md`) |
+| | R6 | Server-Renderer und Layout-Engine (Pflicht, Linux), geteilt in R6b–R6e | R6a, R2 | L | | R6b, R6c und R6d fertig, R6e offen (`docs/handoff/WP-R6-PLAN.md`) |
 | | R6b | Typst-Werkzeugkette, Factur-X-Metadatenschritt, Standardlayout | R6a, R2 | M | | fertig (6e6c898, CI-Lauf 46029049038; Übergabe `docs/handoff/WP-R6b.md`) |
 | | R6c | Render-Job `invoice.render`, Speicherung, PDF-Download | R6b | M | | fertig (12188bb, CI-Lauf 46046345610; Übergabe `docs/handoff/WP-R6c.md`) |
-| | R6d | Layoutmodell V1, Parameter, Vorschau | R6c | M | | offen, **nächster Schritt** |
+| | R6d | Layoutmodell V1, Parameter, Vorschau | R6c | M | | fertig (88dc278, CI-Lauf 46057812654; Übergabe `docs/handoff/WP-R6d.md`) |
 | | R6e | Import vorhandener Layouts | R6d, Importformat (F-09, F-31) | M | | offen |
 | | R7 | Ausgaben, EÜR/USt-Berichte | R3 | L | | offen |
 | | F6 | Rechnungs-UI (erstellen, bearbeiten, finalisieren, PDF, Zahlungen, Berichte) | F2, R2, R6 | L | P R3.. | offen |
@@ -222,7 +222,7 @@ Grundsatz: Hub ohne Swift-App nutzbar (`AGENTS.md`); die Rechnungsphase ist dahe
 
 **WP-R6 Server-Renderer und Layout-Engine (L).** Linux-tauglicher Renderer als Worker-Job (`invoice.render`, Lease wie ADR 0006), Layoutmodell (Import vorhandener Layouts), Platzhalter, Seitenumbruch, Standardlayouts. Akzeptanz: Referenz-Layoutfälle aus R6a bestehen mit festgelegter Toleranz; Finalisieren speichert PDF + Layoutversion + Inhalt-Hash (nie neu erzeugt); zwei Worker erzeugen genau ein PDF je Beleg. Abh.: R6a, R2.
 
-*Status WP-R6: R6b fertig (27.11.2026, `docs/handoff/WP-R6b.md`): Typst-Werkzeugkette und Standardlayout 1 ohne Datenbank. Renderer Typst (ADR 0008). R6c fertig (27.11.2026, `docs/handoff/WP-R6c.md`): Render-Job `invoice.render` (in der Finalisieren-Transaktion eingereiht, Lease, nur eingefrorene Daten), unveränderliche Zustandstabelle `invoice_render_states`, PDF-Download `GET …/documents/{id}/pdf` und `POST …/render`; ein fertiges PDF wird nie neu erzeugt, keine Löschfunktion entfernt eine referenzierte Beleg-Datei. Nächster Schritt R6d (Layoutmodell V1), danach R6e (Layout-Import) mit Akzeptanzkriterien in `docs/handoff/WP-R6-PLAN.md`; offen F-37 (Reihenfolge zu R5), F-38 (Wortlaut der Steuerhinweise).*
+*Status WP-R6: R6b fertig (27.11.2026, `docs/handoff/WP-R6b.md`): Typst-Werkzeugkette und Standardlayout 1 ohne Datenbank. Renderer Typst (ADR 0008). R6c fertig (27.11.2026, `docs/handoff/WP-R6c.md`): Render-Job `invoice.render` (in der Finalisieren-Transaktion eingereiht, Lease, nur eingefrorene Daten), unveränderliche Zustandstabelle `invoice_render_states`, PDF-Download `GET …/documents/{id}/pdf` und `POST …/render`; ein fertiges PDF wird nie neu erzeugt, keine Löschfunktion entfernt eine referenzierte Beleg-Datei. R6d fertig (27.11.2026, `docs/handoff/WP-R6d.md`): Layouts als versionierte Mandantendaten (Parameter nach FRONTEND.md Abschnitt 13 Stufe 1), geprüfter Logo-Upload, Zuordnung je Belegart/Serie mit beim Finalisieren eingefrorener Version, Vorschau eines Entwurfs über den Worker (`invoice.preview`, 15 Minuten in der Datenbank, ADR 0008 Nachtrag). Nächster Schritt R6e (Layout-Import, blockiert durch F-09/F-31) mit Akzeptanzkriterien in `docs/handoff/WP-R6-PLAN.md`; offen F-37 (Reihenfolge zu R5), F-38 (Wortlaut der Steuerhinweise).*
 
 **WP-R7 Ausgaben und Berichte (L).** EÜR/USt serverseitig, Vergleich mit Referenzwerten der bisherigen App (synthetische Fälle). Abh.: R3.
 
