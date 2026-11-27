@@ -22,25 +22,29 @@ Stand 27.11.2026, auf `main`. Geprüft gegen **paperless-ngx 3.5.1** (Image `ghc
 Bestätigt ohne Änderung: Original-Download (`?original=true`) liefert die neueste Fassung, `?version=<id>` eine ältere; die Archivdatei der neuesten Fassung ist der Standard-Download; Export-Manifest und API stimmen bei Titel (Umlaute, ß), Tags, Feldern, Notizen, ASN, Datum überein (E2E: gleiche Originalhashes, gleiche Anzahl Tags/Felder/Feldwerte in beiden Mandanten).
 
 ## Sicherheitsprüfung D6 (AK-PA1-3)
+Durchgeführt vom umsetzenden Agenten; **ein unabhängiger Reviewer-Lauf steht weiter aus.**
+
 | Bereich | Ergebnis | Beleg |
 | --- | --- | --- |
 | SSRF | `http` ohne Entwicklungsschalter, Loopback, `localhost`, Link-Local (Metadaten), `::1` -> 422 mit Grund; Allowlist und Auflösung/Rebinding-Schutz aus H10 unverändert | E2E gegen Hub ohne `DMS_IMPORT_INSECURE_DEV` (5 Prüfungen), `testAKD9_endpointPolicy` |
 | TLS | Zertifikatsprüfung scheitert gegen selbstsigniertes Zertifikat mit `source_tls_failed`, kein Aufruf erreicht den Server | `testAKD9_tlsCertificateIsVerified`. **Offen:** die Instanz im Container spricht nur HTTP; ein Handshake gegen eine echte Instanz hinter TLS ist nicht gelaufen. Eine Instanz mit eigener Zertifizierungsstelle (typisch im Heimnetz) scheitert heute immer (kein eigener Aussteller einstellbar), siehe „Offen“ |
-| Weiterleitungen | werden nicht verfolgt, das Token geht nur an den eingetragenen Host; `next` der Seitenabfrage wird nie als URL verwendet (Seitennummer wird selbst gebildet) | `testAKD9_apiImportMatchesExportImport` (Weiterleitung -> `source_http_error`, kein Zugriff auf das Ziel), Mock liefert absichtlich eine fremdartige `next`-URL |
-| Pfade (Export) | Pfad mit `..` -> 422; Symlinks, Geschwisterverzeichnis `exp2`, Dateitausch zwischen Prüfung und Öffnen aus H10 | E2E „Export-Pfad mit .. abgelehnt“, `testAKD9_hostileExportIsContained` |
+| Weiterleitungen | werden nicht verfolgt, das Token geht nur an den eingetragenen Host; `next` der Seitenabfrage wird nie als URL verwendet (Seitennummer wird selbst gebildet) | `testAKD9_apiImportMatchesExportImport` (Weiterleitung -> `source_http_error`); zu `next`: nur durch Code belegt (`PaperlessAPISource.results`), kein eigener Test |
+| Pfade (Export) | Pfad mit `..` -> 422; Symlinks, Geschwisterverzeichnis `exp2`, Dateitausch zwischen Prüfung und Öffnen aus H10 | E2E „Export-Pfad mit .. abgelehnt“, `testAKD9_hostileExportIsContained`, `testAKH10_6_siblingDirectoryWithSamePrefixIsRejected`, `testAKH10_6_manifestSymlinkIsNeverFollowed` |
 | Geheimnis | Token nirgends im Klartext: nicht in der Datenbank (`pg_dump`), nicht in Hub- und Worker-Logs, nicht im Audit, nicht in Antworten; nach dem Lauf auch nicht mehr verschlüsselt (Befund 1) | E2E „Token nirgends im Klartext in der Datenbank“, „in keinem Log“, „Kein Lauf behielt ein Token“ |
 | Transaktion | je Dokument eine Transaktion (Dokument, Dateien, Tags, Felder, Verweis, Notizen, Text, Idempotenz-Eintrag); Abbruch, Fortsetzung, zwei Worker, Lease-Ablauf | `testAKD9_cancelThenResume`, `…twoWorkersRunEachImportExactlyOnce`, `…leaseExpiryResumesRun`; E2E: zwei Worker-Prozesse, kein Job mit mehr als einem Versuch |
 | Hash-Abweichung | untergeschobene oder beschädigte Datei wird nicht übernommen | `testAKPA1_6_*` (Original und Archiv) |
-| Rechte der Quelle | Benutzer, Gruppen und Kennwort-Hashes des Manifests werden nie gelesen (Kanarienwert); Besitzer/Rechte nicht übernommen (F-23) | `testAKD9_dryRunWritesNothingAndReports`, `…rolesTenantSeparationValidationAndSecrets` |
+| Rechte der Quelle | Benutzer, Gruppen und Kennwort-Hashes des Manifests werden nie gelesen (Kanarienwert); Besitzer/Rechte nicht übernommen (F-23) | Kanarienwert: `testAKD9_fullImportCountsHashesRelationsAndIdempotentRepeat`; Rechte nicht übernommen: `testAKD9_dryRunWritesNothingAndReports` |
 | Antwortgrößen | JSON höchstens 32 MiB, Datei höchstens `maxUploadBytes` (Content-Length und gezähltes Lesen), Manifest 128 MiB | Code; bestehende Tests `file_too_large` |
 
 ## Ausgeführt
 - `DMSImportPA1Tests` rot (32 Fehler) vor, grün nach der Umsetzung; Import-Tests gesamt 23 grün; `scripts/e2e-paperless-import.sh` grün (65 Prüfungen); volle Suite `scripts/ci.sh` auf dem Stand von bac77a2: Exit 0, 499 Tests, 0 Fehler, 22 übersprungen (14 bekannte und 8 Mail-Tests, weil GreenMail unter Last nicht bereit wurde; diese 8 einzeln nachgeholt, grün). Zwei Läufe davor scheiterten bei Systemlast über 100 an je anderen zeitabhängigen Tests (`testAKD1_1_concurrentTwoInstances`, `testAKD9_apiImportMatchesExportImport` mit `connectionRequestTimeout`, `testLeaseRenewalKeepsLongJobFromSecondWorker`), alle einzeln grün.
 - Paperless-Container laufen nur während des E2E-Skripts (Name `labhub-pa1-e2e-<pid>`), das Skript entfernt Container, Netz und Datenbank.
 
+- GitHub-CI zu 38ad248 (Lauf 45984255204): grün, Backend 499 Tests, 2 übersprungen, 0 Fehler, darin die 7 Tests aus `DMSImportPA1Tests`.
+
 ## Offen / Annahmen
 - **TLS mit eigener Zertifizierungsstelle** (Heimnetz-Instanz mit selbst ausgestelltem Zertifikat): der Hub vertraut nur dem System-Zertifikatsspeicher. Entscheidung für PA3 nötig (Zertifikat einer öffentlichen Stelle verlangen, oder `DMS_IMPORT_CA_FILE` einführen). Nicht still entschieden.
 - Ältere Fassungen werden nicht importiert, nur gezählt (Entscheidung, ob sie als Dokument/Datei übernommen werden sollen, nach dem Probelauf PA3/PA6).
-- Das Manifest wird weiter komplett geladen (Grenze 128 MiB, Schätzung ca. 13 000 Dokumente, siehe `PAPERLESS-ABLOESUNG.md`), kein Stream-Parser.
+- Das Manifest wird weiter komplett geladen (Grenze 128 MiB, Schätzung rund 10 000–14 000 Dokumente, siehe `PAPERLESS-ABLOESUNG.md`), kein Stream-Parser.
 - Geprüft nur mit Version 3.5.1. Eine andere Paperless-Version kann andere Antwortformen liefern (`Accept` ist fest auf 10); PA3 muss die Version der echten Instanz mit dem Bericht abgleichen.
 - Abbildung von Währung in Geldfeldern, `documentlink`-Feldern, Regeln: unverändert wie in D6 (Probelauf entscheidet).
