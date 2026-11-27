@@ -1,6 +1,6 @@
 # Roadmap und Arbeitspakete
 
-Status: Entwurf, Stand 01.11.2026, ergänzt 25.11.2026 (Phasen 7–10; **nächste Arbeit zuerst:** PA1 und ST4; ST1 ist fertig). Reihenfolge: Kern → DMS M1 → OCR/Suche → PWA + DMS-UI → Rechnungsmodul → Verknüpfung → Hardening. Aufwand: S ≈ 1 Agent-Session, M ≈ 2–4, L ≈ 5+ (Schätzungen, keine Zusage). **P** = parallelisierbar mit den genannten WPs (kein gemeinsamer Dateibesitz: Migrationen und `contracts/openapi.yaml` nur von einem Agent zugleich ändern, `AGENTS.md` Abschnitt 7).
+Status: Entwurf, Stand 01.11.2026, ergänzt 25.11.2026 (Phasen 7–10); Statusspalte am 27.11.2026 gegen `git log` abgeglichen (je WP der Commit auf `main`; ohne Commit bleibt `offen`). **Nächste Arbeit zuerst:** PA1. Reihenfolge: Kern → DMS M1 → OCR/Suche → PWA + DMS-UI → Rechnungsmodul → Verknüpfung → Hardening. Aufwand: S ≈ 1 Agent-Session, M ≈ 2–4, L ≈ 5+ (Schätzungen, keine Zusage). **P** = parallelisierbar mit den genannten WPs (kein gemeinsamer Dateibesitz: Migrationen und `contracts/openapi.yaml` nur von einem Agent zugleich ändern, `AGENTS.md` Abschnitt 7).
 
 Statusspalte pflegen: `offen` · `in Arbeit (Agent/Branch)` · `fertig (Commit)`. Jedes WP erfüllt die Definition of Done aus `AGENTS.md` Abschnitt 8; sie wird unten nicht wiederholt. Testkennungen `AK-<WP>-<n>`.
 
@@ -10,41 +10,41 @@ Ausgangsstand (vorhanden, getestet laut `deploy/README.md`/Tests): `migrate`, `s
 
 | Phase | WP | Titel | Abh. | Größe | Parallel | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| 0 Kern | K0 | Baseline: Build/Test verifizieren, CI-Skript | – | S | P zu allen | fertig (Baseline); F-03 offen |
-| | K1 | Auth: Nutzer, Passkeys, Sitzungen, Einladung, Audit | K0 | L | P K4, D1 | offen |
-| | K2 | Mandanten, Mitgliedschaft, Rollen, Berechtigungen | K1 | M | | erledigt (Branch wp-K2, Handoff docs/handoff/WP-K2.md) |
-| | K2b | Bugfix: `GET /tenants/{tenant}` liefert Modulrechte wirksamer Module (Befund F4b) | K2, K3 | S | | umgesetzt (Branch wp-K2b, Handoff docs/handoff/WP-K2b.md) |
-| | K3 | Modul-System (`HubModule`, Aktivierung, Guard) | K2 | M | P K4, K6 | erledigt (Branch wp-K3, Handoff docs/handoff/WP-K3.md) |
-| | K4 | OpenAPI-Vertrag, Fehlerformat, Pagination, Vertragstest | K0 | M | P K1, D1 | erledigt (Branch wp-K4, Handoff docs/handoff/WP-K4.md) |
-| | K5 | Kontakte und `links` | K2, K4 | M | P K6, K7 | umgesetzt (Branch wp-K5, `docs/handoff/WP-K5.md`) |
-| | K6 | Zähler-Erweiterung (transaktional, Schlüsselraum) | K0 | S | P K3, K5 | umgesetzt (Branch wp-K6, `docs/handoff/WP-K6.md`) |
+| 0 Kern | K0 | Baseline: Build/Test verifizieren, CI-Skript | – | S | P zu allen | fertig (2ce99f6); F-03 offen |
+| | K1 | Auth: Nutzer, Passkeys, Sitzungen, Einladung, Audit | K0 | L | P K4, D1 | fertig (4ee9d63; Übergabe `docs/handoff/WP-K1.md`) |
+| | K2 | Mandanten, Mitgliedschaft, Rollen, Berechtigungen | K1 | M | | fertig (0260821; Übergabe `docs/handoff/WP-K2.md`) |
+| | K2b | Bugfix: `GET /tenants/{tenant}` liefert Modulrechte wirksamer Module (Befund F4b) | K2, K3 | S | | fertig (1ab884d; Übergabe `docs/handoff/WP-K2b.md`) |
+| | K3 | Modul-System (`HubModule`, Aktivierung, Guard) | K2 | M | P K4, K6 | fertig (83a9f4c; Übergabe `docs/handoff/WP-K3.md`) |
+| | K4 | OpenAPI-Vertrag, Fehlerformat, Pagination, Vertragstest | K0 | M | P K1, D1 | fertig (fff8f2f, 01a8722; Übergabe `docs/handoff/WP-K4.md`) |
+| | K5 | Kontakte und `links` | K2, K4 | M | P K6, K7 | fertig (435ab05, 8dbdb3d; Übergabe `docs/handoff/WP-K5.md`) |
+| | K6 | Zähler-Erweiterung (transaktional, Schlüsselraum) | K0 | S | P K3, K5 | fertig (0c9af59; Übergabe `docs/handoff/WP-K6.md`) |
 | | K7 | Events/Outbox, Webhooks | K3 | M | P K5 | offen |
-| 1 DMS M1 | D1 | ObjectStore (FS, DB, S3), `files`, Hash | K0 | M | P K1, K4 | offen |
-| | D2 | DMS-Kern: Dokumente, Upload, Stammdaten, Papierkorb | K3, K5, D1 | L | | umgesetzt (Branch wp-D2, `docs/handoff/WP-D2.md`) |
-| 2 OCR/Suche | O1 | Job-Erweiterung, Ingest-Zustandsautomat, Worker-Befehl | D2 | M | | umgesetzt (Branch wp-O1, `docs/handoff/WP-O1.md`) |
-| | O2 | OCR-Worker, Textspeicherung, Archivversion | O1 | L | P S1 (Teil) | offen |
-| | S1 | DMS-Suche (tsvector, pg_trgm, Filter) | D2 (O2 für OCR-Text) | M | P F1 | umgesetzt (Branch wp-S1, `docs/handoff/WP-S1.md`) |
+| 1 DMS M1 | D1 | ObjectStore (FS, DB, S3), `files`, Hash | K0 | M | P K1, K4 | fertig bis auf S3 (235378a; Übergabe `docs/handoff/WP-D1.md`); S3-Backend offen |
+| | D2 | DMS-Kern: Dokumente, Upload, Stammdaten, Papierkorb | K3, K5, D1 | L | | fertig (d356350; Übergabe `docs/handoff/WP-D2.md`) |
+| 2 OCR/Suche | O1 | Job-Erweiterung, Ingest-Zustandsautomat, Worker-Befehl | D2 | M | | fertig (96cbed9; Übergabe `docs/handoff/WP-O1.md`) |
+| | O2 | OCR-Worker, Textspeicherung, Archivversion | O1 | L | P S1 (Teil) | fertig (689cda0; Übergabe `docs/handoff/WP-O2.md`) |
+| | S1 | DMS-Suche (tsvector, pg_trgm, Filter) | D2 (O2 für OCR-Text) | M | P F1 | fertig (25fc02e; Übergabe `docs/handoff/WP-S1.md`) |
 | | S2 | Globale Suche im Kern | S1, K3 | M | P F2 | offen |
-| 3 PWA | F1 | PWA-Gerüst, Login, Shell | K1, K4 | M | P D2, S1 | erledigt (Branch wp-F1, Handoff docs/handoff/WP-F1.md) |
-| | F2 | Modul-Navigation, Mandantenwechsel, Einstellungen | F1, K3 | M | P S2 | offen |
+| 3 PWA | F1 | PWA-Gerüst, Login, Shell | K1, K4 | M | P D2, S1 | fertig (ba87814; Übergabe `docs/handoff/WP-F1.md`) |
+| | F2 | Modul-Navigation, Mandantenwechsel, Einstellungen | F1, K3 | M | P S2 | fertig (538637a; Übergabe `docs/handoff/WP-F2.md`) |
 | | F3 | Service Worker, Offline-Shell, Update | F1 | M | P F2, F4 | offen |
-| | F4 | DMS-UI: Upload, Liste, Detail, Suche | F2, D2, S1 | L | P F3 | umgesetzt (Branch wp-F4, Handoff docs/handoff/WP-F4.md) |
-| | F4b | PWA an Backend-Stand (Verarbeitungsstatus, Durchsuchen, Quota/Unterbrechung) und echter E2E mit OCR-Worker | F4, O2, H6 | S | | umgesetzt, echter E2E nur mit lokalem Backend-Patch grün (Branch wp-F4b, Handoff docs/handoff/WP-F4b.md) |
-| 3b DMS vertiefen | D3 | Regeln, Vorschläge, Kontakt-Matching, Duplikate | O2, S1 | L | P F4 | offen |
-| | D4 | Quellen: Mail-Ingest, Konsumordner, Share-API | O1 | L | P D3 | offen |
-| | D7 | Dokumenterkennung (alle Arten, voll: Rechnung) im Mail-Eingang und OCR-Text; Mail als Original, HTML-Text | D3, D4 | L | | umgesetzt (Branch wp-D7, `docs/handoff/WP-D7.md`) |
-| | D8 | Weitere Dokumentarten im Extraktor: Vertrag, Versicherung, Behörde/Steuer, Kontoauszug, Kassenbon mit eigenen Fakten | D7 | M | | umgesetzt (Branch wp-D8, `docs/handoff/WP-D8.md`) |
-| | D9 | Backend-Lücken der Dokumentübersicht: Summe je Währung, Quelle am Dokument, Suche mit Extraktionswerten/-filtern/Sortierung, `has_open_suggestions`, Dashboard-Zähler | D7, D4, D6, F4c | M | | umgesetzt (Branch wp-D9, `docs/handoff/WP-D9.md`) |
-| | D5 | Revisionssicherheit: Löschkonzept, Prüf-Job, Export | D2 | M | P D3, D4 | offen |
-| | D6 | Paperless-Import | D2, D3 | M | P D5 | offen |
-| | F5 | DMS-UI: Prüfen, Regeln, Stammdaten, Papierkorb | F4, D3, D5 | M | | offen |
-| | F5b | DMS-UI: Quellen-Verwaltung, API-Tokens, Scanner-Hinweis, Dashboard-Karte | F5, D4 | S | | umgesetzt (Branch wp-F5b, `docs/handoff/WP-F5b.md`) |
-| | F4c | Dokumentübersicht (alle Dokumentarten), Eingang, gegliederte Seitenleiste der App-Shell | F4, F5, F5b, D7 | M | | umgesetzt (Branch wp-F4c, `docs/handoff/WP-F4c.md`) |
-| | F4d | PWA an D8/D9: Summenzeile je Währung, Quelle (Spalte/Filter), Dashboard-Zähler aus `dms/stats`, serverseitiger Filter offene Vorschläge, Fakten je Art, Suchtreffer mit Art/Betrag | F4c, D8, D9 | S | | umgesetzt, Gate siehe Handoff (Branch wp-F4d, `docs/handoff/WP-F4d.md`) |
-| 4 Rechnung | R0 | Spike: Linux-Build Rechenkern, Testvektoren | K0 | S | P ab Phase 0 | umgesetzt (Branch wp-R0, `docs/handoff/WP-R0.md`) |
-| | R1 | Stammdaten Rechnung | K3, K5, R0 | M | | umgesetzt (Branch wp-R1, `docs/handoff/WP-R1.md`) |
-| | R2 | Belege, Berechnung, Finalisieren mit Hub-Zähler | R1, K6 | L | | umgesetzt (Branch wp-R2, `docs/handoff/WP-R2.md`) |
-| | R3 | Zahlungen, Gutschrift, Umwandlung | R2 | M | | umgesetzt (`docs/handoff/WP-R3.md`) |
+| | F4 | DMS-UI: Upload, Liste, Detail, Suche | F2, D2, S1 | L | P F3 | fertig (b70fab8; Übergabe `docs/handoff/WP-F4.md`) |
+| | F4b | PWA an Backend-Stand (Verarbeitungsstatus, Durchsuchen, Quota/Unterbrechung) und echter E2E mit OCR-Worker | F4, O2, H6 | S | | fertig (1e41b5f), echter E2E nur mit lokalem Backend-Patch grün (Übergabe `docs/handoff/WP-F4b.md`) |
+| 3b DMS vertiefen | D3 | Regeln, Vorschläge, Kontakt-Matching, Duplikate | O2, S1 | L | P F4 | fertig (47824cc, 677793e; Übergabe `docs/handoff/WP-D3.md`) |
+| | D4 | Quellen: Mail-Ingest, Konsumordner, Share-API | O1 | L | P D3 | fertig (c490b6f; Übergabe `docs/handoff/WP-D4.md`) |
+| | D7 | Dokumenterkennung (alle Arten, voll: Rechnung) im Mail-Eingang und OCR-Text; Mail als Original, HTML-Text | D3, D4 | L | | fertig (ea09a5f; Übergabe `docs/handoff/WP-D7.md`) |
+| | D8 | Weitere Dokumentarten im Extraktor: Vertrag, Versicherung, Behörde/Steuer, Kontoauszug, Kassenbon mit eigenen Fakten | D7 | M | | fertig (f6b7828, 869696a; Übergabe `docs/handoff/WP-D8.md`) |
+| | D9 | Backend-Lücken der Dokumentübersicht: Summe je Währung, Quelle am Dokument, Suche mit Extraktionswerten/-filtern/Sortierung, `has_open_suggestions`, Dashboard-Zähler | D7, D4, D6, F4c | M | | fertig (895c444; Übergabe `docs/handoff/WP-D9.md`) |
+| | D5 | Revisionssicherheit: Löschkonzept, Prüf-Job, Export | D2 | M | P D3, D4 | fertig (5d6166e, 931b374; Übergabe `docs/handoff/WP-D5.md`) |
+| | D6 | Paperless-Import | D2, D3 | M | P D5 | fertig (07cff9d; Übergabe `docs/handoff/WP-D6.md`); Prüfung gegen echte Instanz in PA1 |
+| | F5 | DMS-UI: Prüfen, Regeln, Stammdaten, Papierkorb | F4, D3, D5 | M | | fertig (285fbba; Übergabe `docs/handoff/WP-F5.md`) |
+| | F5b | DMS-UI: Quellen-Verwaltung, API-Tokens, Scanner-Hinweis, Dashboard-Karte | F5, D4 | S | | fertig (987579f; Übergabe `docs/handoff/WP-F5b.md`) |
+| | F4c | Dokumentübersicht (alle Dokumentarten), Eingang, gegliederte Seitenleiste der App-Shell | F4, F5, F5b, D7 | M | | fertig (72290d6, c479f5c; Übergabe `docs/handoff/WP-F4c.md`) |
+| | F4d | PWA an D8/D9: Summenzeile je Währung, Quelle (Spalte/Filter), Dashboard-Zähler aus `dms/stats`, serverseitiger Filter offene Vorschläge, Fakten je Art, Suchtreffer mit Art/Betrag | F4c, D8, D9 | S | | fertig (8040fa3), Gate siehe Übergabe `docs/handoff/WP-F4d.md` |
+| 4 Rechnung | R0 | Spike: Linux-Build Rechenkern, Testvektoren | K0 | S | P ab Phase 0 | fertig (2ca868d; Übergabe `docs/handoff/WP-R0.md`) |
+| | R1 | Stammdaten Rechnung | K3, K5, R0 | M | | fertig (fe32957; Übergabe `docs/handoff/WP-R1.md`) |
+| | R2 | Belege, Berechnung, Finalisieren mit Hub-Zähler | R1, K6 | L | | fertig (b2600e8, 5a168bc; Übergabe `docs/handoff/WP-R2.md`) |
+| | R3 | Zahlungen, Gutschrift, Umwandlung | R2 | M | | fertig (2938d2c; Übergabe `docs/handoff/WP-R3.md`) |
 | | R4 | Import/Export der bisherigen App | R2 | M | P R3 | offen |
 | | R5 | E-Rechnung Erzeugung (Server) | R2 | M | P R3, R4 | offen |
 | | R6a | Spike Renderer: Optionen (a)/(b)/(c) gegen Referenz-PDFs | R0 | M | P R1, R2 | offen |
@@ -53,32 +53,32 @@ Ausgangsstand (vorhanden, getestet laut `deploy/README.md`/Tests): `migrate`, `s
 | | F6 | Rechnungs-UI (erstellen, bearbeiten, finalisieren, PDF, Zahlungen, Berichte) | F2, R2, R6 | L | P R3.. | offen |
 | | F7 | Layout-Verwaltung und Designer in der PWA | F6, R6 | L | | offen |
 | 5 Verknüpfung | X1 | Beleg↔Dokument, Events, Steuerberater-Export | D5, R3 | M | | offen |
-| 6 Hardening | H1 | Lizenzen (BoringSSL), SBOM, Abhängigkeitsprüfung | K0 | M | P ab Phase 0 | offen |
-| | H2 | Backup/Restore mit Hash-Verifikation | D2 | M | | fertig, Branch wp-H2 (Handoff `docs/handoff/WP-H2.md`) |
+| 6 Hardening | H1 | Lizenzen (BoringSSL), SBOM, Abhängigkeitsprüfung | K0 | M | P ab Phase 0 | fertig bis auf Image-Pakete (f8c212c, 4160389, 476b442); OS-/Toolchain-Pakete der Images offen |
+| | H2 | Backup/Restore mit Hash-Verifikation | D2 | M | | fertig (c3c77fc; Übergabe `docs/handoff/WP-H2.md`) |
 | | H3 | Datenschutz: Export/Löschung je Kontakt/Mandant | K5, D5 | M | | offen |
 | | H4 | Update-/Swarm-Test real (Repliken, Rolling, Rollback) | K3, O2 | M | | offen |
 | | H5 | Last-/Skalierungstest (Suche, OCR-Backlog) | S1, O2 | M | | offen |
-| | H6 | Befunde Security-Review 07.11.2026 (Quota/Waisen-Blobs, merged_into-Prüfung, Idempotency-Hash bei Streams, Rate-Limit hinter Proxy, Audit-Trigger-Rechte) | O1, S1 | S | | fertig (Branch wp-H6, Übergabe `docs/handoff/WP-H6.md`) |
-| | H7 | Flaky `testTwoWorkersCompleteEachRunExactlyOnce` (Hash-Ketten-Prüfung nicht atomar) und echte YAML-Prüfung des Vertrags in `scripts/ci.sh` | D5, H6 | S | | fertig (Branch wp-H7, Übergabe `docs/handoff/WP-H7.md`) |
-| | H8 | Migrationen mit normaler Einzelrolle: `018_audit_hardening` entzog TRIGGER, `dms_021_revision` scheiterte (`permission denied for table audit_log`); Folgemigration `019_audit_trigger_privilege` und Test mit nicht-privilegierter Rolle | H6, D5 | S | | fertig (Branch wp-H8, Übergabe `docs/handoff/WP-H8.md`) |
+| | H6 | Befunde Security-Review 07.11.2026 (Quota/Waisen-Blobs, merged_into-Prüfung, Idempotency-Hash bei Streams, Rate-Limit hinter Proxy, Audit-Trigger-Rechte) | O1, S1 | S | | fertig (306a73a; Übergabe `docs/handoff/WP-H6.md`) |
+| | H7 | Flaky `testTwoWorkersCompleteEachRunExactlyOnce` (Hash-Ketten-Prüfung nicht atomar) und echte YAML-Prüfung des Vertrags in `scripts/ci.sh` | D5, H6 | S | | fertig (73cff2a; Übergabe `docs/handoff/WP-H7.md`) |
+| | H8 | Migrationen mit normaler Einzelrolle: `018_audit_hardening` entzog TRIGGER, `dms_021_revision` scheiterte (`permission denied for table audit_log`); Folgemigration `019_audit_trigger_privilege` und Test mit nicht-privilegierter Rolle | H6, D5 | S | | fertig (0d86df0; Übergabe `docs/handoff/WP-H8.md`) |
 | | H9 | PWA-Auslieferung durch das Backend (Dockerfile-Stufe, Static-Middleware, CSP/Header), Gesamtlauf Compose-Stack mit Browser-E2E, Umgebungsvariablen-Doku-Prüfung (`scripts/check-env-docs.sh`), ObjectStoreConfig-Validierung beim Start | F1, F4c, O2, D4, H8 | M | | fertig (a56d9f5; Übergabe `docs/handoff/WP-H9.md`; Replik-Proxy und Migrationsrolle nur dokumentiert) |
-| | H10 | Befunde Security-Audit 08.11.2026: Extraktor-ReDoS (Frist, Kappung, begrenzte Quantoren, `extraction_timeout`), IMAP-Zielprüfung (nur DNS-Namen, SSRF-/Port-Sperre, Rebinding-Schutz, `target_not_allowed`), Meta-Refresh in HTML-Vorschau, Pfadpräfix `exp`/`exp2` und Manifest-Race, SecretBox >= 32 Byte, IMAP-Antwortgrenzen. Offen: **H10b** (Befund 5: API-Token an Mandant binden, braucht Migration und Vertragsänderung, nach D9) | D7, D8 | M | | fertig (Branch wp-H10, Übergabe `docs/handoff/WP-H10.md`) |
-| | H11 | Codex-Review 17.11.2026, hohe Befunde: Paperless-Zahlen außerhalb von Int64 (kein Absturz), Quota für Export-ZIP und OCR-Archivdatei (`storage_quota_exceeded`), Dateideskriptor des Filesystem-Stores bei Abbruch/Fehler schließen | H10 | S | | fertig (Branch wp-H11, Übergabe `docs/handoff/WP-H11.md`) |
-| | H10b | API-Token an genau einen Mandanten binden (Befund 5): `api_tokens.tenant_id` (Migration `dms_026_api_token_tenant`, Expand, nullable, Backfill bei genau einer Mitgliedschaft), Prüfung bei jeder Nutzung (fremder Mandant 404 `not_found`, ungebundenes Token 401 `api_token_unbound`), Vertrag und i18n. Contract-Schritt (NOT NULL) offen | H10, D4 | S | | fertig (Branch wp-H10b, `docs/handoff/WP-H10b.md`) |
-| | H12 | Codex-Befunde 7 und 10: Idempotency-Key mit Lease (`locked_at`, Takeover nach Ablauf, `executeAtomic`, `purgeExpired`; Migration `021_idempotency_lease`) und `DMSModule.onActivate` stößt die Job-Kette aktiver Quellen neu an | H10 | S | | fertig (Branch wp-H12, Übergabe `docs/handoff/WP-H12.md`) |
-| | H13 | Codex-Befunde 5 und 6: Recovery-Codes-Erzeugung unter Nutzerzeilen-Sperre, Passkey-Login mit `FOR UPDATE` auf der Credential-Zeile (Zaehler faellt nie zurueck) | H12 | S | | fertig (Branch wp-H13, Uebergabe `docs/handoff/WP-H13.md`) |
-| | H14 | Codex-Befunde 8 und 4: OCR-Retry nach Quarantäne durch Absturzschleife (Item `ocr_queued` mit Job `failed_permanent` gilt als fehlgeschlagen, Status `failed`/`lease_expired`) und generische Link-Route schützt `dms.document` (Modul aktiv, Mandant, Papierkorb 409, Berechtigung, Zeilensperre, `rev+1`; auch Entfernen/Rückgängig) | H10 | S | | fertig (auf main: f644e78 Schreibpfad, Leseroute Nachtrag 24.11., Übergabe `docs/handoff/WP-H14.md`) |
-| | H15 | Codex-Befund 9: DMS-Detail speichert mit der rev des Formulars (`formRev`, nur von `fillForm` gesetzt), nicht mit der vom OCR-Polling aktualisierten; 412 zeigt Konflikt und Knopf „Aktuellen Stand laden“ | H14 | S | | fertig (Branch wp-H15, Übergabe `docs/handoff/WP-H15.md`) |
-| | H16 | Lastempfindliche Tests stabilisieren: `testIdempotencyMiddlewareParallelRunsWorkOnce` (Test-Fixture legte `idempotency_keys` ohne `locked_at` an, Takeover-Pfad lieferte 500 unter Last; jetzt echte Migrationen) und `testHugeInputIsBounded` (Wanduhr-Frist unter Last; jetzt Zeichenbudget deterministisch, Produktfrist unverändert) | H12, H10 | S | | fertig (Branch wp-H16, Übergabe `docs/handoff/WP-H16.md`) |
-| | H17 | Codex-Befund 8 (Rest): Scheitert ein `dms.ocr`-Job endgültig (Absturzschleife im Kern, Versuche erschöpft, `permanent`), setzt ein Trigger auf `jobs` (Migration `dms_027_ocr_quarantine_sync`, mit Backfill) den Ingest-Eintrag in derselben Transaktion auf `failed_permanent`; Übersicht zählt `failed` statt `queued`, Banner und Retry der PWA greifen, Retry bleibt einmalig (zweiter 409). Regression `DMSH17Tests` (kontrollierte Zeit per Lease in der Datenbank) und echtes E2E `scripts/e2e-dms-ocr-failure.sh` (Backend, Postgres, Worker-Prozess, ohne Mocks), Handoff `docs/handoff/WP-H17.md` | erledigt (lokal grün) |
-| 7 Struktur | ST1 | GitHub-CI (Backend mit Postgres, PWA, Vertrag; ohne Image/Release) | – | S | P zu allen | fertig (auf main, Übergabe `docs/handoff/WP-ST1.md`) |
-|  | ST2 | Kern vom DMS-Modul entkoppeln (Job-Handler, Token-Scopes, Link-Schutz, Fehlertyp) | ST1 | M |  | fertig (auf main, Übergabe `docs/handoff/WP-ST2.md`) |
-|  | ST3 | Swift-Targets `HubCore`/`HubModule*` (F-14) | ST2 | M | nicht parallel zu Backend-WPs | fertig (auf main, Übergabe `docs/handoff/WP-ST3.md`) |
-|  | ST4 | PWA Darstellung: System/Hell/Dunkel mit Einstellungsseite | – | S | P ST1–ST3 | fertig (mit ST7, Übergabe `docs/handoff/WP-ST7.md`) |
+| | H10 | Befunde Security-Audit 08.11.2026: Extraktor-ReDoS (Frist, Kappung, begrenzte Quantoren, `extraction_timeout`), IMAP-Zielprüfung (nur DNS-Namen, SSRF-/Port-Sperre, Rebinding-Schutz, `target_not_allowed`), Meta-Refresh in HTML-Vorschau, Pfadpräfix `exp`/`exp2` und Manifest-Race, SecretBox >= 32 Byte, IMAP-Antwortgrenzen. Offen: **H10b** (Befund 5: API-Token an Mandant binden, braucht Migration und Vertragsänderung, nach D9) | D7, D8 | M | | fertig (fd5e8a7, 9eabc3f als H10a; Übergabe `docs/handoff/WP-H10.md`) |
+| | H11 | Codex-Review 17.11.2026, hohe Befunde: Paperless-Zahlen außerhalb von Int64 (kein Absturz), Quota für Export-ZIP und OCR-Archivdatei (`storage_quota_exceeded`), Dateideskriptor des Filesystem-Stores bei Abbruch/Fehler schließen | H10 | S | | fertig (203fe0f; Übergabe `docs/handoff/WP-H11.md`) |
+| | H10b | API-Token an genau einen Mandanten binden (Befund 5): `api_tokens.tenant_id` (Migration `dms_026_api_token_tenant`, Expand, nullable, Backfill bei genau einer Mitgliedschaft), Prüfung bei jeder Nutzung (fremder Mandant 404 `not_found`, ungebundenes Token 401 `api_token_unbound`), Vertrag und i18n. Contract-Schritt (NOT NULL) offen | H10, D4 | S | | fertig (6b5d93e; `docs/handoff/WP-H10b.md`); Contract-Schritt (NOT NULL) offen |
+| | H12 | Codex-Befunde 7 und 10: Idempotency-Key mit Lease (`locked_at`, Takeover nach Ablauf, `executeAtomic`, `purgeExpired`; Migration `021_idempotency_lease`) und `DMSModule.onActivate` stößt die Job-Kette aktiver Quellen neu an | H10 | S | | fertig (d12d546; Übergabe `docs/handoff/WP-H12.md`) |
+| | H13 | Codex-Befunde 5 und 6: Recovery-Codes-Erzeugung unter Nutzerzeilen-Sperre, Passkey-Login mit `FOR UPDATE` auf der Credential-Zeile (Zaehler faellt nie zurueck) | H12 | S | | fertig (c9f222c; Übergabe `docs/handoff/WP-H13.md`) |
+| | H14 | Codex-Befunde 8 und 4: OCR-Retry nach Quarantäne durch Absturzschleife (Item `ocr_queued` mit Job `failed_permanent` gilt als fehlgeschlagen, Status `failed`/`lease_expired`) und generische Link-Route schützt `dms.document` (Modul aktiv, Mandant, Papierkorb 409, Berechtigung, Zeilensperre, `rev+1`; auch Entfernen/Rückgängig) | H10 | S | | fertig (f644e78, af8b90a; Übergabe `docs/handoff/WP-H14.md`) |
+| | H15 | Codex-Befund 9: DMS-Detail speichert mit der rev des Formulars (`formRev`, nur von `fillForm` gesetzt), nicht mit der vom OCR-Polling aktualisierten; 412 zeigt Konflikt und Knopf „Aktuellen Stand laden“ | H14 | S | | fertig (89c18e6; Übergabe `docs/handoff/WP-H15.md`) |
+| | H16 | Lastempfindliche Tests stabilisieren: `testIdempotencyMiddlewareParallelRunsWorkOnce` (Test-Fixture legte `idempotency_keys` ohne `locked_at` an, Takeover-Pfad lieferte 500 unter Last; jetzt echte Migrationen) und `testHugeInputIsBounded` (Wanduhr-Frist unter Last; jetzt Zeichenbudget deterministisch, Produktfrist unverändert) | H12, H10 | S | | fertig (0e902d1; Übergabe `docs/handoff/WP-H16.md`) |
+| | H17 | Codex-Befund 8 (Rest): Scheitert ein `dms.ocr`-Job endgültig (Absturzschleife im Kern, Versuche erschöpft, `permanent`), setzt ein Trigger auf `jobs` (Migration `dms_027_ocr_quarantine_sync`, mit Backfill) den Ingest-Eintrag in derselben Transaktion auf `failed_permanent`; Übersicht zählt `failed` statt `queued`, Banner und Retry der PWA greifen, Retry bleibt einmalig (zweiter 409). Regression `DMSH17Tests` (kontrollierte Zeit per Lease in der Datenbank) und echtes E2E `scripts/e2e-dms-ocr-failure.sh` (Backend, Postgres, Worker-Prozess, ohne Mocks), Handoff `docs/handoff/WP-H17.md` | H14 | S | | fertig (1738d15; Übergabe `docs/handoff/WP-H17.md`) |
+| 7 Struktur | ST1 | GitHub-CI (Backend mit Postgres, PWA, Vertrag; ohne Image/Release) | – | S | P zu allen | fertig (b07afd5; Übergabe `docs/handoff/WP-ST1.md`) |
+|  | ST2 | Kern vom DMS-Modul entkoppeln (Job-Handler, Token-Scopes, Link-Schutz, Fehlertyp) | ST1 | M |  | fertig (7f53cff; Übergabe `docs/handoff/WP-ST2.md`) |
+|  | ST3 | Swift-Targets `HubCore`/`HubModule*` (F-14) | ST2 | M | nicht parallel zu Backend-WPs | fertig (c913d79; Übergabe `docs/handoff/WP-ST3.md`) |
+|  | ST4 | PWA Darstellung: System/Hell/Dunkel mit Einstellungsseite | – | S | P ST1–ST3 | fertig mit ST7 (488f6f6; Übergabe `docs/handoff/WP-ST7.md`) |
 |  | ST5 | PWA Grundbausteine: Fehlertexte, Versions-/Fähigkeitsprüfung, Betreiber-Modulschalter | ST4 | M | P ST2 | offen |
-|  | ST6 | PWA-Namen: „LAB hub“, Module „docs“ und „invoice“ (F-01) | – | S | P ST1–ST3 | fertig (Übergabe `docs/handoff/WP-ST6.md`) |
-|  | ST7 | PWA-Redesign nach Vorbild TimeTrack, Akzentfarbe je Benutzer | ST4 | M |  | umgesetzt, Abnahme durch den Nutzer offen (Übergabe `docs/handoff/WP-ST7.md`) |
-| 8 Scan-Bridge | BR1 | Hub: Scan-Aufträge, Geräte, Bridge-Routen, Scope und Rechte | ST2 | M |  | fertig (27.11.2026) |
+|  | ST6 | PWA-Namen: „LAB hub“, Module „docs“ und „invoice“ (F-01) | – | S | P ST1–ST3 | fertig (171461b; Übergabe `docs/handoff/WP-ST6.md`) |
+|  | ST7 | PWA-Redesign nach Vorbild TimeTrack, Akzentfarbe je Benutzer | ST4 | M |  | umgesetzt (488f6f6, 1275fef), Abnahme durch den Nutzer offen (Übergabe `docs/handoff/WP-ST7.md`) |
+| 8 Scan-Bridge | BR1 | Hub: Scan-Aufträge, Geräte, Bridge-Routen, Scope und Rechte | ST2 | M |  | fertig (fa2707f, 14c16bf; Übergabe `docs/handoff/WP-BR1.md`) |
 |  | BR2 | Bridge-Dienst (SANE, sane-airscan), Container, E2E mit `test`-Gerät | BR1 | L |  | offen |
 |  | BR3 | PWA: Scanner wählen und Scan starten | BR2, ST4 | M | P BR4 | offen |
 |  | BR4 | Bridge-Betrieb, Lizenzhinweise, optionaler Ordner-Eingang (F-22) | BR2 | M | P BR3 | offen |
