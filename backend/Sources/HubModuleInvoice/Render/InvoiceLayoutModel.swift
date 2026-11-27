@@ -86,7 +86,7 @@ struct InvoiceLayoutParams: Equatable, Sendable {
                 for key in ["header", "footer"] {
                     guard let rawText = texts[key], rawText != .null else { continue }
                     guard case .string(let t) = rawText else { fail("texts." + key, "invalid"); continue }
-                    if t.count > maxText { fail("texts." + key, "too_long"); continue }
+                    if t.unicodeScalars.count > maxText { fail("texts." + key, "too_long"); continue }
                     if !unknownPlaceholders(t).isEmpty { fail("texts." + key, "unknown_placeholder"); continue }
                     if key == "header" { p.headerText = t } else { p.footerText = t }
                 }

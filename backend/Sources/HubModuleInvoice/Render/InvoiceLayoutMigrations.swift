@@ -63,12 +63,25 @@ struct CreateInvoiceLayouts: AsyncMigration {
               FOREIGN KEY (tenant_id, document_id) REFERENCES invoice_documents (tenant_id, id) ON DELETE CASCADE,
               FOREIGN KEY (tenant_id, layout_version_id) REFERENCES invoice_layout_versions (tenant_id, id) ON DELETE RESTRICT)
             """,
+            // Auch ein Worker ohne R6d (Rolling Update) kann für einen Beleg mit eingefrorener Version kein anderes Layout festschreiben.
+            """
+            CREATE OR REPLACE FUNCTION invoice_layout_state_guard() RETURNS trigger LANGUAGE plpgsql AS $$
+            BEGIN
+              IF EXISTS (SELECT 1 FROM invoice_documents d JOIN invoice_layout_versions v ON v.id = d.layout_version_id
+                         WHERE d.id = NEW.document_id AND (v.layout_id::text <> NEW.layout_key OR v.version <> NEW.layout_version)) THEN
+                RAISE EXCEPTION 'render state must use the layout version frozen on the document' USING ERRCODE = '23000';
+              END IF;
+              RETURN NEW;
+            END $$
+            """,
+            "CREATE TRIGGER invoice_layout_state_guard BEFORE INSERT ON invoice_render_states FOR EACH ROW EXECUTE FUNCTION invoice_layout_state_guard()",
             "CREATE INDEX invoice_previews_expiry ON invoice_previews (expires_at)",
             "CREATE INDEX invoice_previews_tenant ON invoice_previews (tenant_id, expires_at)"])
     }
 
     func revert(on db: any Database) async throws {
         try await run(db, [
+            "DROP TRIGGER IF EXISTS invoice_layout_state_guard ON invoice_render_states", "DROP FUNCTION invoice_layout_state_guard()",
             "DROP TABLE invoice_previews",
             "ALTER TABLE invoice_documents DROP COLUMN layout_version_id",
             "DROP TABLE invoice_layout_assignments", "DROP TABLE invoice_layout_assets", "DROP TABLE invoice_layout_versions", "DROP TABLE invoice_layouts",

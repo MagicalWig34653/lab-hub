@@ -72,6 +72,8 @@ enum InvoicePreviewJob {
                 FROM invoice_documents d WHERE d.tenant_id = \(bind: tenant) AND d.id = \(bind: id)
                 """).first() else { throw InvoiceError.notFound }
             guard try doc.decode(column: "status", as: String.self) == "draft" else { throw HubError(.conflict, "document_not_draft") }
+            // Obergrenze auch bei gleichzeitigen Aufrufen über mehrere Instanzen: Sperre je Mandant bis zum Ende der Transaktion
+            try await s.raw("SELECT pg_advisory_xact_lock(hashtextextended(\(bind: "invoice-preview:" + tenant.uuidString), 0))").run()
             try await s.raw("DELETE FROM invoice_previews WHERE tenant_id = \(bind: tenant) AND expires_at <= now()").run()
             let active = try await s.raw("SELECT count(*)::bigint AS n FROM invoice_previews WHERE tenant_id = \(bind: tenant)").first()?.decode(column: "n", as: Int64.self) ?? 0
             guard active < maxActivePerTenant else { throw HubError(.tooManyRequests, "too_many_requests") }

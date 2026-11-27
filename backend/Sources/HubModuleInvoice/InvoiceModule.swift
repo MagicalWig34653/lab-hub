@@ -66,15 +66,15 @@ public struct InvoiceModule: HubModule {
         routes.on(.POST, "documents", ":id", "render", permission: "invoice.document.finalize") { req in try await InvoiceRenderRoutes.render(req) }
         // WP-R6d: Layouts (Stammdaten), Logos, Zuordnung, Vorschau eines Entwurfs über den Worker (`invoice.preview`)
         routes.on(.GET, "layouts", permission: "invoice.master.read") { req in try await InvoiceLayouts.list(req) }
-        routes.on(.POST, "layouts", permission: "invoice.master.manage") { req in try await InvoiceLayouts.create(req) }
+        routes.on(.POST, "layouts", permission: "invoice.master.manage", body: .collect(maxSize: "64kb")) { req in try await InvoiceLayouts.create(req) }
         routes.on(.POST, "layouts", "logos", permission: "invoice.master.manage", body: .collect(maxSize: "1mb")) { req in
             try await InvoiceLayouts.uploadLogo(req) { s in try module.objectStore.get().makeStore(db: s) }
         }
         routes.on(.GET, "layouts", ":id", permission: "invoice.master.read") { req in try await InvoiceLayouts.get(req) }
-        routes.on(.POST, "layouts", ":id", "versions", permission: "invoice.master.manage") { req in try await InvoiceLayouts.createVersion(req) }
+        routes.on(.POST, "layouts", ":id", "versions", permission: "invoice.master.manage", body: .collect(maxSize: "64kb")) { req in try await InvoiceLayouts.createVersion(req) }
         routes.on(.GET, "layouts", ":id", "versions", ":version", permission: "invoice.master.read") { req in try await InvoiceLayouts.getVersion(req) }
         routes.on(.GET, "layout-assignments", permission: "invoice.master.read") { req in try await InvoiceLayouts.getAssignments(req) }
-        routes.on(.PUT, "layout-assignments", permission: "invoice.master.manage") { req in try await InvoiceLayouts.putAssignments(req) }
+        routes.on(.PUT, "layout-assignments", permission: "invoice.master.manage", body: .collect(maxSize: "64kb")) { req in try await InvoiceLayouts.putAssignments(req) }
         routes.on(.POST, "documents", ":id", "preview", permission: "invoice.document.update") { req in try await InvoicePreviewJob.create(req) }
         routes.on(.GET, "previews", ":id", permission: "invoice.document.read") { req in try await InvoicePreviewJob.get(req) }
         // WP-R3: Umwandlung, Gutschrift, Verknüpfungen, Zahlungen
