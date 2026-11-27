@@ -3287,6 +3287,54 @@ paths:
         "404": { $ref: "#/components/responses/Problem" }
         "409": { $ref: "#/components/responses/Problem" }
         "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/invoice/documents/{id}/pdf:
+    get:
+      operationId: getInvoiceDocumentPdf
+      summary: "PDF eines finalisierten Belegs (Berechtigung invoice.document.read)"
+      description: "Liefert das beim Finalisieren erzeugte PDF (PDF/A-3b, Standardlayout) aus dem Objektspeicher. Das PDF entsteht im Render-Job invoice.render des Workers (Lease, Wiederholung) und wird nie neu erzeugt oder geaendert; der ETag ist die SHA-256 der Bytes (If-None-Match: 304). Mandantengefiltert: fremder Mandant oder fremde Beleg-Id 404. 409 mit eigenem Code: document_not_final (Entwurf), render_pending (Auftrag laeuft, Header Retry-After), render_failed (Auftrag endgueltig fehlgeschlagen, mit POST render neu anstossbar), render_not_started (vor WP-R6c finalisiert, mit POST render anstossbar). Dateiname aus der Belegnummer."
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/InvoiceMasterId" }
+        - { name: disposition, in: query, schema: { type: string, enum: [attachment, inline], default: attachment } }
+      responses:
+        "200":
+          description: PDF
+          headers:
+            ETag: { schema: { type: string }, description: "SHA-256 der Bytes in Anfuehrungszeichen" }
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        "304": { description: Unveraendert (If-None-Match passt zum ETag) }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/invoice/documents/{id}/render:
+    post:
+      operationId: renderInvoiceDocument
+      summary: "PDF-Erzeugung anstossen (Berechtigung invoice.document.finalize)"
+      description: "Idempotent und ohne Anfragekoerper. Fertiges PDF: 200 status ready, es wird nie ein zweites erzeugt. Laeuft ein Auftrag: 202 status pending, ohne neuen Auftrag. Sonst (Auftrag endgueltig fehlgeschlagen oder Beleg vor WP-R6c finalisiert): genau ein neuer Auftrag, 202 status pending. Entwurf: 409 document_not_final. Fremder Mandant 404."
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/InvoiceMasterId" }
+      responses:
+        "200":
+          description: PDF ist fertig
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoiceRenderStatus" }
+        "202":
+          description: Erzeugung laeuft oder wurde eingereiht
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoiceRenderStatus" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
   /api/v1/tenants/{tenant}/invoice/documents/{id}/convert:
     post:
       operationId: convertInvoiceDocument
@@ -3855,6 +3903,10 @@ components:
             - payment_voided
             - precondition_failed
             - recovery_session_restricted
+            - render_failed
+            - render_file_missing
+            - render_not_started
+            - render_pending
             - retention_not_expired
             - scan_bridge_offline
             - scan_command_invalid
@@ -4942,6 +4994,17 @@ components:
       properties:
         document_type_id: { type: string, format: uuid, description: "Belegtyp des neuen Entwurfs" }
         issue_date: { type: string, format: date, description: "Standard: heute (UTC, Datenbankuhr)" }
+    InvoiceRenderStatus:
+      type: object
+      required: [document_id, status]
+      properties:
+        document_id: { type: string, format: uuid }
+        status: { type: string, enum: [ready, pending] }
+        pdf_sha256: { type: string, pattern: "^[0-9a-f]{64}$", description: "Nur bei ready" }
+        layout_key: { type: string, description: "Nur bei ready" }
+        layout_version: { type: integer, description: "Nur bei ready" }
+        renderer_version: { type: string, description: "Nur bei ready, z. B. typst 0.15.1" }
+        rendered_at: { type: string, format: date-time, description: "Nur bei ready" }
     InvoiceBalance:
       type: object
       required: [document_id, currency, gross_total, paid, skonto, credited, open_balance, total_balance, payment_status, skonto_terms, allocations, credit_notes]

@@ -2184,6 +2184,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tenants/{tenant}/invoice/documents/{id}/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * PDF eines finalisierten Belegs (Berechtigung invoice.document.read)
+         * @description Liefert das beim Finalisieren erzeugte PDF (PDF/A-3b, Standardlayout) aus dem Objektspeicher. Das PDF entsteht im Render-Job invoice.render des Workers (Lease, Wiederholung) und wird nie neu erzeugt oder geaendert; der ETag ist die SHA-256 der Bytes (If-None-Match: 304). Mandantengefiltert: fremder Mandant oder fremde Beleg-Id 404. 409 mit eigenem Code: document_not_final (Entwurf), render_pending (Auftrag laeuft, Header Retry-After), render_failed (Auftrag endgueltig fehlgeschlagen, mit POST render neu anstossbar), render_not_started (vor WP-R6c finalisiert, mit POST render anstossbar). Dateiname aus der Belegnummer.
+         */
+        get: operations["getInvoiceDocumentPdf"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/invoice/documents/{id}/render": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * PDF-Erzeugung anstossen (Berechtigung invoice.document.finalize)
+         * @description Idempotent und ohne Anfragekoerper. Fertiges PDF: 200 status ready, es wird nie ein zweites erzeugt. Laeuft ein Auftrag: 202 status pending, ohne neuen Auftrag. Sonst (Auftrag endgueltig fehlgeschlagen oder Beleg vor WP-R6c finalisiert): genau ein neuer Auftrag, 202 status pending. Entwurf: 409 document_not_final. Fremder Mandant 404.
+         */
+        post: operations["renderInvoiceDocument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/tenants/{tenant}/invoice/documents/{id}/convert": {
         parameters: {
             query?: never;
@@ -2526,7 +2566,7 @@ export interface components {
              * @description Stabiler maschinenlesbarer Code
              * @enum {string}
              */
-            code: "api_token_unbound" | "bad_request" | "conflict" | "contact_merged" | "csrf_invalid" | "document_final_immutable" | "document_link_locked" | "document_linked" | "document_not_final" | "document_not_trashed" | "document_trashed" | "forbidden" | "handle_taken" | "idempotency_in_progress" | "idempotency_key_required" | "idempotency_key_reused" | "ingest_not_failed" | "internal_error" | "invalid_cursor" | "invalid_limit" | "invitation_invalid" | "last_owner" | "last_passkey" | "legal_hold" | "login_failed" | "method_not_allowed" | "module_disabled" | "module_required_by" | "module_requires" | "module_unavailable" | "not_found" | "number_conflict" | "passkey_invalid" | "payload_too_large" | "payment_allocated" | "payment_voided" | "precondition_failed" | "recovery_session_restricted" | "retention_not_expired" | "scan_bridge_offline" | "scan_command_invalid" | "scan_device_busy" | "scan_transition_invalid" | "series_in_use" | "service_unavailable" | "setup_token_invalid" | "storage_quota_exceeded" | "suggestion_decided" | "suggestion_stale" | "tax_period_overlap" | "tenant_required" | "too_many_requests" | "unauthorized" | "unsupported_media_type" | "upload_interrupted" | "validation_failed";
+            code: "api_token_unbound" | "bad_request" | "conflict" | "contact_merged" | "csrf_invalid" | "document_final_immutable" | "document_link_locked" | "document_linked" | "document_not_final" | "document_not_trashed" | "document_trashed" | "forbidden" | "handle_taken" | "idempotency_in_progress" | "idempotency_key_required" | "idempotency_key_reused" | "ingest_not_failed" | "internal_error" | "invalid_cursor" | "invalid_limit" | "invitation_invalid" | "last_owner" | "last_passkey" | "legal_hold" | "login_failed" | "method_not_allowed" | "module_disabled" | "module_required_by" | "module_requires" | "module_unavailable" | "not_found" | "number_conflict" | "passkey_invalid" | "payload_too_large" | "payment_allocated" | "payment_voided" | "precondition_failed" | "recovery_session_restricted" | "render_failed" | "render_file_missing" | "render_not_started" | "render_pending" | "retention_not_expired" | "scan_bridge_offline" | "scan_command_invalid" | "scan_device_busy" | "scan_transition_invalid" | "series_in_use" | "service_unavailable" | "setup_token_invalid" | "storage_quota_exceeded" | "suggestion_decided" | "suggestion_stale" | "tax_period_overlap" | "tenant_required" | "too_many_requests" | "unauthorized" | "unsupported_media_type" | "upload_interrupted" | "validation_failed";
             detail?: string;
             request_id: string;
             errors?: components["schemas"]["FieldError"][];
@@ -3811,6 +3851,25 @@ export interface components {
              * @description Standard: heute (UTC, Datenbankuhr)
              */
             issue_date?: string;
+        };
+        InvoiceRenderStatus: {
+            /** Format: uuid */
+            document_id: string;
+            /** @enum {string} */
+            status: "ready" | "pending";
+            /** @description Nur bei ready */
+            pdf_sha256?: string;
+            /** @description Nur bei ready */
+            layout_key?: string;
+            /** @description Nur bei ready */
+            layout_version?: number;
+            /** @description Nur bei ready, z. B. typst 0.15.1 */
+            renderer_version?: string;
+            /**
+             * Format: date-time
+             * @description Nur bei ready
+             */
+            rendered_at?: string;
         };
         InvoiceBalance: {
             /** Format: uuid */
@@ -8710,6 +8769,83 @@ export interface operations {
             404: components["responses"]["Problem"];
             409: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
+        };
+    };
+    getInvoiceDocumentPdf: {
+        parameters: {
+            query?: {
+                disposition?: "attachment" | "inline";
+            };
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                id: components["parameters"]["InvoiceMasterId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description PDF */
+            200: {
+                headers: {
+                    /** @description SHA-256 der Bytes in Anfuehrungszeichen */
+                    ETag?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+            /** @description Unveraendert (If-None-Match passt zum ETag) */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    renderInvoiceDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                id: components["parameters"]["InvoiceMasterId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description PDF ist fertig */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceRenderStatus"];
+                };
+            };
+            /** @description Erzeugung laeuft oder wurde eingereiht */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceRenderStatus"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
         };
     };
     convertInvoiceDocument: {

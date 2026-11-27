@@ -1,0 +1,40 @@
+# Handoff WP-R6c – Render-Job, Speicherung, PDF-Download
+
+Stand 27.11.2026. Status: **fertig** (Code und Tests); kein Deploy, keine Image-Veröffentlichung. Grundlage: `docs/handoff/WP-R6-PLAN.md`, ADR 0008, ADR 0003/0006, `docs/handoff/WP-R6b.md`.
+
+## Umgesetzt
+- Migration `invoice_030_render` (Modul-Migration, Expand-only, Revert vorhanden, `schema_version` unverändert): `invoice_render_states` (je Beleg höchstens eine Zeile: Mandant, Beleg, Layoutschlüssel und -version, Inhalt-Hash der Eingabe, SHA-256 des PDF, `file_id`, Rendererversion, Zeitpunkt) und `invoice_render_jobs` (jüngster Auftrag je Beleg, für Status und Wiederholung). Trigger: Zustandszeilen entstehen nur für einen **finalen** Beleg mit dessen Inhalt-Hash und nur mit einer Datei desselben Mandanten und derselben Prüfsumme; sie sind nie änderbar, löschbar oder per TRUNCATE leerbar. Der Fremdschlüssel auf `files` ist `ON DELETE RESTRICT`.
+- `Render/InvoiceRenderJob.swift`: Job `invoice.render` (Nutzlast nur Mandant und Beleg). `enqueue` läuft in der Transaktion des Aufrufers; `InvoiceDocuments.finalize` ruft es nach dem UPDATE und **vor** dem Audit-Eintrag auf: scheitert irgendein späterer Schritt, verschwindet der Job mit. Handler: Zustandszeile vorhanden → nichts tun; sonst Belegdaten über `InvoiceDocuments.fetch` (nur eingefrorene Daten), Rendern, PDF inhaltsadressiert speichern, dann in **einer** Transaktion: Lease prüfen (gleicher Abholversuch, Lease nach Datenbankuhr gültig, Zeilensperre auf dem Job), Belegzeile sperren und noch einmal prüfen, Blob-Sperre, `files` registrieren, Zustandszeile mit `ON CONFLICT DO NOTHING`, Audit. Ein Handler ohne gültige Lease schreibt nichts (`CancellationError`).
+- Fehler: `render_failed` (Typst-Fehler, auch fehlendes Zeichen in allen Schriften; der Fehlertext kann Belegtext enthalten und wird nicht protokolliert, in `jobs.last_error` steht nur der Code), `render_invalid_document`, `document_missing`, `document_not_final`, `payload_invalid` gehen ohne Wiederholung in die Quarantäne; Zeitlimit und fehlende Werkzeuge werden wie üblich dreimal versucht.
+- `Render/InvoiceRenderRoutes.swift`: `GET …/invoice/documents/{id}/pdf` (`invoice.document.read`; PDF aus dem Objektspeicher, `ETag` = SHA-256, `If-None-Match` → 304, `disposition=inline|attachment`, Dateiname aus der Belegnummer, `nosniff`, Sandbox-CSP) und `POST …/render` (`invoice.document.finalize`; idempotent: fertig 200 `ready`, läuft 202 `pending`, sonst genau ein neuer Auftrag, 202). 409-Codes: `document_not_final`, `render_pending` (mit `Retry-After`), `render_failed`, `render_not_started` (vor R6c finalisiert); 404 für fremden Mandanten und fremde oder ungültige Id.
+- `InvoiceModule` bekommt den Objektspeicher (`OBJECT_STORE*` wie das DMS) und die Haken `jobHandlers` und `workerPreflight` (`InvoiceModuleHooks.swift`). Worker-Einstellungen `RENDER_TIMEOUT_SECONDS`, `RENDER_TMPDIR`, `RENDER_TYPST`, `RENDER_QPDF`, `RENDER_FONT_DIR` (alle optional, `deploy/README.md`, `.env.example`); der Worker prüft beim Start Typst, qpdf, Schriften und Arbeitsverzeichnis.
+- Kern: `FileRecordService.lockBlob` (Sperre je Mandant und Hash für jedes Modul, das Dateien anlegt oder aufräumt). Das DMS nimmt zuerst seinen bisherigen Schlüssel `dms-blob:` (Instanzen vor R6c beim Rolling Update) und dann die Kern-Sperre; das Rechnungsmodul nimmt nur die Kern-Sperre, es entsteht kein Sperrzyklus. `DMSPurge` löscht die `files`-Zeile in einem Savepoint (`deleteFileRowIfUnreferenced`): hält ein Beleg-PDF dieselben Bytes, scheitert das Löschen am Fremdschlüssel, die Zeile und die Bytes bleiben, das DMS-Löschen gelingt trotzdem. `ProblemCatalog`: `render_*`.
+- Vertrag `contracts/openapi.yaml` (zwei Pfade, `InvoiceRenderStatus`, Fehlercodes), `pwa/src/lib/api/types.ts` neu erzeugt. Compose und Swarm: `--kinds …,invoice.render`, `RENDER_TMPDIR=/tmp`, `RENDER_TIMEOUT_SECONDS`.
+
+## Akzeptanz
+| AK | Test (`InvoiceRenderJobTests.swift`) |
+| --- | --- |
+| R6c-1 | `testAKR6c_1_twoWorkersProduceExactlyOnePDFAndOneStateRowPerDocument` (zwei Instanzen, vier Belege), `…duplicateJobsForOneDocumentStillStoreOnePDF` (vier Jobs, ein Beleg), `…staleLeaseHolderWritesNothing`, `…invalidPayloadOrUnknownDocumentIsPermanent` |
+| R6c-2 | `testAKR6c_2_rollbackDuringFinalizeLeavesNoJob` (Trigger lässt den Audit-Eintrag nach dem Einreihen scheitern: kein Job, kein Zähler verbraucht, nächste Nummer `RE-0001`), `…repeatedFinalizeCreatesOneJobOnly` |
+| R6c-3 | `testAKR6c_3_finishedPDFIsNeverRenderedOrChangedAgain` (zweiter Job mit neuer Layout-/Rendererversion rendert nicht, Zustandszeile unverändert, `POST render` legt nichts an, UPDATE/DELETE per SQL scheitern, gleicher ETag), `…failedRenderThenRetryCreatesExactlyOneResult`, `…documentFinalizedBeforeR6cCanBeRendered` |
+| R6c-4 | `InvoiceRenderAccessTests`: `…foreignTenantIs404` (beide Routen, auch Zustandszeile über die Mandantengrenze per SQL), `…permissionMatrix` (alle Rollen erlaubt/verboten, anonym 401), `…draftAndDisabledModule` |
+| R6c-5 | `InvoiceRenderFileSafetyTests`: `…dmsPurgeKeepsFileReferencedByInvoicePDF_pdfFirst|_dmsFirst` (DMS löscht Dokument mit denselben Bytes endgültig: Datei, Bytes und PDF bleiben), `…cleanupPathsAndDatabaseKeepReferencedFile` (`discardIfUnreferenced`, `removeBlobIfUnreferenced`, DELETE/TRUNCATE per SQL), `…cleanupWaitsForTransactionRegisteringTheFile` (Aufräumen wartet auf die Sperre des Render-Jobs), `…dmsBlobLockStaysCompatibleWithOlderInstances` (Rolling Update, vorher rot) |
+| R6c-6 | `InvoiceRenderWorkerE2ETests.testAKR6c_6_e2eRealWorkerRendersFinalizedDocumentAndApiDeliversPDF` (Beleg über die API, zwei echte `App worker`-Prozesse mit Typst, qpdf und Schriften, PDF über die API, Text im PDF), `…workerRefusesToStartWithoutRenderTools` |
+| Migration | `testAKR6c_migrationRevertAndReapply`, `MigrationNamesTests`; Revert-Tests R1-12, R2-14 und `ObjectStoreTests` um die neue Migration ergänzt |
+
+Tests zuerst rot: Commit `add2bb9` (17 von 18 fehlgeschlagen, 1 ohne Typst übersprungen).
+
+## Belege (27.11.2026)
+BELEGE_PLATZHALTER
+
+## Grenzen und offen
+- **Kein Neuerzeugen (F-39, neu):** Ein fertiges PDF wird nie ersetzt, auch nicht nach einem Fehler im Layout. Eine korrigierte Vorlage wirkt nur für künftige Belege; ein Korrekturweg (Stornobeleg, „PDF ungültig erklären“) und ein Löschkonzept sind nicht Teil von R6c und fachlich zu entscheiden (`docs/OFFENE-FRAGEN.md` F-39).
+- **F-37 (offen):** Belege, die vor WP-R5 finalisiert werden, behalten ein PDF ohne eingebettetes XML. R6c bettet kein XML ein (`attachment` ist `nil`). Empfehlung unverändert: R5 vor der ersten produktiven Rechnung.
+- **F-38 (offen, nicht Teil von R6c):** Wortlaut der Hinweiszeilen im Standardlayout 1.
+- Speicherquote: das PDF zählt in `files` und damit für spätere DMS-Uploads, wird aber selbst nicht gegen die Quote geprüft (eine volle Quote verhindert keine Rechnung).
+- Layout ist fest `standard`/1; die Zuordnung je Belegart und Serie, Layoutparameter und die Vorschau eines Entwurfs folgen mit R6d.
+- Beim Abruf liest die API die Bytes über den Objektspeicher des Backends (`OBJECT_STORE*`); bei `fs` müssen Backend und Worker dasselbe Volume haben (wie beim DMS).
+- Die Last der PDF-Erzeugung teilt sich der Worker mit OCR (gleiche Arten-Liste, ein Dienst); eigene Skalierung wäre ein zweiter Worker-Dienst mit `--kinds invoice.render`.
+
+## Nächster Schritt
+WP-R6d (Layoutmodell V1, Parameter, Zuordnung, Vorschau) nach `docs/handoff/WP-R6-PLAN.md`.

@@ -6,6 +6,12 @@ public struct FileRecordService: Sendable {
     package let db: any SQLDatabase
     public init(_ db: any SQLDatabase) { self.db = db }
 
+    /// WP-R6c: Sperre je (Mandant, Hash) bis zum Ende der Transaktion. Wer Bytes verwirft, weil keine `files`-Zeile auf sie zeigt, und wer eine `files`-Zeile für sie anlegt,
+    /// nimmt dieselbe Sperre (jedes Modul, das Dateien anlegt oder aufräumt): Zeile und Bytes werden nie gegeneinander gelöscht und angelegt.
+    public static func lockBlob(tenant: UUID, sha256: String, on s: any SQLDatabase) async throws {
+        try await s.raw("SELECT pg_advisory_xact_lock(hashtextextended(\(bind: "file-blob:\(tenant.uuidString):\(sha256)"), 0))").run()
+    }
+
     /// Idempotent: gleiche Bytes im selben Mandanten liefern dieselbe `files.id`.
     public func register(_ object: StoredObject, backend: ObjectStoreKind, contentType: String = "application/octet-stream") async throws -> UUID {
         let row = try await db.raw("""

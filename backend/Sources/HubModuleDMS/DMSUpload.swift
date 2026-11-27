@@ -121,8 +121,11 @@ enum DMSUpload {
     // MARK: Blob-Lebenszyklus und Quota (WP-H6)
 
     /// Sperre je (Mandant, Hash): `create` hält sie bis zum Commit, das Verwerfen nimmt sie vor der Prüfung der `files`-Zeile.
+    /// Zwei Schlüssel, immer in dieser Reihenfolge: der bisherige `dms-blob:` (Instanzen vor WP-R6c kennen nur ihn, Rolling Update) und die Sperre des Kerns,
+    /// die auch andere Module nehmen (Beleg-PDF). Andere Module nehmen nur die Kern-Sperre, daher entsteht kein Sperrzyklus.
     static func lockBlob(tenant: UUID, sha256: String, on s: any SQLDatabase) async throws {
         try await s.raw("SELECT pg_advisory_xact_lock(hashtextextended(\(bind: "dms-blob:\(tenant.uuidString):\(sha256)"), 0))").run()
+        try await FileRecordService.lockBlob(tenant: tenant, sha256: sha256, on: s)
     }
 
     static func usedBytes(tenant: UUID, on s: any SQLDatabase) async throws -> Int64 {

@@ -287,7 +287,7 @@ final class InvoiceRenderJobTests: InvoiceRenderTestBase {
         try await aEq(try await count("jobs", where: "kind = 'invoice.render' AND state = 'queued'"), 1)
         try await aEq(try await count("invoice_render_jobs", where: "document_id = '\(id)'"), 1)
         let payload = try await value("SELECT payload AS v FROM jobs WHERE kind = 'invoice.render'", as: String.self)
-        XCTAssertTrue(payload.contains(id), payload); XCTAssertTrue(payload.contains(s.w.tenantA), payload)
+        XCTAssertTrue(payload.localizedCaseInsensitiveContains(id), payload); XCTAssertTrue(payload.localizedCaseInsensitiveContains(s.w.tenantA), payload)
         XCTAssertFalse(payload.localizedCaseInsensitiveContains("Muster GmbH"), "keine Belegdaten im Job")
     }
 
@@ -561,6 +561,52 @@ final class InvoiceRenderFileSafetyTests: InvoiceRenderTestBase {
     func testAKR6c_5_dmsPurgeKeepsFileReferencedByInvoicePDF_pdfFirst() async throws { try await purgeScenario(pdfFirst: true) }
     func testAKR6c_5_dmsPurgeKeepsFileReferencedByInvoicePDF_dmsFirst() async throws { try await purgeScenario(pdfFirst: false) }
 
+    /// AK-R6c-5: Während eine Transaktion die Datei unter der Blob-Sperre des Kerns anlegt (so macht es der Render-Job), wartet das Aufräumen des DMS und
+    /// sieht danach die Zeile: Die Bytes bleiben.
+    func testAKR6c_5_cleanupWaitsForTransactionRegisteringTheFile() async throws {
+        let tenant = UUID(), store = try Self.store(db)
+        let bytes = Data("%PDF-1.4\n% synthetic race\n".utf8)
+        let stored = try await store.put(tenant: tenant, stream: ByteStream { c in c.yield(ByteBuffer(data: bytes)); c.finish() }, expectedSHA256: nil)
+        let locked = UnsafeSendableBox(false)
+        let writer = app2.db(.psql)
+        let register = Task {
+            try await writer.transaction { tx in
+                let s = try sql(tx)
+                try await FileRecordService.lockBlob(tenant: tenant, sha256: stored.key.sha256, on: s)
+                locked.value = true
+                try await Task.sleep(for: .milliseconds(700))
+                _ = try await FileRecordService(s).register(stored, backend: .db, contentType: "application/pdf")
+            }
+        }
+        try await waitFor("Sperre gehalten") { locked.value }
+        let start = Date()
+        await DMSUpload.discardIfUnreferenced(stored.key, store: store, db: app1.db(.psql), logger: Logger(label: "test"))
+        XCTAssertGreaterThan(Date().timeIntervalSince(start), 0.3, "Aufräumen muss auf die Sperre warten")
+        try await register.value
+        let present = try await store.exists(stored.key)
+        XCTAssertTrue(present)
+    }
+
+    /// Rolling Update: Instanzen vor R6c sperren je Datei nur mit dem Schlüssel `dms-blob:`; die DMS-Sperre muss ihn weiter nehmen, sonst laufen alte und neue
+    /// Instanzen beim Aufräumen und Hochladen ungesperrt nebeneinander.
+    func testAKR6c_5_dmsBlobLockStaysCompatibleWithOlderInstances() async throws {
+        let tenant = UUID(), sha = String(repeating: "a", count: 64)
+        let locked = UnsafeSendableBox(false)
+        let old = app2.db(.psql)
+        let holder = Task {
+            try await old.transaction { tx in
+                try await sql(tx).raw("SELECT pg_advisory_xact_lock(hashtextextended(\(bind: "dms-blob:\(tenant.uuidString):\(sha)"), 0))").run()
+                locked.value = true
+                try await Task.sleep(for: .milliseconds(700))
+            }
+        }
+        try await waitFor("alte Sperre gehalten") { locked.value }
+        let start = Date()
+        try await app1.db(.psql).transaction { tx in try await DMSUpload.lockBlob(tenant: tenant, sha256: sha, on: try sql(tx)) }
+        XCTAssertGreaterThan(Date().timeIntervalSince(start), 0.3, "neue Instanz muss auf die alte Sperre warten")
+        try await holder.value
+    }
+
     /// AK-R6c-5: Die Aufräumwege des DMS für unreferenzierte Bytes (`discardIfUnreferenced`, `removeBlobIfUnreferenced`) und das Löschen der `files`-Zeile selbst
     /// lassen eine vom Beleg-PDF referenzierte Datei unangetastet; der Beleg selbst ist nicht löschbar.
     func testAKR6c_5_cleanupPathsAndDatabaseKeepReferencedFile() async throws {
@@ -593,9 +639,10 @@ final class InvoiceRenderFileSafetyTests: InvoiceRenderTestBase {
         let download = try await pdf(s, id)
         XCTAssertEqual(download.status, .ok); XCTAssertEqual(sha(download.body), row.pdfSHA)
         // Der Fremdschlüssel verbietet das Löschen ausdrücklich (kein CASCADE, kein SET NULL)
-        try await aEq(try await value("""
+        let deleteRule = try await value("""
             SELECT string_agg(confdeltype::text, ',') AS v FROM pg_constraint WHERE conrelid = 'invoice_render_states'::regclass AND confrelid = 'files'::regclass
-            """, as: String?.self) ?? "", "a")
+            """, as: String?.self) ?? ""
+        XCTAssertEqual(deleteRule, "r", "RESTRICT: weder CASCADE (c) noch SET NULL (n) noch SET DEFAULT (d)")
     }
 }
 
@@ -606,7 +653,7 @@ final class InvoiceRenderFileSafetyTests: InvoiceRenderTestBase {
 final class InvoiceRenderWorkerE2ETests: InvoiceRenderTestBase {
     override var testModules: [any HubModule] { InstalledModules.all }
 
-    private func startWorker(lease: Int = 30, kinds: String = InvoiceRenderJob.kind) throws -> Process {
+    private func startWorker(lease: Int = 30, kinds: String = InvoiceRenderJob.kind, environment: [String: String] = [:], output: Pipe? = nil) throws -> Process {
         guard let bin = WorkerProcessTests.appBinary else { throw XCTSkip("App-Executable nicht gefunden (neben dem Testbundle); Mehrprozess-Test übersprungen") }
         let p = Process()
         p.executableURL = bin
@@ -617,10 +664,37 @@ final class InvoiceRenderWorkerE2ETests: InvoiceRenderTestBase {
         for (test, real) in [("LH_TEST_TYPST", "RENDER_TYPST"), ("LH_TEST_QPDF", "RENDER_QPDF"), ("LH_TEST_FONT_DIR", "RENDER_FONT_DIR"), ("LH_TEST_RENDER_TMP", "RENDER_TMPDIR")] {
             if let v = env[test] { env[real] = v }
         }
+        for (k, v) in environment { env[k] = v }
         p.environment = env
-        p.standardOutput = FileHandle.nullDevice as Any; p.standardError = FileHandle.nullDevice as Any
+        p.standardOutput = output ?? FileHandle.nullDevice as Any; p.standardError = output ?? FileHandle.nullDevice as Any
         try p.run()
         return p
+    }
+
+    /// Vorabprüfung: Fehlt Typst oder eine Schrift, beendet sich der Worker mit Status 1 und klarer Meldung (sonst liefen alle Aufträge in die Quarantäne).
+    /// Braucht keine Render-Werkzeuge.
+    func testAKR6c_6_workerRefusesToStartWithoutRenderTools() async throws {
+        for (env, expected) in [(["RENDER_TYPST": "/nonexistent/typst", "RENDER_FONT_DIR": NSTemporaryDirectory()], "Schrift fehlt"),
+                                (["RENDER_TYPST": "/nonexistent/typst"], "Werkzeug fehlt oder startet nicht")] as [([String: String], String)] {
+            let fontDir = FileManager.default.temporaryDirectory.appendingPathComponent("lh-fonts-\(UUID().uuidString)")
+            try FileManager.default.createDirectory(at: fontDir, withIntermediateDirectories: true)
+            defer { try? FileManager.default.removeItem(at: fontDir) }
+            var environment = env
+            if expected != "Schrift fehlt" {   // Schriften vorhanden (leere Dateien genügen der Vorabprüfung), nur Typst fehlt
+                for f in InvoiceRenderer.requiredFonts { FileManager.default.createFile(atPath: fontDir.appendingPathComponent(f).path, contents: Data()) }
+                environment["RENDER_FONT_DIR"] = fontDir.path
+            }
+            let pipe = Pipe()
+            let p = try startWorker(environment: environment, output: pipe)
+            defer { if p.isRunning { kill(p.processIdentifier, SIGKILL) } }
+            let end = Date().addingTimeInterval(60)
+            while p.isRunning, Date() < end { try await Task.sleep(for: .milliseconds(20)) }
+            XCTAssertFalse(p.isRunning, "Worker läuft trotz fehlender Werkzeuge")
+            XCTAssertEqual(p.terminationStatus, 1, expected)
+            try? pipe.fileHandleForWriting.close()
+            let text = String(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+            XCTAssertTrue(text.contains(expected), "\(expected): \(text.suffix(400))")
+        }
     }
 
     func testAKR6c_6_e2eRealWorkerRendersFinalizedDocumentAndApiDeliversPDF() async throws {

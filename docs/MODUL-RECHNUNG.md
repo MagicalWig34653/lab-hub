@@ -190,3 +190,16 @@ Migration `invoice_029_payments` (Expand-only, Revert vorhanden), Code `InvoiceP
 
 **Invarianten in der Datenbank:** Zuordnungen ≤ Zahlbetrag; über Rechnung abzüglich Gutschriften nur mit Kennzeichen `overpayment`; nur finale Rechnungen gleicher Währung und gleichen Mandanten; Zahlungen und Zuordnungen nie ändern oder löschen (nur Storno/Rücknahme); Systemverknüpfungen zu finalen Belegen nie ändern oder löschen. Parallele Zuordnungen serialisieren über Zeilensperren (Zahlung, dann Beleg). Annahmen und offene Punkte: `docs/handoff/WP-R3.md`.
 
+
+## 16. R6c – PDF-Erzeugung als Job, Speicherung, Download (WP-R6c, 27.11.2026)
+
+Migration `invoice_030_render` (Expand-only, Revert vorhanden), Code `Render/InvoiceRenderJob`, `Render/InvoiceRenderRoutes`, `Render/InvoiceRenderMigrations`, `InvoiceModuleHooks`. Übergabe `docs/handoff/WP-R6c.md`. Basis `/api/v1/tenants/{tenant}/invoice/`:
+
+| Route | Berechtigung | Verhalten |
+| --- | --- | --- |
+| `GET documents/{id}/pdf` | `invoice.document.read` | das beim Finalisieren erzeugte PDF (PDF/A-3b) aus dem Objektspeicher; `ETag` = SHA-256; 409 `document_not_final`, `render_pending` (mit `Retry-After`), `render_failed`, `render_not_started` |
+| `POST documents/{id}/render` | `invoice.document.finalize` | idempotent: fertig → 200 `ready`; läuft → 202 `pending`; sonst (fehlgeschlagen, vor R6c finalisiert) genau ein neuer Auftrag → 202 |
+
+**Ablauf:** `finalize` reiht den Job `invoice.render` in derselben Transaktion ein (Rollback = kein Job). Der Worker rendert nur aus den eingefrorenen Belegdaten, speichert die Bytes inhaltsadressiert, registriert sie in `files` und schreibt die Zustandszeile `invoice_render_states` (Layoutschlüssel und -version, Inhalt-Hash der Eingabe, SHA-256, `file_id`, Rendererversion). Abschluss nur als Lease-Besitzer; zwei Worker oder doppelte Jobs ergeben ein PDF und eine Zeile.
+
+**Invarianten in der Datenbank:** Zustandszeile nur für einen finalen Beleg mit dessen Inhalt-Hash und einer Datei desselben Mandanten und derselben Prüfsumme; nie ändern, löschen oder leeren; der Fremdschlüssel auf `files` ist RESTRICT, damit keine Löschfunktion (DMS-Löschen, Aufräumen unreferenzierter Bytes) eine referenzierte Beleg-Datei entfernt. **Ein fertiges PDF wird nie neu erzeugt** (F-37: Belege vor WP-R5 behalten ein PDF ohne eingebettetes XML).

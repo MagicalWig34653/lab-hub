@@ -1,6 +1,6 @@
 # Plan WP-R6 – Server-Renderer und Layout-Engine
 
-Stand 27.11.2026. Status: **R6b umgesetzt** (`docs/handoff/WP-R6b.md`), R6c bis R6e Plan. Grundlage: F-08 entschieden (Typst + Factur-X-Metadatenschritt, ADR 0008), Spike `docs/spikes/WP-R6a/BERICHT.md`, `MODUL-RECHNUNG.md` Abschnitte 5 und 14, ADR 0003/0006.
+Stand 27.11.2026. Status: **R6b und R6c umgesetzt** (`docs/handoff/WP-R6b.md`, `docs/handoff/WP-R6c.md`), R6d und R6e Plan. Grundlage: F-08 entschieden (Typst + Factur-X-Metadatenschritt, ADR 0008), Spike `docs/spikes/WP-R6a/BERICHT.md`, `MODUL-RECHNUNG.md` Abschnitte 5 und 14, ADR 0003/0006.
 
 WP-R6 (L) wird in vier Pakete geschnitten. Jedes ist einzeln testbar und pushbar.
 
@@ -11,7 +11,7 @@ WP-R6 (L) wird in vier Pakete geschnitten. Jedes ist einzeln testbar und pushbar
 | R6d | Layoutmodell V1, Parameter, Zuordnung, Vorschau | R6c | M |
 | R6e | Import vorhandener Layouts | R6d, Importformat | M |
 
-WP-F6 (Rechnungs-UI) braucht R6b–R6d; WP-F7a braucht zusätzlich R6e. Nächster Schritt: **R6c**.
+WP-F6 (Rechnungs-UI) braucht R6b–R6d; WP-F7a braucht zusätzlich R6e. Nächster Schritt: **R6d**.
 
 ## Ausgangslage im Code
 
@@ -44,7 +44,9 @@ Akzeptanz:
 
 Tests mit Typst laufen im Worker-Test-Image (Muster `scripts/ocr-container-test.sh`); ohne Typst werden sie sichtbar übersprungen, in der CI nicht.
 
-## R6c – Render-Job, Speicherung, Download
+## R6c – Render-Job, Speicherung, Download (fertig, 27.11.2026)
+
+Umsetzung und Belege: `docs/handoff/WP-R6c.md`. Abweichungen vom Plan: Zusätzlich zu `invoice_render_states` gibt es `invoice_render_jobs` (jüngster Auftrag je Beleg, für den Status von `GET …/pdf` und die Wiederholung); die Migration heißt `invoice_030_render`. Das Beleg-PDF zählt nicht gegen die DMS-Quote. Das DMS-Löschen löscht die `files`-Zeile in einem Savepoint, damit ein Beleg-PDF mit denselben Bytes das Löschen eines DMS-Dokuments nicht scheitern lässt; die Blob-Sperre gibt es jetzt auch im Kern (`FileRecordService.lockBlob`), das DMS nimmt zusätzlich weiter seinen alten Schlüssel (Rolling Update).
 
 Umfang:
 - Migration mit der nächsten freien Nummer (zuletzt `invoice_029`): `invoice_render_states` (`tenant_id`, `document_id` eindeutig, Layoutschlüssel, Layoutversion, Inhalt-Hash der Eingabe, SHA-256 des PDF, `file_id`, Renderer-Version, `created_at`), Trigger gegen UPDATE/DELETE. Testlisten für Tabellen und Reverts mitziehen.

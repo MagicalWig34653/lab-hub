@@ -78,7 +78,7 @@ services:
     image: ${LABHUB_WORKER_IMAGE:-${LABHUB_IMAGE:?LABHUB_IMAGE setzen}-worker}
     # WP-D4: zusätzlich Prüf-/Export-Jobs (D5) und die Quellen Mail-Poll und Konsumordner. Mail-Passwörter werden mit SECRET_KEY entschlüsselt (Secret, nie als Wert in der Umgebung);
     # der Konsumordner ist ein Volume NUR in diesem Dienst (ADR 0003: nichts im Backend-Container): <DMS_FOLDER_ROOT>/<mandanten-uuid>/<Pfad der Quelle>, schreibbar für Nutzer 10001.
-    command: ["worker", "--kinds", "dms.ocr,dms.verify,dms.export,dms.mail.poll,dms.folder.scan,dms.import.paperless"]
+    command: ["worker", "--kinds", "dms.ocr,dms.verify,dms.export,dms.mail.poll,dms.folder.scan,dms.import.paperless,invoice.render"]
     restart: unless-stopped
     depends_on:
       migrate: { condition: service_completed_successfully }
@@ -100,6 +100,9 @@ services:
       DMS_TENANT_QUOTA_BYTES: ${DMS_TENANT_QUOTA_BYTES:-}
       DMS_DEFAULT_RETENTION_YEARS: ${DMS_DEFAULT_RETENTION_YEARS:-}
       OCR_TMPDIR: /tmp
+      # WP-R6c: PDF-Erzeugung der Belege (Typst, qpdf, Schriften liegen im Worker-Image); Arbeitsverzeichnis auf tmpfs
+      RENDER_TMPDIR: /tmp
+      RENDER_TIMEOUT_SECONDS: ${RENDER_TIMEOUT_SECONDS:-60}
       OCR_TIMEOUT_SECONDS: ${OCR_TIMEOUT_SECONDS:-600}
       OCR_MEMORY_MB: ${OCR_MEMORY_MB:-4096}
       OCR_MAX_PAGES: ${OCR_MAX_PAGES:-300}

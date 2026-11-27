@@ -6,11 +6,20 @@ import HubCore
 // WP-R1 Rechnungsmodul, Stammdaten (ADR 0004, MODUL-RECHNUNG.md). HubModule `invoice`, Routen unter /api/v1/tenants/{tenant}/invoice/…,
 // Berechtigungen `invoice.master.read|manage`. Das Modul nutzt den Kern nur über dessen Dienste (CounterService, AuditLog, IdempotencyService).
 // WP-R2: Belege, Berechnung und Finalisieren; die Berechtigungen `invoice.document.*` deklariert das Modul selbst (nicht mehr der Kernkatalog).
+// WP-R6c: Render-Job und PDF-Download (`Render/`), Haken für Worker (`InvoiceModuleHooks.swift`).
 
 public struct InvoiceModule: HubModule {
     public let key = "invoice"
+    /// WP-R6c: Objektspeicher für die Auslieferung der Beleg-PDF (wie das DMS aus `OBJECT_STORE*`); ein ungültiger Wert wirkt erst beim Abruf (500), nicht beim Start.
+    let objectStore: Result<ObjectStoreConfig, ConfigError>
 
-    public init() {}
+    public init(objectStore: ObjectStoreConfig? = nil, environment: [String: String] = ProcessInfo.processInfo.environment) {
+        if let objectStore { self.objectStore = .success(objectStore) } else {
+            do { self.objectStore = .success(try ObjectStoreConfig.fromEnvironment(environment)) }
+            catch let e as ConfigError { self.objectStore = .failure(e) }
+            catch { self.objectStore = .failure(ConfigError(description: "OBJECT_STORE ungültig")) }
+        }
+    }
 
     /// Lesen: Buchhaltung, Mitglied, Steuerberater (MODUL-RECHNUNG nennt keine feinere Rollenmatrix; Annahme, siehe docs/handoff/WP-R1.md).
     /// Schreiben: Buchhaltung und Owner. `customer_viewer` hat keinen Zugriff auf Stammdaten (Bankdaten, Preise).
@@ -27,11 +36,12 @@ public struct InvoiceModule: HubModule {
          PermissionDefinition("invoice.payment.write", roles: [.accountant])]
     }
 
-    public var migrations: [any Migration] { [CreateInvoiceMaster(), CreateInvoiceDocuments(), CreateInvoicePayments()] }
+    public var migrations: [any Migration] { [CreateInvoiceMaster(), CreateInvoiceDocuments(), CreateInvoicePayments(), CreateInvoiceRender()] }
 
     public var navigation: [NavigationItem] { [NavigationItem(key: "invoice", labelKey: "nav.invoice", path: "/invoice", permission: "invoice.master.read")] }
 
     public func registerRoutes(_ routes: ModuleRoutes) throws {
+        let module = self
         routes.on(.GET, "settings", permission: "invoice.master.read") { req in try await InvoiceSettings.read(req) }
         routes.on(.PUT, "settings", permission: "invoice.master.manage") { req in try await InvoiceSettings.replace(req) }
         for spec in InvoiceMasterSpec.all {
@@ -48,6 +58,11 @@ public struct InvoiceModule: HubModule {
         routes.on(.PATCH, "documents", ":id", permission: "invoice.document.update") { req in try await InvoiceDocuments.update(req) }
         routes.on(.DELETE, "documents", ":id", permission: "invoice.document.update") { req in try await InvoiceDocuments.delete(req) }
         routes.on(.POST, "documents", ":id", "finalize", permission: "invoice.document.finalize") { req in try await InvoiceDocuments.finalize(req) }
+        // WP-R6c: PDF des finalen Belegs (Render-Job `invoice.render`)
+        routes.on(.GET, "documents", ":id", "pdf", permission: "invoice.document.read") { req in
+            try await InvoiceRenderRoutes.pdf(req) { s in try module.objectStore.get().makeStore(db: s) }
+        }
+        routes.on(.POST, "documents", ":id", "render", permission: "invoice.document.finalize") { req in try await InvoiceRenderRoutes.render(req) }
         // WP-R3: Umwandlung, Gutschrift, Verknüpfungen, Zahlungen
         routes.on(.POST, "documents", ":id", "convert", permission: "invoice.document.create") { req in try await InvoiceLinks.convert(req) }
         routes.on(.POST, "documents", ":id", "credit-note", permission: "invoice.document.create") { req in try await InvoiceLinks.creditNote(req) }

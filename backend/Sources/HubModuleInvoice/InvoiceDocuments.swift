@@ -397,6 +397,8 @@ enum InvoiceDocuments {
                     WHERE tenant_id = \(bind: tenant) AND id = \(bind: id)
                     """).run()
             } catch let e as any DatabaseError where e.isConstraintFailure { throw HubError(.conflict, "number_conflict") }
+            // WP-R6c: PDF-Erzeugung in derselben Transaktion einreihen: scheitert irgendein späterer Schritt, verschwindet der Job mit (kein Job ohne finalen Beleg)
+            try await InvoiceRenderJob.enqueue(document: id, tenant: tenant, on: s)
             try await AuditLog.record(AuditEvent(action: "invoice.document.finalized", actor: actor, tenant: tenant, subjectType: "invoice.document", subjectID: id.uuidString, requestID: requestID), on: s)
             return try await fetch(id, tenant: tenant, on: s)
         }

@@ -205,8 +205,8 @@ enum DMSPurge {
             var removable: [String] = []
             for fid in fileIDs {
                 if try await s.raw("SELECT 1 AS x FROM dms_document_files WHERE file_id = \(bind: fid)").first() == nil,
-                   let gone = try await s.raw("DELETE FROM files WHERE id = \(bind: fid) AND tenant_id = \(bind: tenant) RETURNING sha256").first() {
-                    removable.append(try gone.decode(column: "sha256", as: String.self))
+                   let sha = try await deleteFileRowIfUnreferenced(fid, tenant: tenant, on: s) {
+                    removable.append(sha)
                 }
             }
             let purgedAt = try await s.raw("SELECT purged_at FROM dms_deletion_log WHERE tenant_id = \(bind: tenant) AND document_id = \(bind: id)").first()?.decode(column: "purged_at", as: Date.self) ?? Date()
@@ -220,6 +220,20 @@ enum DMSPurge {
             catch { logger.warning("purge blob cleanup failed", metadata: ["error": .string(String(describing: type(of: error)))]) }
         }
         return DMSPurgeOut(document_id: id, purged_at: tx.out.purged_at, files_removed: tx.out.files_removed, blobs_removed: removed)
+    }
+
+    /// WP-R6c: Dieselbe `files`-Zeile kann auch ein anderes Modul referenzieren (Beleg-PDF des Rechnungsmoduls, gleiche Bytes). Dessen Fremdschlüssel verbietet das Löschen;
+    /// der Versuch läuft deshalb in einem Savepoint. Scheitert er am Fremdschlüssel, bleiben Zeile und Datei bestehen und die Transaktion des Löschens intakt (Rückgabe nil).
+    static func deleteFileRowIfUnreferenced(_ fid: UUID, tenant: UUID, on s: any SQLDatabase) async throws -> String? {
+        try await s.raw("SAVEPOINT dms_file_delete").run()
+        do {
+            let gone = try await s.raw("DELETE FROM files WHERE id = \(bind: fid) AND tenant_id = \(bind: tenant) RETURNING sha256").first()
+            try await s.raw("RELEASE SAVEPOINT dms_file_delete").run()
+            return try gone?.decode(column: "sha256", as: String.self)
+        } catch let e as any DatabaseError where e.isConstraintFailure {
+            try await s.raw("ROLLBACK TO SAVEPOINT dms_file_delete").run()
+            return nil
+        }
     }
 
     /// Löscht die Bytes nur, wenn im Mandanten keine `files`-Zeile auf (Mandant, Hash) zeigt (unter der Blob-Sperre).
