@@ -25,7 +25,11 @@ Stand 27.11.2026. Status: **fertig** (Code und Tests); kein Deploy, keine Image-
 Tests zuerst rot: Commit `add2bb9` (17 von 18 fehlgeschlagen, 1 ohne Typst übersprungen).
 
 ## Belege (27.11.2026)
-BELEGE_PLATZHALTER
+- GitHub-CI auf `12188bb`, Lauf 46046345610: alle drei Jobs grün. Backend amd64: 544 Tests, 542 bestanden, 2 erwartete Übersprungene (AK-S1-7, AK-O2-5), 0 Fehler; veraPDF 3b 8 von 8; Rauchtest Laufzeit-Image ok. Renderer arm64 (Filter `InvoiceRender|PostgresTests`): 62 bestanden, 0 übersprungen; dort laufen alle R6c-Tests einschließlich E2E. PWA-Job (Vertrag, Typen, i18n, Unit- und Mock-E2E) grün.
+- E2E AK-R6c-6 in beiden CI-Jobs ausgeführt, nicht übersprungen: `testAKR6c_6_e2eRealWorkerRendersFinalizedDocumentAndApiDeliversPDF` bestanden (amd64 0,84 s, arm64 1,28 s).
+- Lokal (macOS, Postgres 17 in eigenem Container, Typst 0.15.1 und qpdf aus Homebrew, Inter 4.1 mit geprüfter Prüfsumme): volle Suite auf dem Stand vor der letzten Sperränderung 542 Tests, 14 übersprungen (Linux-/Werkzeugtests), 0 Fehler; nach der Änderung 81 betroffene Tests (Render, DMS-Löschen, Upload, Import, Quellen, OCR, Architektur) grün. PWA: `npm run check`, 116 Unit-Tests grün.
+- Rot vor Grün: `add2bb9` (17 von 18 fehlgeschlagen); zusätzlich im Gegenlesen gefunden und vorher rot: Sperrschlüssel beim Rolling Update (`testAKR6c_5_dmsBlobLockStaysCompatibleWithOlderInstances`, 0,006 s statt Warten).
+- Gegenlesen (eigener Durchgang): Objektspeicher im Handler hielt eine zweite Datenbankverbindung (Pool-Erschöpfung bei `OBJECT_STORE=db`, Tests liefen in Zeitüberschreitung) → Speicherprüfung über die Verbindung der Transaktion; Sperrschlüssel-Kompatibilität (oben); Kern nennt kein Modul (Architekturtest).
 
 ## Grenzen und offen
 - **Kein Neuerzeugen (F-39, neu):** Ein fertiges PDF wird nie ersetzt, auch nicht nach einem Fehler im Layout. Eine korrigierte Vorlage wirkt nur für künftige Belege; ein Korrekturweg (Stornobeleg, „PDF ungültig erklären“) und ein Löschkonzept sind nicht Teil von R6c und fachlich zu entscheiden (`docs/OFFENE-FRAGEN.md` F-39).
@@ -33,6 +37,7 @@ BELEGE_PLATZHALTER
 - **F-38 (offen, nicht Teil von R6c):** Wortlaut der Hinweiszeilen im Standardlayout 1.
 - Speicherquote: das PDF zählt in `files` und damit für spätere DMS-Uploads, wird aber selbst nicht gegen die Quote geprüft (eine volle Quote verhindert keine Rechnung).
 - Layout ist fest `standard`/1; die Zuordnung je Belegart und Serie, Layoutparameter und die Vorschau eines Entwurfs folgen mit R6d.
+- Bricht ein Lauf nach dem Speichern der Bytes und vor der Zustandszeile ab (Lease verloren, Absturz), bleiben die Bytes ohne `files`-Zeile liegen. Die Wiederholung erzeugt dieselben Bytes (gleiche Eingabe, gleiche Bytes, R6b) und nutzt sie über die Deduplizierung; endgültig verwaiste Bytes kostet nur Speicher, ein Aufräumlauf für den Objektspeicher fehlt (wie beim DMS).
 - Beim Abruf liest die API die Bytes über den Objektspeicher des Backends (`OBJECT_STORE*`); bei `fs` müssen Backend und Worker dasselbe Volume haben (wie beim DMS).
 - Die Last der PDF-Erzeugung teilt sich der Worker mit OCR (gleiche Arten-Liste, ein Dienst); eigene Skalierung wäre ein zweiter Worker-Dienst mit `--kinds invoice.render`.
 
