@@ -49,8 +49,8 @@ Ausgangsstand (vorhanden, getestet laut `deploy/README.md`/Tests): `migrate`, `s
 | | R5 | E-Rechnung Erzeugung (Server) | R2 | M | P R3, R4 | offen |
 | | R6a | Spike Renderer: Optionen (a)/(b)/(c) gegen Referenz-PDFs | R0 | M | P R1, R2 | fertig (35b8fe7), F-08 entschieden: Typst (Bericht `docs/spikes/WP-R6a/BERICHT.md`; Übergabe `docs/handoff/WP-R6a.md`) |
 | | R6 | Server-Renderer und Layout-Engine (Pflicht, Linux), geteilt in R6b–R6e | R6a, R2 | L | | geplant (`docs/handoff/WP-R6-PLAN.md`) |
-| | R6b | Typst-Werkzeugkette, Factur-X-Metadatenschritt, Standardlayout | R6a, R2 | M | | fertig (Commit und CI-Lauf in `docs/handoff/WP-R6b.md`; Übergabe dort) |
-| | R6c | Render-Job `invoice.render`, Speicherung, PDF-Download | R6b | M | | offen |
+| | R6b | Typst-Werkzeugkette, Factur-X-Metadatenschritt, Standardlayout | R6a, R2 | M | | fertig (6e6c898, CI-Lauf 46029049038; Übergabe `docs/handoff/WP-R6b.md`) |
+| | R6c | Render-Job `invoice.render`, Speicherung, PDF-Download | R6b | M | | offen, **nächster Schritt** |
 | | R6d | Layoutmodell V1, Parameter, Vorschau | R6c | M | | offen |
 | | R6e | Import vorhandener Layouts | R6d, Importformat (F-09, F-31) | M | | offen |
 | | R7 | Ausgaben, EÜR/USt-Berichte | R3 | L | | offen |

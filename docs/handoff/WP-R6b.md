@@ -27,6 +27,25 @@ E2E: `testE2E_finalizedDocumentFromApiRendersToPDF` (Beleg über die API anlegen
 
 Tests zuerst rot: Commit `58c1d62` (18 von 21 fehlgeschlagen, 3 ohne qpdf/Datenbank übersprungen).
 
+## Belege (27.11.2026)
+- GitHub-CI auf `6e6c898` (letzter Code-Stand), Lauf 46029049038: alle drei Jobs grün (Backend amd64 mit voller Suite und veraPDF, Renderer arm64, PWA).
+- arm64-Job desselben Laufs: 42 Tests, 0 übersprungen; veraPDF 3b 8 von 8 PASS; Rauchtest des Laufzeit-Images ok.
+- Volle Suite auf amd64 schon in Lauf 46027375220 (`e56ca3b`): 521 Tests, 0 Fehler, 2 erwartete Übersprungene (dort scheiterte nur der veraPDF-Aufruf an Dateirechten, behoben in `02417b2`).
+- Prüfsummen (AK-R6b-3), gleich auf macOS arm64, in einem linux/arm64-Container ohne Netz und in beiden CI-Jobs (der Test vergleicht mit `Tests/Fixtures/invoice-render/checksums.sha256`):
+
+```
+04b8cb0b659b0868d22bd4b65fe972de83044dc21d26d8ed44a0a31f6e6ef425  invoice.pdf
+3d6f37b9c9c3eb5cf6185cf688db3505685e4f6324493acfe0850438157f7be3  quote.pdf
+5d49a3fa330566750b5dda49212cb6f3fe9bee0c2b3a1a61f1779e5442f1ffb1  order_confirmation.pdf
+1dbb732db5d5c33650b74af72677e9f398f1463f694b718f0a1e4b681591cae9  delivery_note.pdf
+657e3437859e0272b6cb21e4392086db4e023821194aa8d705b02d0ce292edb1  credit_note.pdf
+20b558c8bce11938eeddc60b323873aad452f1f03702c93fd99d8cdbd5c747d3  invoice-xml.pdf
+33d68d6f943a42215fd65d94d0c827fa9e3a522b32cc6c29c5bc1439c6848f04  credit_note-xml.pdf
+```
+
+- Lokale Gesamtsuite (macOS, `6e6c898`, Maschine stark ausgelastet): 524 Tests, 14 übersprungen, 2 Fehler (`testAKD4_1_mailAttachmentIngestIdempotentAndSecretNeverLeaks`; `testAKH10_1_repeatedLabelsAndLongTokensStayFast` mit 2,13 s bei Grenze 2,0 s). Beide Klassen direkt danach einzeln: 15 von 15 grün. Beide Tests berühren den geänderten Code nicht.
+- Die Seitenbilder der Referenzfälle wurden angesehen (PDF, keine Oberfläche mit Hell/Dunkel).
+
 ## Gegenlesen (eigener Durchgang, 4 Befunde, alle behoben, Tests vorher rot)
 - Summenblock war nicht umbrechbar und lief bei vielen Zusatzkosten über Fußzeile und Seitenrand → bricht um, sobald er höher als 120 mm ist (`testLongSummaryStaysOnThePage`).
 - Gerundete Positionswerte konnten von der je Steuersatz gerundeten Summe abweichen, ohne dass das PDF es zeigt → Zeile „Rundungsdifferenz“ (Wortlaut: F-38).
