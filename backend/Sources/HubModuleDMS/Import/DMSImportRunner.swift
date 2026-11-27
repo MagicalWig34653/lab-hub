@@ -61,6 +61,7 @@ final class DMSImportRunner: @unchecked Sendable {
     func execute() async throws {
         refs = try await source.references()
         count("source_users", refs.userCount); count("source_groups", refs.groupCount)
+        for id in refs.trashed.sorted() { try await finding("document_in_trash_skipped", "document:\(id)"); count("documents_in_trash") }
         try await mapReferences()
         try await analyseReferences()
         try await source.pages(size: Self.pageSize) { docs, total in
@@ -299,7 +300,10 @@ final class DMSImportRunner: @unchecked Sendable {
         let ref = "document:\(doc.id)"
         if importing, try await mapped("document", doc.id) != nil { count("documents_skipped_existing"); return }
 
-        func unknown(_ what: String, _ id: Int64?, _ known: Bool) async throws { if let id, !known { try await finding("reference_unknown", "\(ref)/\(what):\(id)"); count("documents_reference_dropped") } }
+        // WP-PA1: über die API kann die Quelle „gelöscht" und „für diesen Benutzer nicht sichtbar" nicht unterscheiden: der Befund nennt die Rechte als Ursache.
+        let unknownCode = run.sourceKind == "api" ? "reference_not_visible" : "reference_unknown"
+        func unknown(_ what: String, _ id: Int64?, _ known: Bool) async throws { if let id, !known { try await finding(unknownCode, "\(ref)/\(what):\(id)"); count("documents_reference_dropped") } }
+        if doc.versionsSkipped > 0 { try await finding("document_versions_skipped", ref, "\(doc.versionsSkipped)"); count("versions_skipped", doc.versionsSkipped) }
         var typeID: UUID?, pathID: UUID?, correspondentID: UUID?
         if let t = doc.type { typeID = types[t]; try await unknown("type", t, typeID != nil) }
         if let p = doc.path {
@@ -319,7 +323,7 @@ final class DMSImportRunner: @unchecked Sendable {
         switch PL.checksumMatches(doc.checksum, original) {
         case false?: try await finding("checksum_mismatch", ref); count("documents_skipped"); return
         case nil: try await finding("file_without_checksum", ref); count("files_without_checksum")
-        case true?: break
+        case true?: count("files_checksum_verified")
         }
         // gleicher Inhalt wurde schon aus einer Paperless-Quelle übernommen (anderer Schlüssel): kein zweites Dokument
         if try await s.raw("SELECT 1 AS x FROM dms_import_items WHERE tenant_id = \(bind: tenant) AND kind = 'document' AND sha256 = \(bind: original.sha256) LIMIT 1").first() != nil {
@@ -334,8 +338,14 @@ final class DMSImportRunner: @unchecked Sendable {
             do { archive = try await source.materialize(doc, .archive, maxBytes: maxBytes) } catch let e as ImportError where e.code == "file_too_large" { archive = nil; try await finding("archive_too_large", ref) }
             if archive == nil, doc.archiveRef != nil { try await finding("archive_missing", ref) }
             if let a = archive {
-                if PL.checksumMatches(doc.archiveChecksum, a) == false { try await finding("archive_checksum_mismatch", ref); a.discard(); archive = nil }
-                else if DMSFileKind.sniff(a.head()) != .pdf { try await finding("archive_unsupported", ref); a.discard(); archive = nil }
+                // WP-PA1: die API liefert die Archivpruefsumme erst ueber die Metadaten (eine Anfrage je Dokument mit Archivdatei)
+                let archiveSum = try await source.archiveChecksum(doc)
+                switch PL.checksumMatches(archiveSum, a) {
+                case false?: try await finding("archive_checksum_mismatch", ref); a.discard(); archive = nil
+                case true?: count("files_checksum_verified")
+                case nil: count("archives_without_checksum")
+                }
+                if let a2 = archive, DMSFileKind.sniff(a2.head()) != .pdf { try await finding("archive_unsupported", ref); a2.discard(); archive = nil }
             }
         }
         defer { archive?.discard() }
@@ -487,7 +497,7 @@ final class DMSImportRunner: @unchecked Sendable {
         let action = state == "done" ? "completed" : state
         _ = try await dmsTransaction(db) { _, t in
             guard try await t.raw("""
-                UPDATE dms_imports SET state = \(bind: state), error_code = \(bind: code), report = \(bind: json)::text::jsonb, finished_at = now()
+                UPDATE dms_imports SET state = \(bind: state), error_code = \(bind: code), report = \(bind: json)::text::jsonb, finished_at = now(), secret_enc = NULL
                 WHERE tenant_id = \(bind: run.tenant) AND id = \(bind: run.id) AND state = 'running' RETURNING id
                 """).first() != nil else { return false }
             var meta: [String: AuditValue] = ["mode": .safe(run.mode)]
@@ -528,7 +538,8 @@ final class DMSImportRunner: @unchecked Sendable {
             "format": "labhub-paperless-import-report/1", "mode": run.mode, "source_kind": run.sourceKind, "state": state, "counts": counts, "findings": findings,
             "asn": ["max_seen": counts["asn_max_seen"] ?? 0, "collisions": counts["asn_collisions"] ?? 0, "counter_value": counterValue] as [String: Any],
             "rights": ["owners_seen": counts["owners_seen"] ?? 0, "source_users": counts["source_users"] ?? 0, "source_groups": counts["source_groups"] ?? 0,
-                       "imported": false, "note_code": "rights_not_imported"],
+                       "imported": false, "note_code": "rights_not_imported",
+                       "visibility_note_code": run.sourceKind == "api" ? "api_visible_to_token_user_only" : "export_complete"],
             "rule_suggestions": runner?.ruleSuggestions ?? []]
         if let code { report["error_code"] = code }
         return report

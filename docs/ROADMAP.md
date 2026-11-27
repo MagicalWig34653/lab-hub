@@ -82,7 +82,7 @@ Ausgangsstand (vorhanden, getestet laut `deploy/README.md`/Tests): `migrate`, `s
 |  | BR2 | Bridge-Dienst (SANE, sane-airscan), Container, E2E mit `test`-Gerät | BR1 | L |  | offen |
 |  | BR3 | PWA: Scanner wählen und Scan starten | BR2, ST4 | M | P BR4 | offen |
 |  | BR4 | Bridge-Betrieb, Lizenzhinweise, optionaler Ordner-Eingang (F-22) | BR2 | M | P BR3 | offen |
-| 9 Ablösung | PA1 | Paperless-Import gegen echte Instanz (lokal, erfundene Daten) und Sicherheitsprüfung | D6 | M | P ST4 | offen |
+| 9 Ablösung | PA1 | Paperless-Import gegen echte Instanz (lokal, erfundene Daten) und Sicherheitsprüfung | D6 | M | P ST4 | fertig (Übergabe `docs/handoff/WP-PA1.md`; echter E2E gegen paperless-ngx 3.5.1 mit erfundenen Daten, Commit siehe Git-Log `WP-PA1`) |
 |  | PA2 | PWA: Import anlegen, Trockenlauf, Bericht, Notizen | PA1, F2 | M |  | offen |
 |  | PA3 | Probelauf mit API-Lese-Token gegen die echte Instanz und Inventur der Eingangswege (Nutzer) | PA1, PA2, PA7 (Teil 1) | S |  | offen |
 |  | PA4 | Miniaturen (Worker, Route, Liste) | O2 | M | P PA2 | offen |
@@ -273,6 +273,8 @@ Grundlage: `docs/SCAN-BRIDGE.md`.
 Grundlage und Reihenfolge: `docs/PAPERLESS-ABLOESUNG.md`. Private Bestandsdaten gelangen nie in Repo oder Modellkontext.
 
 **WP-PA1 Import verifizieren (M).** Akzeptanz: AK-PA1-1 lokale paperless-ngx-Instanz im Container mit erfundenen Dokumenten (Skript, Version festgehalten, kein GPL-Code im Repo); PA1-2 Import aus Export **und** API vergleicht Anzahlen und Hashes, Abweichungen als Tests (rot, dann behoben); PA1-3 Sicherheitsprüfung D6 (SSRF, TLS, Pfade, Transaktion), Befunde behoben oder dokumentiert; PA1-4 API-Weg (F-34) mit einem Benutzer nur mit Leserechten: Anzahlen entsprechen dem für ihn Sichtbaren, fehlende Rechte ergeben einen klaren Befund; PA1-5 API-Version fest angefragt (`Accept: …; version=`) und gegen die geprüfte Paperless-Version getestet; PA1-6 Prüfsummen über die API belegt (falls die Quelle sie liefert) oder im Bericht als fehlend ausgewiesen, mit Weg zur Gegenprüfung; PA1-7 gespeichertes Token wird gelöscht, sobald der Lauf beendet ist (fertig, fehlgeschlagen, abgebrochen); PA1-8 Dokumente mit mehreren Fassungen: übernommen oder im Bericht gezählt.
+
+**Stand 27.11.2026:** AK-PA1-1 bis PA1-8 erledigt gegen paperless-ngx 3.5.1 (Übergabe `docs/handoff/WP-PA1.md`, E2E `scripts/e2e-paperless-import.sh`); offen für PA3: TLS mit eigener Zertifizierungsstelle und Umgang mit älteren Fassungen.
 
 **WP-PA2 Import in der PWA (M).** Akzeptanz: AK-PA2-1 Quelle wählen, Trockenlauf, Fortschritt, Abbruch, Bericht; Adresse und Token trägt der Nutzer hier ein (Passwortfeld, ohne Speichern im Browser), das Token wird nie wieder angezeigt oder protokolliert; PA2-2 Notizen am Dokument sichtbar; PA2-3 E2E gegen echtes Backend, Bilder hell und dunkel.
 

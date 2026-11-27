@@ -27,14 +27,14 @@ Einstufung: **B** blockiert die Ablösung, **P** hängt vom Probelauf ab, **S** 
 
 | Punkt | Quelle | Stufe | WP |
 | --- | --- | --- | --- |
-| Manifest- und API-Format des Imports **nie gegen eine echte Instanz geprüft** (nur synthetische Nachbildung) | Handoff D6 | B | PA1 |
-| D6 ohne Reviewer-Lauf (SSRF/TLS der REST-Quelle, Dateizugriff, Transaktion). DNS-Rebinding und interne Ziele sind seit WP-H10 abgefangen, ebenfalls ohne Reviewer-Lauf | Handoff D6, H10, Code | B | PA1 |
-| Token der REST-Quelle bleibt nach dem Lauf verschlüsselt in `dms_imports` stehen | Code | B (API-Weg) | PA1 |
-| Import fragt keine feste API-Version an; ohne Angabe liefert Paperless seine jeweilige Standardversion | Code, Paperless-API-Doku | B (API-Weg) | PA1 |
-| Mehrere Dateifassungen je Dokument (neuere Paperless-Stände) nicht berücksichtigt | Paperless-API-Doku, Code (Annahme) | P | PA1 |
+| ~~Manifest- und API-Format des Imports nie gegen eine echte Instanz geprüft~~ **erledigt 27.11.2026 (PA1):** gegen paperless-ngx 3.5.1 (API-Version 10) im lokalen Container mit erfundenen Daten, Export und API; acht Abweichungen behoben (darunter: der Export enthielt gelöschte Dokumente) (`docs/handoff/WP-PA1.md`) | Handoff D6 | erledigt | PA1 |
+| ~~D6 ohne Reviewer-Lauf~~ **Sicherheitsprüfung 27.11.2026 (PA1):** Befunde und Belege in `docs/handoff/WP-PA1.md` Abschnitt „Sicherheitsprüfung“; offen bleibt TLS gegen eine Instanz mit eigener Zertifizierungsstelle (heute nicht einstellbar) | Handoff D6, H10, Code | erledigt, Rest P | PA1, PA3 |
+| ~~Token der REST-Quelle bleibt nach dem Lauf stehen~~ **behoben (PA1, AK-PA1-7):** wird beim Ende des Laufs (fertig, fehlgeschlagen, abgebrochen) und beim Abbruch eines wartenden Laufs gelöscht | Code | erledigt | PA1 |
+| ~~Import fragt keine feste API-Version an~~ **behoben (PA1, AK-PA1-5):** `Accept: application/json; version=10` (paperless-ngx 3.5.1); Antwort 406 -> `source_api_version_unsupported` | Code, Paperless-API-Doku | erledigt | PA1 |
+| ~~Mehrere Dateifassungen je Dokument nicht berücksichtigt~~ **behoben (PA1, AK-PA1-8):** übernommen wird die neueste Fassung (wie Paperless sie anzeigt), ältere zählt der Bericht (`versions_skipped`, Befund `document_versions_skipped`); die älteren Fassungen selbst werden nicht importiert (Entscheidung für PA3/PA6 offen) | Paperless-API-Doku, Code (Annahme) | erledigt, Rest P | PA1, PA6 |
 | Keine Import-Seiten in der PWA (nur API); Notizen nur lesbar | Handoff D6 | B | PA2 |
-| Export-Manifest wird komplett geladen (Grenze 128 MiB) | D6, Code | P | PA1 messen, PA6 |
-| REST-Quelle liefert (Annahme) keine Prüfsummen; mit dem gewählten API-Weg betrifft das die Abnahme (Abschnitt 6) | D6 | B (API-Weg) | PA1 |
+| Export-Manifest wird komplett geladen (Grenze 128 MiB). Messung PA1: ca. 1,5 KiB je Dokument ohne OCR-Text, dazu Protokolleinträge (`auditlog.logentry`) und Berechtigungen; Schätzung mit Text und Protokoll rund 10 KiB je Dokument, also etwa 13 000 Dokumente bis zur Grenze (Schätzung, nicht gemessen an einem großen Bestand) | D6, Code | P | PA6 |
+| ~~REST-Quelle liefert keine Prüfsummen~~ **widerlegt (PA1, AK-PA1-6):** `versions[].checksum` (SHA-256 des Originals je Fassung) und `metadata.archive_checksum`; der Import prüft jede Datei, der Bericht zählt `files_checksum_verified`. Ältere Stände ohne Prüfsummen: `files_without_checksum` | D6 | erledigt | PA1 |
 | Besitzer/Rechte nicht übernommen (F-23), Regeln nur als Vorschläge, `documentlink`-Felder nicht unterstützt, Währung in Geldfeldern geht verloren | MODUL-DMS 10 | P | PA3 Bericht → PA6 |
 | Nur PDF, PNG, JPEG, TIFF, WebP; keine Office-/ZIP-Dateien | Handoff D2/D4 | P | PA6 |
 | Digital signierte und passwortgeschützte PDFs scheitern bei OCR; Textschicht-PDFs ohne PDF/A | Handoff O2 | P | PA6 |
@@ -54,7 +54,7 @@ Einstufung: **B** blockiert die Ablösung, **P** hängt vom Probelauf ab, **S** 
 | Schritt | WP | Wer | Fertig, wenn |
 | --- | --- | --- | --- |
 | 0 | ST1 CI | Agent | Prüfungen laufen auf GitHub |
-| 1 | PA1 Import gegen **echte paperless-ngx im lokalen Container mit erfundenen Dokumenten** (Export und API) + Sicherheitsprüfung | Agent | Abweichungen behoben; geprüfte Paperless-Version dokumentiert |
+| 1 | PA1 Import gegen **echte paperless-ngx im lokalen Container mit erfundenen Dokumenten** (Export und API) + Sicherheitsprüfung | Agent | Abweichungen behoben; geprüfte Paperless-Version dokumentiert (**erledigt 27.11.2026: paperless-ngx 3.5.1, API-Version 10**, `docs/handoff/WP-PA1.md`) |
 | 2 | PA2 Import in der PWA | Agent | Trockenlauf und Bericht ohne Kommandozeile |
 | 3 | PA7 Betrieb (Teil Probelauf: Zielrechner, Backup, Speicherbedarf) | Agent bereitet vor, **Nutzer setzt auf** | Hub läuft beim Nutzer, Restore erprobt |
 | 4 | **PA3 Probelauf** (Trockenlauf gegen die echte Instanz per API-Lese-Token, erst nach PA1 und PA2) + Inventur der Eingangswege | **Nutzer** | Bericht mit Anzahlen liegt vor; Lückenliste bewertet |

@@ -87,6 +87,8 @@ struct PaperlessAPISource: PaperlessSource {
     }
 
     static let maxJSONBytes = 32 * 1024 * 1024
+    /// API-Version von paperless-ngx 3.5.1 (`docs/PAPERLESS-ABLOESUNG.md`, geprüfte Version).
+    static let apiVersion = 10
 
     private func request(_ path: String, _ query: [(String, String)] = []) async throws -> HTTPClientResponse {
         var c = URLComponents(string: endpoint.base + path)!
@@ -95,7 +97,8 @@ struct PaperlessAPISource: PaperlessSource {
         var req = HTTPClientRequest(url: url)
         req.method = .GET
         req.headers.add(name: "Authorization", value: "Token \(token)")
-        req.headers.add(name: "Accept", value: "application/json")
+        // WP-PA1: feste, gegen eine echte Instanz geprüfte API-Version; ohne Angabe antwortet Paperless mit seiner jeweiligen Standardversion, bei Abweichung mit 406.
+        req.headers.add(name: "Accept", value: "application/json; version=\(Self.apiVersion)")
         req.headers.add(name: "User-Agent", value: "labhub-import")
         let response: HTTPClientResponse
         do { response = try await client.execute(req, timeout: .seconds(120)) }
@@ -111,7 +114,9 @@ struct PaperlessAPISource: PaperlessSource {
         }
         switch response.status.code {
         case 200: return response
-        case 401, 403: throw ImportError("source_auth_failed")
+        case 401: throw ImportError("source_auth_failed")
+        case 403: throw ImportError("source_permission_denied")      // WP-PA1: Token gültig, dem Benutzer fehlt das Leserecht (nicht ein falsches Token)
+        case 406: throw ImportError("source_api_version_unsupported")
         case 404: throw ImportError("source_not_found")
         default: throw ImportError("source_http_error")
         }
@@ -190,6 +195,12 @@ struct PaperlessAPISource: PaperlessSource {
         d.owner = PL.int(f["owner"])
         d.originalName = PL.str(f["original_file_name"])
         d.archiveAvailable = PL.str(f["archived_file_name"]) != nil
+        // WP-PA1: `versions` (neuere Staende): neueste Fassung = die, die Paperless anzeigt und ausliefert; ihre Pruefsumme (SHA-256) gilt fuer den Download des Originals.
+        let versions = ((f["versions"] as? [Any]) ?? []).compactMap { $0 as? [String: Any] }
+        if let latest = versions.max(by: { (PL.str($0["added"]) ?? "", PL.int($0["id"]) ?? 0) < (PL.str($1["added"]) ?? "", PL.int($1["id"]) ?? 0) }) {
+            d.checksum = PL.str(latest["checksum"])
+            d.versionsSkipped = max(0, versions.count - 1)
+        }
         d.notes = ((f["notes"] as? [Any]) ?? []).compactMap { n in
             guard let o = n as? [String: Any], let text = PL.str(o["note"]) else { return nil }
             return PLNote(id: PL.int(o["id"]), text: text, created: o["created"] as? String)
@@ -199,6 +210,13 @@ struct PaperlessAPISource: PaperlessSource {
             return PLFieldValue(field: field, value: PLValue(native: o["value"]))
         }
         return d
+    }
+
+    /// WP-PA1: Archivpruefsumme (SHA-256) aus den Metadaten der neuesten Fassung; fehlt die Route oder das Feld (aeltere Staende), gibt es keine.
+    func archiveChecksum(_ doc: PLDoc) async throws -> String? {
+        guard doc.archiveAvailable else { return nil }
+        do { return PL.str(try await json("/api/documents/\(doc.id)/metadata/")["archive_checksum"]) }
+        catch let e as ImportError where e.code == "source_not_found" || e.code == "source_response_invalid" { return nil }
     }
 
     func materialize(_ doc: PLDoc, _ role: PLFileRole, maxBytes: Int64) async throws -> LocalFile? {

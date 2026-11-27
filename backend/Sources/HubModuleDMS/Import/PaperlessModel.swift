@@ -55,6 +55,8 @@ struct PLReferences: Sendable {
     var correspondents: [PLEntity] = [], types: [PLEntity] = [], tags: [PLEntity] = [], paths: [PLEntity] = [], fields: [PLEntity] = []
     /// Nur Zähler: Benutzer und Gruppen der Quelle werden weder gelesen noch übernommen (F-23).
     var userCount = 0, groupCount = 0
+    /// WP-PA1: Dokumente im Papierkorb der Quelle (nur der Export enthält sie, die API listet sie nicht): nie importiert, nur gezählt.
+    var trashed: [Int64] = []
 }
 
 struct PLNote: Sendable { let id: Int64?; let text: String; let created: String? }
@@ -79,6 +81,8 @@ struct PLDoc: Sendable {
     /// Export: relative Pfade der Dateien im Verzeichnis. API: `archiveAvailable` aus der Antwort.
     var originalRef: String?, archiveRef: String?
     var archiveAvailable = false
+    /// WP-PA1: Fassungen, die NICHT übernommen werden (übernommen wird die neueste, wie sie Paperless anzeigt).
+    var versionsSkipped = 0
 }
 
 enum PLFileRole: String, Sendable { case original, archive }
@@ -127,6 +131,12 @@ protocol PaperlessSource: Sendable {
     func pages(size: Int, _ body: ([PLDoc], Int?) async throws -> Void) async throws
     /// Legt die Datei bereit; `nil`, wenn sie in der Quelle fehlt.
     func materialize(_ doc: PLDoc, _ role: PLFileRole, maxBytes: Int64) async throws -> LocalFile?
+    /// WP-PA1: Prüfsumme der Archivdatei, wenn die Quelle sie nicht schon am Dokument liefert (API: Route `metadata`); `nil` = keine verfügbar.
+    func archiveChecksum(_ doc: PLDoc) async throws -> String?
+}
+
+extension PaperlessSource {
+    func archiveChecksum(_ doc: PLDoc) async throws -> String? { doc.archiveChecksum }
 }
 
 // MARK: Abbildungshilfen (rein, ohne Datenbank)

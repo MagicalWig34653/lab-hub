@@ -3239,7 +3239,7 @@ export interface components {
             progress: {
                 [key: string]: number;
             };
-            /** @description bei failed: import_root_missing, source_not_found, manifest_missing, manifest_too_large, manifest_invalid, invalid_url, scheme_not_allowed, host_not_allowed, source_auth_failed, source_unreachable, source_tls_failed, source_http_error, source_response_invalid, secret_key_missing, secret_unreadable, storage_quota_exceeded, module_disabled, import_failed */
+            /** @description bei failed: import_root_missing, source_not_found, manifest_missing, manifest_too_large, manifest_invalid, invalid_url, scheme_not_allowed, host_not_allowed, source_auth_failed, source_permission_denied, source_api_version_unsupported, source_unreachable, source_tls_failed, source_http_error, source_response_invalid, secret_key_missing, secret_unreadable, storage_quota_exceeded, module_disabled, import_failed */
             error_code?: string | null;
             /** Format: uuid */
             requested_by: string;
@@ -3264,7 +3264,7 @@ export interface components {
             counts: {
                 [key: string]: number;
             };
-            /** @description je Code: total und die ersten 100 Eintraege (ref = Art:Paperless-ID, detail kurz). Codes u. a. asn_collision, file_without_checksum, file_missing, checksum_mismatch, unsupported_type, file_too_large, hash_exists, duplicate_hash_imported, contact_possible_duplicate, reference_matched_by_name, tag_similar, storage_path_untranslatable, custom_field_unsupported, custom_field_type_conflict, monetary_currency_dropped, reference_unknown, document_failed */
+            /** @description je Code: total und die ersten 100 Eintraege (ref = Art:Paperless-ID, detail kurz). Codes u. a. asn_collision, file_without_checksum, file_missing, checksum_mismatch, archive_checksum_mismatch, document_versions_skipped, document_in_trash_skipped, unsupported_type, file_too_large, hash_exists, duplicate_hash_imported, contact_possible_duplicate, reference_matched_by_name, tag_similar, storage_path_untranslatable, custom_field_unsupported, custom_field_type_conflict, monetary_currency_dropped, reference_unknown, reference_not_visible, document_failed */
             findings: {
                 [key: string]: {
                     total: number;

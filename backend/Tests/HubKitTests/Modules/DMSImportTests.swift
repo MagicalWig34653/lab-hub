@@ -735,14 +735,34 @@ final class TLSMock: @unchecked Sendable {
 // MARK: - REST-API (Mock-Server)
 
 /// Mock einer Paperless-ngx-REST-API in diesem Prozess: baut seine Antworten aus der synthetischen Fixture. Nur Lesen, Token-Pruefung, Seiten.
+/// WP-PA1: Antwortformen nach dem Lauf gegen eine echte Instanz (paperless-ngx 3.5.1, API-Version 10): `versions` mit SHA-256 je Fassung, Route `metadata` mit
+/// Archivpruefsumme, `406` bei nicht unterstuetzter API-Version, `403` bei fehlendem Recht, Standardantwort des Downloads = neueste Fassung, leere Stammdatenlisten fuer Benutzer ohne Sicht.
 final class PaperlessMock: @unchecked Sendable {
     let app: Application
     let token: String
     private let lock = NSLock()
-    private var _requests: [(path: String, auth: String?)] = []
+    private var _requests: [(path: String, auth: String?, accept: String?)] = []
     var redirectReferences = false
+    /// WP-PA1: unterstuetzte API-Version (Antwort 406 bei anderer Angabe im Accept-Header).
+    var apiVersion = 10
+    /// 403 fuer jede Route (Benutzer ohne Leserecht).
+    var forbidden = false
+    /// Antwortformen ohne `versions` und `metadata` (aeltere Paperless-Staende): keine Pruefsummen.
+    var provideChecksums = true
+    /// Stammdatenlisten leer (Benutzer sieht die Objekte nicht) und nur diese Dokumente sichtbar.
+    var hideReferences = false
+    var visibleDocuments: Set<Int>?
+    /// Dokumente mit zweiter (neuerer) Fassung: Download und Pruefsumme der neuesten Fassung weichen vom Original ab.
+    var versioned: Set<Int> = []
+    /// Auslieferung weicht vom gemeldeten SHA-256 ab (beschaedigte oder untergeschobene Datei).
+    var corruptOriginal: Set<Int> = []
+    var corruptArchive: Set<Int> = []
     var port: Int { app.http.server.shared.localAddress?.port ?? 0 }
-    var requests: [(path: String, auth: String?)] { lock.lock(); defer { lock.unlock() }; return _requests }
+    var requests: [(path: String, auth: String?, accept: String?)] { lock.lock(); defer { lock.unlock() }; return _requests }
+
+    static func sha(_ d: Data) -> String { SHA256.hash(data: d).map { String(format: "%02x", $0) }.joined() }
+    /// Zweite Fassung eines Dokuments: gueltiges PDF mit anderem Inhalt.
+    static func secondVersion(_ pk: Int) -> Data { Data("%PDF-1.4\n% synthetic second version \(pk)\n1 0 obj\n<< /Type /Catalog >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF\n".utf8) }
 
     init(token: String, fixture: URL) async throws {
         self.token = token
@@ -759,8 +779,14 @@ final class PaperlessMock: @unchecked Sendable {
                 return f
             }
         }
-        func docs() -> [[String: Any]] {
-            entries("documents.document").map { e in
+        let me = self
+        func original(_ e: [String: Any], latest: Bool = true) throws -> Data {
+            let pk = e["pk"] as! Int
+            if latest, me.versioned.contains(pk) { return Self.secondVersion(pk) }
+            return try Data(contentsOf: fixture.appendingPathComponent(e["__exported_file_name__"] as! String))
+        }
+        func docs() throws -> [[String: Any]] {
+            try entries("documents.document").filter { me.visibleDocuments?.contains($0["pk"] as! Int) ?? true }.map { e in
                 let f = e["fields"] as! [String: Any]
                 let pk = e["pk"] as! Int
                 var d: [String: Any] = ["id": pk, "title": f["title"]!, "content": f["content"]!, "created": f["created"]!, "added": f["added"]!, "archive_serial_number": f["archive_serial_number"] ?? NSNull(),
@@ -775,14 +801,23 @@ final class PaperlessMock: @unchecked Sendable {
                     let value = ["value_text", "value_date", "value_monetary"].compactMap { cf[$0] }.first ?? NSNull()
                     return ["field": cf["field"]!, "value": value] as [String: Any]
                 }
+                if me.provideChecksums {
+                    var versions: [[String: Any]] = []
+                    if me.versioned.contains(pk) {
+                        versions.append(["id": 1000 + pk, "added": "2026-11-27T09:00:27.943412Z", "version_label": "Fassung zwei", "checksum": Self.sha(Self.secondVersion(pk)), "is_root": false])
+                    }
+                    versions.append(["id": pk, "added": "2026-11-27T09:00:08.508400Z", "version_label": NSNull(), "checksum": Self.sha(try original(e, latest: false)), "is_root": true])
+                    d["versions"] = versions
+                }
                 return d
             }
         }
         let referenceRoutes = ["correspondents": "documents.correspondent", "document_types": "documents.documenttype", "tags": "documents.tag", "storage_paths": "documents.storagepath", "custom_fields": "documents.customfield"]
-        let me = self
         func guardAuth(_ req: Request) throws {
-            me.record(req.url.path, req.headers.first(name: .authorization))
+            me.record(req.url.path, req.headers.first(name: .authorization), req.headers.first(name: .accept))
             guard req.headers.first(name: .authorization) == "Token \(token)" else { throw Abort(.unauthorized) }
+            if let accept = req.headers.first(name: .accept), let r = accept.range(of: "version="), Int(accept[r.upperBound...].prefix { $0.isNumber }) != me.apiVersion { throw Abort(.notAcceptable) }
+            if me.forbidden { throw Abort(.forbidden) }
         }
         func page(_ all: [[String: Any]], _ req: Request) throws -> Response {
             let size = min(Int(req.query["page_size"] as String? ?? "") ?? 25, 100), p = max(Int(req.query["page"] as String? ?? "") ?? 1, 1)
@@ -795,22 +830,31 @@ final class PaperlessMock: @unchecked Sendable {
             app.get("api", PathComponent(stringLiteral: path)) { req async throws -> Response in
                 try guardAuth(req)
                 if me.redirectReferences { return req.redirect(to: "http://example.org/leak", redirectType: .temporary) }
-                return try page(ref(model), req)
+                return try page(me.hideReferences ? [] : ref(model), req)
             }
         }
-        app.get("api", "documents") { req async throws -> Response in try guardAuth(req); return try page(docs(), req) }
+        app.get("api", "documents") { req async throws -> Response in try guardAuth(req); return try page(try docs(), req) }
         app.get("api", "documents", ":id", "download") { req async throws -> Response in
             try guardAuth(req)
             guard let id = req.parameters.get("id", as: Int.self), let e = entries("documents.document").first(where: { $0["pk"] as? Int == id }) else { throw Abort(.notFound) }
-            let original = (req.query["original"] as String?) == "true"
-            guard let name = original ? e["__exported_file_name__"] as? String : e["__exported_archive_name__"] as? String else { throw Abort(.notFound) }
-            let data = try Data(contentsOf: fixture.appendingPathComponent(name))
+            let isOriginal = (req.query["original"] as String?) == "true"
+            guard let name = isOriginal ? e["__exported_file_name__"] as? String : e["__exported_archive_name__"] as? String else { throw Abort(.notFound) }
+            var data = isOriginal ? try original(e) : try Data(contentsOf: fixture.appendingPathComponent(name))
+            if isOriginal ? me.corruptOriginal.contains(id) : me.corruptArchive.contains(id) { data.append(Data("\n% tampered\n".utf8)) }
             return Response(status: .ok, headers: ["Content-Type": "application/octet-stream"], body: .init(data: data))
+        }
+        app.get("api", "documents", ":id", "metadata") { req async throws -> Response in
+            try guardAuth(req)
+            guard me.provideChecksums, let id = req.parameters.get("id", as: Int.self), let e = entries("documents.document").first(where: { $0["pk"] as? Int == id }) else { throw Abort(.notFound) }
+            var meta: [String: Any] = ["original_checksum": Self.sha(try original(e)), "has_archive_version": e["__exported_archive_name__"] != nil, "archive_checksum": NSNull()]
+            if let a = e["__exported_archive_name__"] as? String { meta["archive_checksum"] = Self.sha(try Data(contentsOf: fixture.appendingPathComponent(a))) }
+            let body = try JSONSerialization.data(withJSONObject: meta)
+            return Response(status: .ok, headers: ["Content-Type": "application/json"], body: .init(data: body))
         }
         try await app.server.start(address: .hostname("127.0.0.1", port: 0))
     }
 
-    fileprivate func record(_ path: String, _ auth: String?) { lock.lock(); _requests.append((path, auth)); lock.unlock() }
+    fileprivate func record(_ path: String, _ auth: String?, _ accept: String?) { lock.lock(); _requests.append((path, auth, accept)); lock.unlock() }
     func stop() async { await app.server.shutdown(); try? await app.asyncShutdown() }
 }
 
@@ -827,7 +871,7 @@ final class DMSImportAPITests: DMSImportTestBase {
         try await aEq(try await contentFingerprint(), before, "Trockenlauf schreibt nichts")
         XCTAssertEqual(counts(dry.report)["documents_would_import"], 10)
         XCTAssertEqual(counts(dry.report)["tags_would_create"], 5)
-        XCTAssertEqual(counts(dry.report)["files_without_checksum"], 10, "die REST-API liefert keine Pruefsummen: alle Dateien ohne Hash im Bericht")
+        XCTAssertEqual(counts(dry.report)["files_without_checksum"] ?? 0, 0, "WP-PA1: die API liefert Pruefsummen (`versions`, `metadata`): jede Datei wird geprueft")
         let run = try await runAndReport(w, mode: "import", source: source)
         XCTAssertEqual(run.state, "done", "\(run.report)")
         let c = counts(run.report)

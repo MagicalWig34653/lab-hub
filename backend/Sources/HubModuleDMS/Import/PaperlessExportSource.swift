@@ -43,11 +43,17 @@ struct PaperlessExportSource: PaperlessSource {
         var docs: [Int64: PLDoc] = [:]
         var notes: [Int64: [PLNote]] = [:]
         var fields: [Int64: [PLFieldValue]] = [:]
+        var versions: [Int64: [(index: Int64, added: String, doc: PLDoc)]] = [:]
         for case let e as [String: Any] in entries {
             guard let model = e["model"] as? String else { continue }
             if model == "auth.user" { refs.userCount += 1; continue }       // Felder (Kennwort-Hash) nie lesen
             if model == "auth.group" { refs.groupCount += 1; continue }
             guard let pk = PL.int(e["pk"]), let f = e["fields"] as? [String: Any] else { continue }
+            // WP-PA1: `document_exporter` schreibt auch den Papierkorb (`deleted_at` gesetzt): Dokumente, Fassungen, Notizen und Feldwerte daraus werden nicht übernommen
+            if PL.str(f["deleted_at"]) != nil {
+                if model == "documents.document" { if PL.int(f["root_document"]) == nil { refs.trashed.append(pk) } }
+                continue
+            }
             func entity() -> PLEntity? {
                 guard let name = PL.str(f["name"]) else { return nil }
                 var x = PLEntity(id: pk, name: name)
@@ -90,6 +96,11 @@ struct PaperlessExportSource: PaperlessSource {
                 d.originalRef = PL.str(e["__exported_file_name__"])
                 d.archiveRef = PL.str(e["__exported_archive_name__"])
                 d.archiveAvailable = d.archiveRef != nil
+                // WP-PA1: `document_exporter` schreibt jede Fassung als eigenen Eintrag mit `root_document` (ohne Stammdaten, die haengen am Wurzeldokument)
+                if let root = PL.int(f["root_document"]) {
+                    versions[root, default: []].append((PL.int(f["version_index"]) ?? 0, d.added ?? "", d))
+                    continue
+                }
                 docs[pk] = d
             case "documents.note":
                 if let doc = PL.int(f["document"]), let text = PL.str(f["note"]) { notes[doc, default: []].append(PLNote(id: pk, text: text, created: f["created"] as? String)) }
@@ -102,6 +113,19 @@ struct PaperlessExportSource: PaperlessSource {
             }
         }
         for id in docs.keys { docs[id]?.notes = notes[id] ?? []; docs[id]?.fields = fields[id] ?? [] }
+        // WP-PA1: Dokument = Wurzel; Dateien, Pruefsummen und Text der NEUESTEN Fassung (wie die API sie ausliefert), Stammdaten, Notizen, Felder, Archivnummer von der Wurzel.
+        // Eine Fassung ohne Wurzel im Export bleibt ein eigenes Dokument (nichts geht still verloren).
+        for (root, list) in versions where !refs.trashed.contains(root) {
+            guard var r = docs[root], let latest = list.max(by: { ($0.index, $0.added) < ($1.index, $1.added) }) else {
+                for v in list { var orphan = v.doc; orphan.notes = notes[orphan.id] ?? []; orphan.fields = fields[orphan.id] ?? []; docs[orphan.id] = orphan }
+                continue
+            }
+            r.originalRef = latest.doc.originalRef; r.archiveRef = latest.doc.archiveRef; r.archiveAvailable = latest.doc.archiveAvailable
+            r.checksum = latest.doc.checksum; r.archiveChecksum = latest.doc.archiveChecksum
+            if !latest.doc.content.isEmpty { r.content = latest.doc.content }
+            r.versionsSkipped = list.count
+            docs[root] = r
+        }
         return (refs, docs.values.sorted { $0.id < $1.id })
     }
 

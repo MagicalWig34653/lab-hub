@@ -128,7 +128,7 @@ enum DMSImport {
             guard let row = try await s.raw("SELECT state FROM dms_imports WHERE tenant_id = \(bind: tenant) AND id = \(bind: id) FOR UPDATE").first() else { throw DMSError.notFound }
             switch try row.decode(column: "state", as: String.self) {
             case "queued":
-                try await s.raw("UPDATE dms_imports SET state = 'cancelled', cancel_requested = true, finished_at = now() WHERE tenant_id = \(bind: tenant) AND id = \(bind: id)").run()
+                try await s.raw("UPDATE dms_imports SET state = 'cancelled', cancel_requested = true, finished_at = now(), secret_enc = NULL WHERE tenant_id = \(bind: tenant) AND id = \(bind: id)").run()
                 try await AuditLog.record(AuditEvent(action: "dms.import.cancelled", actor: actor, tenant: tenant, subjectType: "dms.import", subjectID: id.uuidString, requestID: requestID), on: s)
             case "running":
                 try await s.raw("UPDATE dms_imports SET cancel_requested = true WHERE tenant_id = \(bind: tenant) AND id = \(bind: id)").run()
