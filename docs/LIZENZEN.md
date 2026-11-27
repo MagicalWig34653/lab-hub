@@ -79,7 +79,7 @@ Pflichten bei **Weitergabe** des Worker-Images (Registry): Ghostscript (AGPL-3.0
 
 ## WP-D4 (Quellen: Mail-Ingest, Konsumordner, Share-API, 08.11.2026, keine Rechtsberatung)
 
-**Keine neue Abhängigkeit.** Der IMAP-Client (`Modules/DMS/Sources/IMAPClient.swift`) und der MIME-Parser (`MailMessage.swift`) sind Eigenentwicklung auf `swift-nio` (Apache-2.0) und `swift-nio-ssl` (Apache-2.0, bündelt BoringSSL; Prüfauftrag F-03 unverändert offen), beide ohnehin Abhängigkeiten von Vapor/Fluent. Die Verschlüsselung der Zugangsdaten nutzt `swift-crypto` (Apache-2.0), das bereits eingebunden ist. Begründung gegen eine IMAP-Bibliothek: Der Hub braucht nur LOGIN/AUTHENTICATE PLAIN, SELECT, UID SEARCH/FETCH/STORE/COPY/MOVE und LOGOUT (rund 300 Zeilen); eine zusätzliche Bibliothek hätte Lizenz-, Wartungs- und Sicherheitsfläche (TLS-Voreinstellungen, Größenlimits, Zeitlimits) ohne Gewinn. Getestet wird gegen **GreenMail** (`greenmail/standalone`, Apache-2.0) als Docker-Image **nur in den Tests**, nicht im Produkt oder in Images.
+**Keine neue Abhängigkeit.** Der IMAP-Client (`HubModuleDMS/Sources/IMAPClient.swift`) und der MIME-Parser (`MailMessage.swift`) sind Eigenentwicklung auf `swift-nio` (Apache-2.0) und `swift-nio-ssl` (Apache-2.0, bündelt BoringSSL; Prüfauftrag F-03 unverändert offen), beide ohnehin Abhängigkeiten von Vapor/Fluent. Die Verschlüsselung der Zugangsdaten nutzt `swift-crypto` (Apache-2.0), das bereits eingebunden ist. Begründung gegen eine IMAP-Bibliothek: Der Hub braucht nur LOGIN/AUTHENTICATE PLAIN, SELECT, UID SEARCH/FETCH/STORE/COPY/MOVE und LOGOUT (rund 300 Zeilen); eine zusätzliche Bibliothek hätte Lizenz-, Wartungs- und Sicherheitsfläche (TLS-Voreinstellungen, Größenlimits, Zeitlimits) ohne Gewinn. Getestet wird gegen **GreenMail** (`greenmail/standalone`, Apache-2.0) als Docker-Image **nur in den Tests**, nicht im Produkt oder in Images.
 
 
 ## WP-D6 (Paperless-Import, 08.11.2026, keine Rechtsberatung)
@@ -89,7 +89,7 @@ Pflichten bei **Weitergabe** des Worker-Images (Registry): Ghostscript (AGPL-3.0
 
 ## WP-D7 (Dokumenterkennung, Mail-Original, HTML-Text, 08.11.2026, keine Rechtsberatung)
 
-**Keine neue Abhängigkeit.** HTML-zu-Text (`Modules/DMS/Sources/HTMLText.swift`) ist ein eigener, begrenzter Textextraktor (kein SwiftSoup, keine Parser-Bibliothek), der Extraktor (`Modules/DMS/Extraction`) nutzt nur Foundation (`NSRegularExpression`, `Decimal`). Entscheidung gegen SwiftSoup (MIT): der Bedarf (Text, Tabellenzeilen, Entitäten) ist klein, ein Baum mit Selektoren wird nicht gebraucht, und die eigene Lösung hat feste Größen-/Tiefenlimits. Testdaten sind selbst erfunden (Firmen, example.org, IBANs aus dem Standard-Testbereich); GreenMail (Test-Container `greenmail/standalone`) steht unverändert wie in D4 nur in Tests.
+**Keine neue Abhängigkeit.** HTML-zu-Text (`HubModuleDMS/Sources/HTMLText.swift`) ist ein eigener, begrenzter Textextraktor (kein SwiftSoup, keine Parser-Bibliothek), der Extraktor (`HubModuleDMS/Extraction`) nutzt nur Foundation (`NSRegularExpression`, `Decimal`). Entscheidung gegen SwiftSoup (MIT): der Bedarf (Text, Tabellenzeilen, Entitäten) ist klein, ein Baum mit Selektoren wird nicht gebraucht, und die eigene Lösung hat feste Größen-/Tiefenlimits. Testdaten sind selbst erfunden (Firmen, example.org, IBANs aus dem Standard-Testbereich); GreenMail (Test-Container `greenmail/standalone`) steht unverändert wie in D4 nur in Tests.
 
 ## WP-F4c (Dokumentübersicht, Seitenleiste, 08.11.2026)
 

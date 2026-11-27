@@ -1,7 +1,10 @@
 import XCTVapor
 import Fluent
 import SQLKit
+@testable import HubCore
 @testable import HubKit
+@testable import HubModuleDMS
+@testable import HubModuleInvoice
 
 /// WP-H14, Codex-Befund 8: Quarantaene einer Absturzschleife im Kern laesst den Eingangsvorgang auf `ocr_queued`; das Wiederholen muss trotzdem wirken.
 final class H14OCRQuarantineTests: DMSOCRTestBase {

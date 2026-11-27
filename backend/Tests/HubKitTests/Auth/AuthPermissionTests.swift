@@ -1,6 +1,9 @@
 import XCTVapor
 import SQLKit
+@testable import HubCore
 @testable import HubKit
+@testable import HubModuleDMS
+@testable import HubModuleInvoice
 
 /// Berechtigungstest für jede Auth-Route (Definition of Done): erlaubt/verboten je Sitzungsart.
 /// Die Matrix muss alle `/api/v1`-Routen des Servers abdecken; eine neue Route ohne Eintrag lässt den Test scheitern.

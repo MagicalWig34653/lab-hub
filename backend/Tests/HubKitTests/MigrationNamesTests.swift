@@ -1,6 +1,9 @@
 import Fluent
 import XCTest
+@testable import HubCore
 @testable import HubKit
+@testable import HubModuleDMS
+@testable import HubModuleInvoice
 
 /// WP-ST3: Die in `_fluent_migrations` gespeicherten Namen und ihre Reihenfolge sind Teil jeder Bestandsdatenbank. Ein Umbau (z. B. Typ in ein anderes
 /// Target) darf sie nicht verändern, sonst laufen Migrationen erneut. Neue Migrationen werden hier am Ende ihres Blocks ergänzt. Keine Datenbank nötig.

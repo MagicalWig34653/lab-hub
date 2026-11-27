@@ -20,8 +20,10 @@ Der Hub muss **vollständig ohne Swift-App** funktionieren: Alles, was die Apps 
 
 | Pfad | Inhalt |
 | --- | --- |
-| `backend/` | Swift 6, Vapor, Fluent, PostgreSQL. Ziele: `HubKit` (Bibliothek), `App` (Executable), `HubKitTests` |
-| `backend/Sources/HubKit/` | Kern (Config, Database, Migrations, Services, Routes). Module später unter `Sources/HubKit/Modules/<Name>/` bzw. als eigene Targets (ADR 0004) |
+| `backend/` | Swift 6, Vapor, Fluent, PostgreSQL. Ziele: `HubCore` (Kern), `HubModuleDMS`, `HubModuleInvoice`, `HubKit` (Zusammenbau, Bibliothek), `App` (Executable), `HubKitTests` |
+| `backend/Sources/HubCore/` | Kern (Config, Database, Migrations, Services, Auth, Mandanten, Modulprotokoll); kennt kein Modul |
+| `backend/Sources/HubModule<Name>/` | je ein Modul; importiert paketintern nur `HubCore` (ADR 0004, WP-ST3). Vom Modul genutzte Kern-Deklarationen sind `package` oder `public` |
+| `backend/Sources/HubKit/` | Zusammenbau: Modulliste, Routen, `configure` |
 | `backend/Tests/` | XCTest/XCTVapor, Postgres-Tests gegen echte Datenbank |
 | `pwa/` | SvelteKit + shadcn-svelte (Zielstruktur `docs/FRONTEND.md`, noch ohne Code) |
 | `contracts/` | OpenAPI-Vertrag (entsteht mit WP-K4) |
@@ -38,8 +40,8 @@ Build-Artefakte liegen nie im Repo (Dokumente-Ordner, Codesign-Xattrs). Immer Sc
 export LH_SCRATCH="${TMPDIR:-/tmp}/labhub-build"
 docker compose up -d db                              # Postgres für Tests und Dev
 cd backend
-swift build --scratch-path "$LH_SCRATCH"
-swift test  --scratch-path "$LH_SCRATCH"
+swift build --scratch-path "$LH_SCRATCH" --explicit-target-dependency-import-check=error
+swift test  --scratch-path "$LH_SCRATCH" --explicit-target-dependency-import-check=error
 swift run --scratch-path "$LH_SCRATCH" App serve     # /health, /ready
 ```
 

@@ -113,9 +113,7 @@ final class TargetArchitectureTests: XCTestCase {
 
     /// AK-ST3-2: die Builds in Skripten und Images brechen bei nicht deklarierten Importen ab.
     func testAKST3_2_buildsRejectUndeclaredImports() throws {
-        let repo = Self.backendRoot.deletingLastPathComponent()
-        // Der Test läuft in der CI auf einer Kopie von `backend/` und `contracts/`; dann fehlen diese Dateien.
-        try XCTSkipUnless(FileManager.default.fileExists(atPath: repo.appendingPathComponent("scripts/ci.sh").path), "Repo-Wurzel nicht vorhanden")
+        let repo = Self.backendRoot.deletingLastPathComponent()  // `scripts/ci-backend.sh` kopiert diese Dateien mit in den Test-Container
         for file in ["scripts/ci.sh", "scripts/ci-backend.sh", "Dockerfile", "Dockerfile.worker"] {
             let text = try String(contentsOf: repo.appendingPathComponent(file), encoding: .utf8)
             let builds = text.split(separator: "\n").filter { !$0.hasPrefix("#") && ($0.contains("swift build") || $0.contains("swift test")) }

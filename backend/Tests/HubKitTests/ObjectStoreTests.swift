@@ -3,7 +3,10 @@ import Fluent
 import SQLKit
 import Crypto
 import NIOCore
+@testable import HubCore
 @testable import HubKit
+@testable import HubModuleDMS
+@testable import HubModuleInvoice
 
 // MARK: - Helpers (synthetic data only)
 

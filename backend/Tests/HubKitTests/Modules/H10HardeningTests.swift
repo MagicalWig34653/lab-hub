@@ -1,7 +1,10 @@
 import XCTest
 import Foundation
 import AsyncHTTPClient
+@testable import HubCore
 @testable import HubKit
+@testable import HubModuleDMS
+@testable import HubModuleInvoice
 
 // WP-H10: Befunde 3 (Import-Ziel), 6 (Pfadpräfix, Manifest-Race) und 7 (Schlüssellänge). Keine Datenbank, nur synthetische Daten.
 

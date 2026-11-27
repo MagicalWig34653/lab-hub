@@ -13,4 +13,6 @@ Status: vorgeschlagen (01.11.2026), Bestätigung durch den Nutzer offen.
 
 **Folgen.** Kein dynamisches Plugin-Laden (AGPL, ein Image). Aufteilung in Swift-Targets (`HubCore`, `HubModule*`) empfohlen (OFFENE-FRAGEN F-14). Moduländerungen gehören ins Audit. Test: generischer Guard-Test über alle Routen jedes Moduls.
 
+**Umsetzung F-14 (27.11.2026, WP-ST3).** Targets `HubCore`, `HubModuleDMS`, `HubModuleInvoice`, Zusammenbau in `HubKit`; Aufteilung und Abhängigkeitsregeln in `ARCHITEKTUR.md` Abschnitt 2.
+
 **Alternativen.** Separate Dienste je Modul (mehr Betrieb, schwächere Transaktionen); Plugins zur Laufzeit (Sicherheits- und Lizenzfragen).

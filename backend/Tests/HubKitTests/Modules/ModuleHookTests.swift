@@ -1,7 +1,10 @@
 import XCTVapor
 import Fluent
 import SQLKit
+@testable import HubCore
 @testable import HubKit
+@testable import HubModuleDMS
+@testable import HubModuleInvoice
 
 /// Testmodul für WP-ST2: liefert Job-Handler, einen Token-Scope und Link-Schutz über die Haken von `HubModule` (ohne eigene Tabelle).
 struct HookModule: HubModule {

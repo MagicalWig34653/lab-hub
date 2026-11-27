@@ -1,7 +1,10 @@
 import XCTVapor
 import Fluent
 import SQLKit
+@testable import HubCore
 @testable import HubKit
+@testable import HubModuleDMS
+@testable import HubModuleInvoice
 
 /// WP-H17, Codex-Befund 8 (Rest): Scheitert ein OCR-Job endgültig (Quarantäne nach Absturzschleife, Versuche erschöpft oder `permanent`),
 /// muss auch der Eingangsvorgang in der Datenbank `failed_permanent` sein. Sonst zählt ihn die Übersicht als „in Verarbeitung“ und nicht als Fehler.

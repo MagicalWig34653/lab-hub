@@ -3,7 +3,10 @@ import Fluent
 import SQLKit
 import Crypto
 import Logging
+@testable import HubCore
 @testable import HubKit
+@testable import HubModuleDMS
+@testable import HubModuleInvoice
 
 // WP-D4: Quellen (Mail-IMAP, Konsumordner), API-Token, Share-/Scan-API. Nur synthetische Mails/Dateien, Adressen und Hosts example.org bzw. 127.0.0.1.
 // Mail-Tests laufen gegen einen lokalen GreenMail-Server (Docker, Image greenmail/standalone, TLS mit selbstsigniertem Zertifikat); ohne Docker werden sie mit Meldung übersprungen.

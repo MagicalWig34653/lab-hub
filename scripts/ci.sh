@@ -29,8 +29,9 @@ case "${LH_CI_PWA:-auto}" in
 esac
 
 cd backend
-swift build --scratch-path "$LH_SCRATCH"
-swift test --scratch-path "$LH_SCRATCH"
+# WP-ST3 (AK-ST3-2): ein Import eines nicht deklarierten Targets (z. B. Modul → Modul) bricht den Build ab
+swift build --scratch-path "$LH_SCRATCH" --explicit-target-dependency-import-check=error
+swift test --scratch-path "$LH_SCRATCH" --explicit-target-dependency-import-check=error
 cd ..
 scripts/check-third-party-notices.sh "$LH_SCRATCH/checkouts/swift-nio-ssl"
 # WP-H1: SBOM/SPDX-Inventar reproduzierbar und vollständig (Quelle: Package.resolved, package-lock.json, Checkouts des Builds)

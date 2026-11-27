@@ -1,7 +1,10 @@
 import XCTVapor
 import Fluent
 import SQLKit
+@testable import HubCore
 @testable import HubKit
+@testable import HubModuleDMS
+@testable import HubModuleInvoice
 
 /// WP-R1: Stammdaten des Rechnungsmoduls (Einstellungen, Steuerzeiträume, Belegtypen, Nummernserien, Artikel). Nur synthetische Daten.
 class InvoiceTestBase: AuthTestCase {

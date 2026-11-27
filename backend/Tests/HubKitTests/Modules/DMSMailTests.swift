@@ -3,7 +3,10 @@ import Fluent
 import SQLKit
 import Crypto
 import Logging
+@testable import HubCore
 @testable import HubKit
+@testable import HubModuleDMS
+@testable import HubModuleInvoice
 
 // WP-D4: Mail-Ingest gegen einen lokalen GreenMail-Server (Docker). Synthetische Nachrichten, Benutzer mail1…mail6 mit Platzhalter-Passwort, Domain example.org.
 // Ohne Docker oder ohne Image (und ohne Netz zum Nachladen) werden die Tests mit Meldung übersprungen. Der Server nutzt IMAPS mit selbstsigniertem Zertifikat:

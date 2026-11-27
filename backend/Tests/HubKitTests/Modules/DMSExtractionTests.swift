@@ -2,7 +2,10 @@ import XCTVapor
 import Fluent
 import SQLKit
 import Crypto
+@testable import HubCore
 @testable import HubKit
+@testable import HubModuleDMS
+@testable import HubModuleInvoice
 
 // WP-D7: Extraktion (Dokumentart + Fakten) und Mail-Original (.eml) / HTML-Verarbeitung. Alles synthetisch (erfundene Firmen, example.org, Test-IBAN).
 // AK-D7-1  Original-.eml byte-identisch und unveränderlich        AK-D7-2  HTML-Mail ohne Anhang wird als Rechnung erkannt (Felder korrekt)

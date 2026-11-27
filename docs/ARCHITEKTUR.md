@@ -37,7 +37,16 @@ Regeln:
 3. MCP und Webhooks sind Adapter derselben Services; keine zweite Geschäftslogik (Vorbild `timetrack-backend`: `Sources/TimetrackKit/MCP`).
 4. Stateless nach ADR 0003 in jeder Schicht.
 
-Swift-Targets (Vorschlag **[Annahme]**, ADR 0004): `HubCore` (Kern, Protokolle), `HubKit` (heutiges Target; Konfiguration, Datenbank, Bootstrapping, Zusammenbau), je Modul ein Target `HubModuleDMS`, `HubModuleInvoice`, `App` (Executable, registriert alle Module). Einschalten erfolgt zur Laufzeit (Abschnitt 3.3), nicht per Build, damit ein Image alle Module enthält. Offen: Aufteilung in Targets erst bei Bedarf (F-14).
+Swift-Targets (F-14, umgesetzt mit WP-ST3, Übergabe `docs/handoff/WP-ST3.md`):
+
+| Target | Inhalt | darf importieren (paketintern) |
+| --- | --- | --- |
+| `HubCore` | Kern: Konfiguration, Datenbank, Migrationen, Auth, Mandanten, Kontakte, Objektspeicher, Netzprüfung, Worker, Modulprotokoll | nichts |
+| `HubModuleDMS`, `HubModuleInvoice` | je ein Modul | `HubCore` |
+| `HubKit` | Zusammenbau: Modulliste (`InstalledModules`), Routen, `configure`; reicht die öffentliche Schnittstelle von `HubCore` weiter | `HubCore`, alle Module |
+| `App` | Executable | `HubKit` |
+
+Abweichung vom früheren Vorschlag: Konfiguration und Datenbank liegen in `HubCore` (Module brauchen sie), `HubKit` ist nur der Zusammenbau. Was Module vom Kern nutzen, ist `package` (sichtbar nur in diesem Paket) oder `public`. Ein Import eines nicht deklarierten Targets bricht den Build ab (`--explicit-target-dependency-import-check=error` in Skripten und Images, dazu `TargetArchitectureTests`). Einschalten erfolgt zur Laufzeit (Abschnitt 3.3), nicht per Build, damit ein Image alle Module enthält.
 
 ## 3. Modul-System (ADR 0004)
 
@@ -61,7 +70,7 @@ public protocol HubModule: Sendable {
 }
 ```
 
-Das Protokoll ist Entwurf; verbindlich ist `backend/Sources/HubKit/Modules/HubModule.swift` (WP-K3, per Test festgelegt). Akzeptanzkriterien siehe unten.
+Das Protokoll ist Entwurf; verbindlich ist `backend/Sources/HubCore/Modules/HubModule.swift` (WP-K3, per Test festgelegt). Akzeptanzkriterien siehe unten.
 
 **Haken des Kerns (WP-ST2):** Der Kern nennt kein Modul beim Namen; Bezeichner mit `DMS`/`Invoice` stehen nur unter `Modules/<Name>/` und in `Modules/InstalledModules.swift` (`ArchitectureTests`). Module liefern dafür:
 

@@ -2,7 +2,10 @@ import XCTVapor
 import Fluent
 import SQLKit
 import Crypto
+@testable import HubCore
 @testable import HubKit
+@testable import HubModuleDMS
+@testable import HubModuleInvoice
 
 /// WP-K1 Auth gegen echtes Postgres (ohne erreichbare DB übersprungen). Zwei Anwendungsinstanzen teilen eine Datenbank.
 /// Alle Daten synthetisch.

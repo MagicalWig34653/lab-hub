@@ -1,5 +1,8 @@
 import Foundation
+@testable import HubCore
 @testable import HubKit
+@testable import HubModuleDMS
+@testable import HubModuleInvoice
 
 // WP-D8 HOLDOUT-KORPUS: nach dem Einfrieren der Regeln (Commit fdf60e6) geschrieben und nur zur Messung benutzt; Regeln wurden daran NICHT geschärft.
 // Alles erfunden (Firmen, Personen, Nummern, Test-IBANs). Gemessen wird gemeinsam mit dem Entwicklungskorpus in `ExtractionKindsTests`, aber getrennt ausgewiesen.

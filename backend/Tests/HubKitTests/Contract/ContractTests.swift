@@ -1,5 +1,8 @@
 import XCTVapor
+@testable import HubCore
 @testable import HubKit
+@testable import HubModuleDMS
+@testable import HubModuleInvoice
 
 /// Minimaler Leser für `contracts/openapi.yaml` (ohne YAML-Abhängigkeit): Pfade auf Einrückung 2, Methoden auf Einrückung 4.
 enum OpenAPIContract {

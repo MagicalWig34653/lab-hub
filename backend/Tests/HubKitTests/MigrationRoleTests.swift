@@ -2,7 +2,10 @@ import XCTVapor
 import Fluent
 import FluentPostgresDriver
 import SQLKit
+@testable import HubCore
 @testable import HubKit
+@testable import HubModuleDMS
+@testable import HubModuleInvoice
 
 /// WP-H8: Alle Migrationen müssen mit einer normalen, nicht-privilegierten Einzelrolle laufen (so legt `deploy/setup.sh` die Datenbankrolle an:
 /// `CREATE ROLE … LOGIN`, Eigentümerin einer leeren Datenbank). Die übrigen Datenbank-Tests laufen als Superuser und würden Rechtefehler nie zeigen

@@ -1,5 +1,8 @@
 import XCTVapor
+@testable import HubCore
 @testable import HubKit
+@testable import HubModuleDMS
+@testable import HubModuleInvoice
 
 /// WP-ST7 (PWA-Redesign): Akzentfarbe je Benutzer, gespeichert im Konto, gleich auf jeder Instanz.
 final class PreferencesTests: AuthTestCase {

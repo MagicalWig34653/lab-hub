@@ -1,7 +1,10 @@
 import XCTVapor
 import Fluent
 import SQLKit
+@testable import HubCore
 @testable import HubKit
+@testable import HubModuleDMS
+@testable import HubModuleInvoice
 
 /// WP-R3: Zahlungen mit Skonto, ausdrückliche Zuordnung („nie still“), Gutschrift, Umwandlung, Verknüpfungen Beleg↔Beleg. Nur synthetische Daten.
 class InvoicePaymentTestBase: InvoiceTestBase, @unchecked Sendable {

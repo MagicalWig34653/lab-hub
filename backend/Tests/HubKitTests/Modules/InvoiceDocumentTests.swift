@@ -1,7 +1,10 @@
 import XCTVapor
 import Fluent
 import SQLKit
+@testable import HubCore
 @testable import HubKit
+@testable import HubModuleDMS
+@testable import HubModuleInvoice
 
 /// WP-R2: Belege des Rechnungsmoduls (Entwurf, serverseitige Summen, Finalisieren mit Hub-Zähler, Unveränderlichkeit). Nur synthetische Daten.
 final class InvoiceDocumentTests: InvoiceTestBase {

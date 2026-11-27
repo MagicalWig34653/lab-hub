@@ -1,7 +1,10 @@
 import XCTVapor
 import Fluent
 import SQLKit
+@testable import HubCore
 @testable import HubKit
+@testable import HubModuleDMS
+@testable import HubModuleInvoice
 
 /// WP-K2: Mandanten, Mitgliedschaften, Rollen, Berechtigungen. Alle Daten synthetisch.
 final class TenantTests: AuthTestCase {

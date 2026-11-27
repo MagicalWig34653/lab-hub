@@ -1,6 +1,9 @@
 import XCTest
 import Foundation
+@testable import HubCore
 @testable import HubKit
+@testable import HubModuleDMS
+@testable import HubModuleInvoice
 
 // WP-D8: reine Tests (ohne Datenbank) der artspezifischen Detektoren und Parser gegen den Entwicklungs- und den Holdout-Korpus.
 // Entwicklungskorpus: Regeln wurden daran geschärft, die Zahlen sind optimistisch. Holdout: nach dem Einfrieren der Regeln geschrieben, nur zur Messung.

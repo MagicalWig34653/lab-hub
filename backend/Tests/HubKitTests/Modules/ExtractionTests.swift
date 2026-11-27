@@ -1,6 +1,9 @@
 import XCTest
 import Foundation
+@testable import HubCore
 @testable import HubKit
+@testable import HubModuleDMS
+@testable import HubModuleInvoice
 
 // WP-D7: reine Tests des Extraktors (ohne Datenbank) gegen den synthetischen Korpus.
 // Schwellen (im Handoff dokumentiert): Precision der Rechnungserkennung = 1,0 (keine Falsch-Positive bei den Negativfällen), Recall >= 0,95,

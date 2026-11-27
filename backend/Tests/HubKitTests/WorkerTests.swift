@@ -1,7 +1,10 @@
 import XCTVapor
 import Fluent
 import SQLKit
+@testable import HubCore
 @testable import HubKit
+@testable import HubModuleDMS
+@testable import HubModuleInvoice
 
 /// WP-O1: Job-Erweiterung (Priorität, Poison, Lease-Erneuerung, Release) und Worker-Befehl. Nur synthetische Daten.
 /// Die Prozesstests starten das gebaute `App`-Executable (`App worker`); fehlt es neben dem Testbundle, werden sie übersprungen.

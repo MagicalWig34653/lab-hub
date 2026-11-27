@@ -1,7 +1,10 @@
 import XCTVapor
 import Fluent
 import SQLKit
+@testable import HubCore
 @testable import HubKit
+@testable import HubModuleDMS
+@testable import HubModuleInvoice
 
 /// WP-R3: Gutschrift, Umwandlung, Verknüpfungen Beleg↔Beleg, Rechte und Mandanten, durchgehender Weg über echtes HTTP. Nur synthetische Daten.
 final class InvoiceLinkTests: InvoicePaymentTestBase, @unchecked Sendable {

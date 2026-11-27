@@ -1,5 +1,6 @@
 import Vapor
 import Foundation
+import HubCore
 
 /// Module registrieren ihre Routen über den Kern; der Kern kennt keine Fachlogik.
 /// `/health`: Prozess lebt. `/ready`: Instanz darf Anfragen bekommen (später: Schema aktuell, Datenbank erreichbar).

@@ -19,4 +19,4 @@ docker run --rm --network host --read-only --tmpfs /tmp:size=2g,exec --tmpfs /ru
   -e TEST_DB_HOST -e TEST_DB_PORT -e TEST_DB_NAME -e TEST_DB_USER -e TEST_DB_PASSWORD \
   -v "$PWD/backend:/src:ro" -v "$VOLUME:/build" \
   "$IMAGE" sh -c 'rm -rf /build/src && mkdir -p /build/src && cp -R /src/. /build/src/ && cd /build/src \
-    && swift test --scratch-path /build/scratch --cache-path /build/cache --filter "$0"' "$FILTER"
+    && swift test --explicit-target-dependency-import-check=error --scratch-path /build/scratch --cache-path /build/cache --filter "$0"' "$FILTER"

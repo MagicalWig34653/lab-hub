@@ -1,7 +1,10 @@
 import Vapor
 import Fluent
 import SQLKit
+@testable import HubCore
 @testable import HubKit
+@testable import HubModuleDMS
+@testable import HubModuleInvoice
 
 /// Beispielmodul nur für Tests (WP-K3): eigene Tabelle, Berechtigungen, Navigation, Routen, Aktivierungs-Hook.
 struct PingModule: HubModule {

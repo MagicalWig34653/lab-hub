@@ -1,6 +1,9 @@
 import XCTest
 import Foundation
+@testable import HubCore
 @testable import HubKit
+@testable import HubModuleDMS
+@testable import HubModuleInvoice
 
 // WP-H10 Befund 1: ReDoS im Extraktor. Hostile Eingaben (Etikett + sehr lange Whitespace-Läufe) dürfen den Worker nicht blockieren.
 // Nur synthetische Texte. Jede Messung muss unter 2 Sekunden bleiben (vor der Behebung dauerte ein einzelnes Etikett Minuten).

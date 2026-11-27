@@ -1,7 +1,10 @@
 import XCTVapor
 import Fluent
 import SQLKit
+@testable import HubCore
 @testable import HubKit
+@testable import HubModuleDMS
+@testable import HubModuleInvoice
 
 // WP-D8: Neu-Lauf-Route und Dokumentliste für alle neuen Arten (mit Datenbank, zwei Instanzen). Alles synthetisch.
 // AK-D8-8  Neu-Lauf (Route) funktioniert für alle Arten, idempotent, mit den Fakten der Art

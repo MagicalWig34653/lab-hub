@@ -1,5 +1,9 @@
 // swift-tools-version:6.0
 import PackageDescription
+
+// WP-ST3 (F-14, ADR 0004): `HubCore` ist der Kern, je Modul ein Target `HubModule<Name>`, `HubKit` setzt zusammen.
+// Abhängigkeitsrichtung: App → HubKit → Module → HubCore. Ein Modul nennt nie ein anderes Modul (geprüft von `TargetArchitectureTests`; Builds laufen
+// mit `--explicit-target-dependency-import-check=error`).
 let package = Package(
     name: "LabHub",
     platforms: [.macOS(.v14)],
@@ -15,7 +19,7 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-crypto.git", "3.8.1"..<"5.0.0")
     ],
     targets: [
-        .target(name: "HubKit", dependencies: [
+        .target(name: "HubCore", dependencies: [
             .product(name: "Vapor", package: "vapor"),
             .product(name: "Fluent", package: "fluent"),
             .product(name: "FluentPostgresDriver", package: "fluent-postgres-driver"),
@@ -23,7 +27,27 @@ let package = Package(
             .product(name: "SwiftCBOR", package: "SwiftCBOR"),
             .product(name: "Crypto", package: "swift-crypto")
         ]),
+        .target(name: "HubModuleDMS", dependencies: [
+            "HubCore",
+            .product(name: "Vapor", package: "vapor"),
+            .product(name: "Fluent", package: "fluent"),
+            .product(name: "Crypto", package: "swift-crypto")
+        ]),
+        .target(name: "HubModuleInvoice", dependencies: [
+            "HubCore",
+            .product(name: "Vapor", package: "vapor"),
+            .product(name: "Fluent", package: "fluent"),
+            .product(name: "Crypto", package: "swift-crypto")
+        ]),
+        .target(name: "HubKit", dependencies: [
+            "HubCore", "HubModuleDMS", "HubModuleInvoice",
+            .product(name: "Vapor", package: "vapor")
+        ]),
         .executableTarget(name: "App", dependencies: ["HubKit"]),
-        .testTarget(name: "HubKitTests", dependencies: ["HubKit", .product(name: "XCTVapor", package: "vapor"), .product(name: "Crypto", package: "swift-crypto")])
+        .testTarget(name: "HubKitTests", dependencies: [
+            "HubCore", "HubModuleDMS", "HubModuleInvoice", "HubKit",
+            .product(name: "XCTVapor", package: "vapor"),
+            .product(name: "Crypto", package: "swift-crypto")
+        ])
     ]
 )

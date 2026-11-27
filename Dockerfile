@@ -13,7 +13,7 @@ RUN npm run build
 FROM swift:6.2-jammy AS build
 WORKDIR /src
 COPY backend/ ./
-RUN swift build -c release --product App --static-swift-stdlib --force-resolved-versions
+RUN swift build -c release --product App --static-swift-stdlib --force-resolved-versions --explicit-target-dependency-import-check=error
 FROM ubuntu:22.04
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl libcurl4 tzdata && rm -rf /var/lib/apt/lists/* \
  && useradd --system --uid 10001 --create-home labhub

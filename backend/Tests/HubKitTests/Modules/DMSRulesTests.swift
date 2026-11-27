@@ -1,7 +1,10 @@
 import XCTVapor
 import Fluent
 import SQLKit
+@testable import HubCore
 @testable import HubKit
+@testable import HubModuleDMS
+@testable import HubModuleInvoice
 
 // WP-D3: Regeln, Vorschläge, Duplikate (MODUL-DMS 5.4, AK-D5). Alle Dokumente und Texte sind synthetisch.
 // AK-IDs dieses WP (Akzeptanz D3 in der ROADMAP, Modul-AK-D5):

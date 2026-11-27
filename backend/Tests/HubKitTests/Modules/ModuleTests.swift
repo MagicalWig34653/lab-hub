@@ -1,7 +1,10 @@
 import XCTVapor
 import Fluent
 import SQLKit
+@testable import HubCore
 @testable import HubKit
+@testable import HubModuleDMS
+@testable import HubModuleInvoice
 
 /// WP-K3: Modul-System. Alle Daten synthetisch; Testmodule `ping` und `pong` (siehe PingModule.swift).
 final class ModuleTests: AuthTestCase {

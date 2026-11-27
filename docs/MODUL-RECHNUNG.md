@@ -131,7 +131,7 @@ Geprüft wurde, ob der Rechenkern der bisherigen App unter Linux nutzbar ist. En
 
 ## 13. R1 – Stammdaten (WP-R1, 17.11.2026)
 
-Umgesetzt als HubModule `invoice` (`backend/Sources/HubKit/Modules/Invoice/`), Migration `invoice_027_master` (Expand-only, Revert vorhanden, `schema_version` unverändert wie beim DMS). Routen unter `/api/v1/tenants/{tenant}/invoice/` (Vertrag `contracts/openapi.yaml`):
+Umgesetzt als HubModule `invoice` (`backend/Sources/HubModuleInvoice/`), Migration `invoice_027_master` (Expand-only, Revert vorhanden, `schema_version` unverändert wie beim DMS). Routen unter `/api/v1/tenants/{tenant}/invoice/` (Vertrag `contracts/openapi.yaml`):
 
 | Bereich | Route | Tabelle | Besonderheiten |
 | --- | --- | --- | --- |
@@ -147,7 +147,7 @@ Berechtigungen: `invoice.master.read` (accountant, member, tax_advisor, Owner) u
 
 ## 14. R2 – Belege, Berechnung, Finalisieren (WP-R2, 23.11.2026)
 
-Migration `invoice_028_documents` (Expand-only, Revert vorhanden), Code in `backend/Sources/HubKit/Modules/Invoice/` (`InvoiceCalculator`, `InvoiceDocuments`, `InvoiceDocumentMigrations`). Routen unter `/api/v1/tenants/{tenant}/invoice/documents` (Vertrag `contracts/openapi.yaml`):
+Migration `invoice_028_documents` (Expand-only, Revert vorhanden), Code in `backend/Sources/HubModuleInvoice/` (`InvoiceCalculator`, `InvoiceDocuments`, `InvoiceDocumentMigrations`). Routen unter `/api/v1/tenants/{tenant}/invoice/documents` (Vertrag `contracts/openapi.yaml`):
 
 | Route | Berechtigung | Verhalten |
 | --- | --- | --- |

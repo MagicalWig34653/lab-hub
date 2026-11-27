@@ -1,7 +1,10 @@
 import XCTVapor
 import Fluent
 import SQLKit
+@testable import HubCore
 @testable import HubKit
+@testable import HubModuleDMS
+@testable import HubModuleInvoice
 
 /// WP-H12 (Codex-Befund 7): Idempotency-Key mit Lease statt dauerhafter Sperre. Nur synthetische Daten.
 final class IdempotencyLeaseTests: XCTestCase {

@@ -1,24 +1,24 @@
 import XCTest
 
-/// WP-ST2: Der Kern kennt seine Module nicht. Bezeichner mit `DMS` oder `Invoice` stehen nur unter `Sources/HubKit/Modules/<Name>/`
-/// und in der Modulliste (`Sources/HubKit/Modules/InstalledModules.swift`). Kommentare und Zeichenkettentexte zählen nicht (z. B. Umgebungsvariablen
+/// WP-ST2: Der Kern kennt seine Module nicht. Bezeichner mit `DMS` oder `Invoice` stehen nur im Target des Moduls (`Sources/HubModule<Name>/`)
+/// und in der Modulliste (`Sources/HubKit/InstalledModules.swift`). Kommentare und Zeichenkettentexte zählen nicht (z. B. Umgebungsvariablen
 /// wie `DMS_ALLOW_INTERNAL_TARGETS`), Interpolationen in Zeichenketten schon. Keine Datenbank nötig.
 final class ArchitectureTests: XCTestCase {
     static let forbidden = ["DMS", "Invoice"]
-    static let moduleList = "HubKit/Modules/InstalledModules.swift"
+    static let moduleList = "HubKit/InstalledModules.swift"
 
     static var sourcesRoot: URL {
         URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("Sources")
     }
 
-    /// Pfad relativ zu `Sources/` ist erlaubt, wenn er in einem Modulordner `HubKit/Modules/<Name>/` liegt oder die Modulliste ist.
+    /// Pfad relativ zu `Sources/` ist erlaubt, wenn er in einem Modul-Target `HubModule<Name>/` liegt oder die Modulliste ist.
     static func isAllowed(_ relative: String) -> Bool {
         if relative == moduleList { return true }
         let parts = relative.split(separator: "/")
-        return parts.count >= 4 && parts[0] == "HubKit" && parts[1] == "Modules"
+        return parts.count >= 2 && parts[0].hasPrefix("HubModule") && parts[0].count > "HubModule".count
     }
 
-    /// AK-ST2-4: kein `DMS*`/`Invoice*`-Bezeichner außerhalb der Modulordner und der Modulliste.
+    /// AK-ST2-4: kein `DMS*`/`Invoice*`-Bezeichner außerhalb der Modul-Targets und der Modulliste.
     func testAKST2_4_coreNamesNoModuleIdentifiers() throws {
         let root = Self.sourcesRoot
         guard let files = FileManager.default.enumerator(at: root, includingPropertiesForKeys: nil) else { return XCTFail("Sources fehlt: \(root.path)") }
@@ -63,10 +63,12 @@ final class ArchitectureTests: XCTestCase {
         XCTAssertEqual(SwiftIdentifierScanner.identifiers(in: sample).first { $0.1 == "DMSError" }?.0, 3)
         XCTAssertTrue(SwiftIdentifierScanner.scan(sample).clean)
         XCTAssertFalse(SwiftIdentifierScanner.scan("let x = \"offen").clean)
-        XCTAssertTrue(ArchitectureTests.isAllowed("HubKit/Modules/DMS/DMSModule.swift"))
-        XCTAssertTrue(ArchitectureTests.isAllowed("HubKit/Modules/InstalledModules.swift"))
-        XCTAssertFalse(ArchitectureTests.isAllowed("HubKit/Modules/HubModule.swift"))
-        XCTAssertFalse(ArchitectureTests.isAllowed("HubKit/Worker/WorkerCommand.swift"))
+        XCTAssertTrue(ArchitectureTests.isAllowed("HubModuleDMS/DMSModule.swift"))
+        XCTAssertTrue(ArchitectureTests.isAllowed("HubModuleInvoice/Sub/InvoiceModule.swift"))
+        XCTAssertTrue(ArchitectureTests.isAllowed("HubKit/InstalledModules.swift"))
+        XCTAssertFalse(ArchitectureTests.isAllowed("HubKit/Routes.swift"))
+        XCTAssertFalse(ArchitectureTests.isAllowed("HubCore/Modules/HubModule.swift"))
+        XCTAssertFalse(ArchitectureTests.isAllowed("HubCore/Worker/WorkerCommand.swift"))
     }
 }
 

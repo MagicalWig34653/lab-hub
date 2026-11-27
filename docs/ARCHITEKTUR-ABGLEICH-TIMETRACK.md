@@ -14,7 +14,7 @@ Status: Planung, Stand 25.11.2026. Vergleichsstände (nur gelesen): `timetrack-b
 
 | Thema | timetrack-backend | lab-hub | Bewertung / WP |
 | --- | --- | --- | --- |
-| Targets | `TimetrackKit` + `App` | `HubKit` + `App` | gleich grob; lab-hub hat Entscheidung F-14 (07.11.2026: Targets **spätestens vor dem zweiten Modul**). Rechnung ist als zweites Modul da, die Aufteilung nicht → **ST3** |
+| Targets | `TimetrackKit` + `App` | `HubKit` + `App` | gleich grob; lab-hub hat Entscheidung F-14 (07.11.2026: Targets **spätestens vor dem zweiten Modul**). Rechnung ist als zweites Modul da, die Aufteilung nicht → **ST3** (umgesetzt 27.11.2026) |
 | Moduldefinition | `enum ModuleKey` (reine Schalter) | `protocol HubModule` (`requires`, `enhances`, Rechte, Migrationen, Navigation, Routen, `onActivate`) + `InstalledModules` | lab-hub behalten |
 | Modul-Registry | ungecacht, Server + Konto, Sperre per `MODULES_DISABLED` | geprüft (Schlüssel, Zyklen), Betreiber + Mandant, ungecacht in der DB | Abweichung gewollt (Mandanten statt Konten); Env-Sperre nicht nötig |
 | Guard | Pfad-Middleware mit zentraler Zuordnungstabelle | Guard je Route (`ModuleRoutes.on`), Rechte deklariert | lab-hub behalten |

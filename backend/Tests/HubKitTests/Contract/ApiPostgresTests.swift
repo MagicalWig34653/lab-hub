@@ -1,7 +1,10 @@
 import XCTVapor
 import Fluent
 import SQLKit
+@testable import HubCore
 @testable import HubKit
+@testable import HubModuleDMS
+@testable import HubModuleInvoice
 
 /// Postgres-Tests für WP-K4 (Pagination, Idempotency-Middleware). Umgebung wie `PostgresTests`; ohne DB übersprungen. Nur synthetische Daten.
 final class ApiPostgresTests: XCTestCase {

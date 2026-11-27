@@ -1,5 +1,8 @@
 import Foundation
+@testable import HubCore
 @testable import HubKit
+@testable import HubModuleDMS
+@testable import HubModuleInvoice
 
 // WP-D8: synthetischer Entwicklungskorpus für Vertrag, Versicherung, Behörde/Steuer, Kontoauszug und Kassenbon. Alles erfunden (Firmen, Personen, Nummern,
 // IBANs und Steuer-IDs aus dem Testbereich mit gültiger Prüfsumme, example.org). ENTWICKLUNGSKORPUS: die Regeln wurden an diesen Fällen geschärft, die Zahlen sind

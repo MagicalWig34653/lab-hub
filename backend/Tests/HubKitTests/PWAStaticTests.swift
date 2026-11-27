@@ -1,5 +1,8 @@
 import XCTVapor
+@testable import HubCore
 @testable import HubKit
+@testable import HubModuleDMS
+@testable import HubModuleInvoice
 
 /// WP-H9: Auslieferung der PWA durch das Backend (synthetisches Verzeichnis, keine Datenbank nötig).
 final class PWAStaticTests: XCTestCase {

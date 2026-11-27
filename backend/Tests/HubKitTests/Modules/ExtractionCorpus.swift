@@ -1,5 +1,8 @@
 import Foundation
+@testable import HubCore
 @testable import HubKit
+@testable import HubModuleDMS
+@testable import HubModuleInvoice
 
 // WP-D7: synthetischer Testkorpus (alles erfunden: Firmen, Personen, Nummern; IBANs aus dem Standard-Testbereich mit gültiger Prüfsumme, example.org).
 // Reproduzierbar, weil der Korpus im Code steht (keine Binärdateien); `ExtractionCorpusTests` rendert dieselben Texte zusätzlich als PDF-Textschicht (MailBodyPDF),

@@ -10,7 +10,7 @@ ARG OCR_PACKAGES="ocrmypdf tesseract-ocr-deu tesseract-ocr-eng ghostscript poppl
 FROM swift:6.2-noble AS build
 WORKDIR /src
 COPY backend/ ./
-RUN swift build -c release --product App --static-swift-stdlib --force-resolved-versions
+RUN swift build -c release --product App --static-swift-stdlib --force-resolved-versions --explicit-target-dependency-import-check=error
 
 # Basis mit den OCR-Werkzeugen (Ubuntu 24.04: ocrmypdf 15.x, Tesseract 5.3.x, Ghostscript 10.x)
 FROM ubuntu:24.04 AS ocr-tools

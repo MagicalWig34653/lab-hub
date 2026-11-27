@@ -1,7 +1,10 @@
 import XCTVapor
 import Fluent
 import SQLKit
+@testable import HubCore
 @testable import HubKit
+@testable import HubModuleDMS
+@testable import HubModuleInvoice
 
 // WP-H11 (Codex-Review 17.11.2026, hohe Befunde). Nur synthetische Daten.
 //  AK-H11-1: Paperless-Zahlen außerhalb von Int64 bzw. nicht endlich brechen den Worker nicht ab (Quelldaten ungültig -> nil).

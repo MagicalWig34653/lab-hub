@@ -2,7 +2,10 @@ import XCTVapor
 import Fluent
 import SQLKit
 import Crypto
+@testable import HubCore
 @testable import HubKit
+@testable import HubModuleDMS
+@testable import HubModuleInvoice
 
 /// Alle Hub-Tabellen in abhängigkeitssicherer Reihenfolge (für saubere Testzustände). Nur synthetische Daten.
 enum HubTestDB {

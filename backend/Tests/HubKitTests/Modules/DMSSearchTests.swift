@@ -1,7 +1,10 @@
 import XCTVapor
 import Fluent
 import SQLKit
+@testable import HubCore
 @testable import HubKit
+@testable import HubModuleDMS
+@testable import HubModuleInvoice
 
 /// WP-S1: DMS-Suche (ADR 0005). Nur synthetische Texte, Domains example.org.
 final class DMSSearchTests: DMSTestBase {

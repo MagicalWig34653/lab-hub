@@ -2,7 +2,10 @@ import XCTVapor
 import Fluent
 import SQLKit
 import Crypto
+@testable import HubCore
 @testable import HubKit
+@testable import HubModuleDMS
+@testable import HubModuleInvoice
 
 // WP-O2: Tests mit der echten Engine (ocrmypdf, Tesseract deu+eng, Ghostscript, poppler). Laufen im Worker-Image (`scripts/ocr-container-test.sh`);
 // ohne Werkzeuge werden sie mit Meldung übersprungen. Alle Eingaben werden hier selbst erzeugt (Text aus dem Test, gezeichnet mit DejaVu Sans, bzw. PostScript).

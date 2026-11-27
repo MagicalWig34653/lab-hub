@@ -1,7 +1,10 @@
 import XCTVapor
 import Fluent
 import SQLKit
+@testable import HubCore
 @testable import HubKit
+@testable import HubModuleDMS
+@testable import HubModuleInvoice
 
 // WP-H6: Sicherheitsbefunde und Lücken aus K1, K4, K5, D2, F4, O2. Nur synthetische Daten.
 

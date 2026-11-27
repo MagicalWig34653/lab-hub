@@ -1,5 +1,8 @@
 import XCTVapor
+@testable import HubCore
 @testable import HubKit
+@testable import HubModuleDMS
+@testable import HubModuleInvoice
 
 final class HealthTests: XCTestCase {
     func testHealthReturnsOK() async throws {

@@ -2,7 +2,10 @@ import XCTVapor
 import Fluent
 import SQLKit
 import Crypto
+@testable import HubCore
 @testable import HubKit
+@testable import HubModuleDMS
+@testable import HubModuleInvoice
 
 /// WP-D2: DMS-Kern. Nur synthetische Dateien (selbst erzeugte Minimal-PDFs/-PNGs, Texte aus dem Test), Domains example.org.
 class DMSTestBase: AuthTestCase {

@@ -23,8 +23,8 @@ status=0
 docker run --rm --network host ${docker_args[@]+"${docker_args[@]}"} \
   -e TEST_DB_HOST -e TEST_DB_PORT -e TEST_DB_NAME -e TEST_DB_USER -e TEST_DB_PASSWORD \
   -v "$PWD:/repo:ro" -v "$VOLUME:/build" \
-  "$IMAGE" sh -c 'rm -rf /build/src && mkdir -p /build/src && cp -R /repo/backend /repo/contracts /build/src/ && cd /build/src/backend \
-    && swift test --force-resolved-versions --scratch-path /build/scratch --cache-path /build/cache 2>&1' | tee "$LOG" || status=$?
+  "$IMAGE" sh -c 'rm -rf /build/src && mkdir -p /build/src && cp -R /repo/backend /repo/contracts /repo/scripts /repo/Dockerfile /repo/Dockerfile.worker /build/src/ && cd /build/src/backend \
+    && swift test --force-resolved-versions --explicit-target-dependency-import-check=error --scratch-path /build/scratch --cache-path /build/cache 2>&1' | tee "$LOG" || status=$?
 
 scripts/check-test-report.sh "$LOG" || status=1
 exit "$status"

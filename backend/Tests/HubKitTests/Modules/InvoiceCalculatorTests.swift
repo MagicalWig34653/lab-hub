@@ -1,6 +1,9 @@
 import XCTest
 import Foundation
+@testable import HubCore
 @testable import HubKit
+@testable import HubModuleDMS
+@testable import HubModuleInvoice
 
 /// WP-R2: Rechenkern des Rechnungsmoduls gegen die gemeinsamen Testvektoren (`Tests/Fixtures/invoice-vectors/`, F-27: Neuimplementierung).
 /// Vergleich numerisch (die Referenz lässt Nachkomma-Nullen weg, `"291.9"`). Nur synthetische Daten.

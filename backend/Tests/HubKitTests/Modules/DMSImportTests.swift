@@ -4,7 +4,10 @@ import SQLKit
 import Crypto
 import Logging
 import NIOSSL
+@testable import HubCore
 @testable import HubKit
+@testable import HubModuleDMS
+@testable import HubModuleInvoice
 
 // WP-D6: Paperless-Import (AK-D9, MODUL-DMS.md 10). Nur die selbst erzeugte, synthetische Fixture `Tests/Fixtures/paperless-synthetic/export` (per generate.py reproduzierbar)
 // und ein Mock-API-Server in diesem Prozess (127.0.0.1); kein Zugriff auf echte Paperless-Instanzen, -Archive oder Pfade ausserhalb von Repo und temporaerem Verzeichnis.

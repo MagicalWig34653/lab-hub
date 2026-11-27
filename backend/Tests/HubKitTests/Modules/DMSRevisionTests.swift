@@ -2,7 +2,10 @@ import XCTVapor
 import Fluent
 import SQLKit
 import Crypto
+@testable import HubCore
 @testable import HubKit
+@testable import HubModuleDMS
+@testable import HubModuleInvoice
 
 // WP-D5 Revisionssicherheit: Löschkonzept, Aufbewahrung, Hash-Kette, Prüf-Job, Export-Job. Nur synthetische Dateien. GoBD-orientiert, keine Konformitätsaussage (F-24).
 

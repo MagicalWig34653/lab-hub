@@ -1,7 +1,10 @@
 import XCTVapor
 import Fluent
 import SQLKit
+@testable import HubCore
 @testable import HubKit
+@testable import HubModuleDMS
+@testable import HubModuleInvoice
 
 /// Läuft gegen echtes Postgres (`DB_PASSWORD=… docker compose up -d db`); ohne erreichbare DB werden die Tests übersprungen.
 /// Umgebung: TEST_DB_HOST (127.0.0.1), TEST_DB_PORT (15432), TEST_DB_NAME/USER (labhub), TEST_DB_PASSWORD (devtest-pw). Nur synthetische Daten.

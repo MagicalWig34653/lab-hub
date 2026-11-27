@@ -1,7 +1,10 @@
 import XCTVapor
 import Fluent
 import SQLKit
+@testable import HubCore
 @testable import HubKit
+@testable import HubModuleDMS
+@testable import HubModuleInvoice
 
 /// WP-O1: Ingest-Zustandsautomat (`dms_ingest_items`). Nur synthetische Dateien.
 final class DMSIngestTests: DMSTestBase {

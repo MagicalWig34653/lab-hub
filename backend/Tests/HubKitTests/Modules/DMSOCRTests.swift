@@ -1,7 +1,10 @@
 import XCTVapor
 import Fluent
 import SQLKit
+@testable import HubCore
 @testable import HubKit
+@testable import HubModuleDMS
+@testable import HubModuleInvoice
 
 // WP-O2: OCR-Job `dms.ocr`. Alle Dokumente sind selbst erzeugt und synthetisch (Text aus dem Test).
 // Zwei Gruppen:

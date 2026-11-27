@@ -1,7 +1,10 @@
 import XCTVapor
 import Fluent
 import SQLKit
+@testable import HubCore
 @testable import HubKit
+@testable import HubModuleDMS
+@testable import HubModuleInvoice
 
 /// WP-K5: Kontakte und links. Alle Daten synthetisch (Beispiel-IBAN aus der öffentlichen ISO-Dokumentation, Domains example.org).
 final class ContactTests: AuthTestCase {

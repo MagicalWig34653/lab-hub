@@ -1,7 +1,10 @@
 import XCTVapor
 import Fluent
 import SQLKit
+@testable import HubCore
 @testable import HubKit
+@testable import HubModuleDMS
+@testable import HubModuleInvoice
 
 // WP-D9: Backend-Lücken der Dokumentübersicht. Alles synthetisch (erfundene Titel, example.org).
 // AK-D9-1 Summen je Währung (Filter, Mandant, Papierkorb)     AK-D9-2 Quelle (Befüllung, Filter, Backfill)
