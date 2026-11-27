@@ -49,7 +49,7 @@ Ausgangsstand (vorhanden, getestet laut `deploy/README.md`/Tests): `migrate`, `s
 | | R5 | E-Rechnung Erzeugung (Server) | R2 | M | P R3, R4 | offen |
 | | R6a | Spike Renderer: Optionen (a)/(b)/(c) gegen Referenz-PDFs | R0 | M | P R1, R2 | fertig (35b8fe7), F-08 entschieden: Typst (Bericht `docs/spikes/WP-R6a/BERICHT.md`; Übergabe `docs/handoff/WP-R6a.md`) |
 | | R6 | Server-Renderer und Layout-Engine (Pflicht, Linux), geteilt in R6b–R6e | R6a, R2 | L | | geplant (`docs/handoff/WP-R6-PLAN.md`) |
-| | R6b | Typst-Werkzeugkette, Factur-X-Metadatenschritt, Standardlayout | R6a, R2 | M | | offen, **nächster Schritt** |
+| | R6b | Typst-Werkzeugkette, Factur-X-Metadatenschritt, Standardlayout | R6a, R2 | M | | fertig (Commit und CI-Lauf in `docs/handoff/WP-R6b.md`; Übergabe dort) |
 | | R6c | Render-Job `invoice.render`, Speicherung, PDF-Download | R6b | M | | offen |
 | | R6d | Layoutmodell V1, Parameter, Vorschau | R6c | M | | offen |
 | | R6e | Import vorhandener Layouts | R6d, Importformat (F-09, F-31) | M | | offen |
@@ -222,7 +222,7 @@ Grundsatz: Hub ohne Swift-App nutzbar (`AGENTS.md`); die Rechnungsphase ist dahe
 
 **WP-R6 Server-Renderer und Layout-Engine (L).** Linux-tauglicher Renderer als Worker-Job (`invoice.render`, Lease wie ADR 0006), Layoutmodell (Import vorhandener Layouts), Platzhalter, Seitenumbruch, Standardlayouts. Akzeptanz: Referenz-Layoutfälle aus R6a bestehen mit festgelegter Toleranz; Finalisieren speichert PDF + Layoutversion + Inhalt-Hash (nie neu erzeugt); zwei Worker erzeugen genau ein PDF je Beleg. Abh.: R6a, R2.
 
-*Status WP-R6: geplant (27.11.2026), nichts umgesetzt. Renderer Typst (ADR 0008). Teilpakete R6b (Werkzeugkette, Standardlayout) → R6c (Job, Speicherung, Download) → R6d (Layoutmodell V1) → R6e (Layout-Import) mit Akzeptanzkriterien in `docs/handoff/WP-R6-PLAN.md`; offen F-37 (Reihenfolge zu R5).*
+*Status WP-R6: R6b fertig (27.11.2026, `docs/handoff/WP-R6b.md`): Typst-Werkzeugkette und Standardlayout 1 ohne Datenbank. Renderer Typst (ADR 0008). Nächster Schritt R6c (Job, Speicherung, Download), danach R6d (Layoutmodell V1) und R6e (Layout-Import) mit Akzeptanzkriterien in `docs/handoff/WP-R6-PLAN.md`; offen F-37 (Reihenfolge zu R5), F-38 (Wortlaut der Steuerhinweise).*
 
 **WP-R7 Ausgaben und Berichte (L).** EÜR/USt serverseitig, Vergleich mit Referenzwerten der bisherigen App (synthetische Fälle). Abh.: R3.
 

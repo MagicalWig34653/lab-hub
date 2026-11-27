@@ -1,0 +1,203 @@
+Seiten: 3
+Beispiel Werkstatt GmbH
+Musterweg 1
+00000 Musterstadt
+Tel. +49 000 0000000
+kontakt@example.org
+www.example.org
+Beispiel Werkstatt GmbH · Musterweg 1 · 00000 Musterstadt
+Kunde Beispiel AG
+Beispielstraße 7
+11111 Beispielhausen
+Auftragsnummer AB-2026-0042
+Datum 23.11.2026
+Liefer-/Leistungsdatum 01.12.2026
+Auftragsbestätigung AB-2026-0042
+Pos. Beschreibung Menge Einzelpreis USt Gesamt
+1 Position 01: Bauteil für den Innenausbau, Ausführung wie besprochen 2 Stk. 10,00 € 19 % 20,00 €
+2 Position 02: Bauteil für den Innenausbau, Ausführung wie
+besprochen
+2 Stk. 10,00 € 19 % 20,00 €
+3 Position 03: Bauteil für den Innenausbau, Ausführung wie
+besprochen
+2 Stk. 10,00 € 19 % 20,00 €
+4 Position 04: Bauteil für den Innenausbau, Ausführung wie
+besprochen
+2 Stk. 10,00 € 19 % 20,00 €
+5 Position 05: Bauteil für den Innenausbau, Ausführung wie
+besprochen
+2 Stk. 10,00 € 19 % 20,00 €
+6 Position 06: Bauteil für den Innenausbau, Ausführung wie
+besprochen
+2 Stk. 10,00 € 19 % 20,00 €
+7 Position 07: Bauteil für den Innenausbau, Ausführung wie
+besprochen
+2 Stk. 10,00 € 19 % 20,00 €
+8 Position 08: Bauteil für den Innenausbau, Ausführung wie
+besprochen
+2 Stk. 10,00 € 19 % 20,00 €
+9 Position 09: Bauteil für den Innenausbau, Ausführung wie
+besprochen
+2 Stk. 10,00 € 19 % 20,00 €
+10 Position 10: Bauteil für den Innenausbau, Ausführung wie besprochen 2 Stk. 10,00 € 19 % 20,00 €
+11 Position 11: Bauteil für den Innenausbau, Ausführung wie besprochen 2 Stk. 10,00 € 19 % 20,00 €
+12 Position 12: Bauteil für den Innenausbau, Ausführung wie besprochen 2 Stk. 10,00 € 19 % 20,00 €
+13 Position 13: Bauteil für den Innenausbau, Ausführung wie besprochen 2 Stk. 10,00 € 19 % 20,00 €
+14 Position 14: Bauteil für den Innenausbau, Ausführung wie besprochen 2 Stk. 10,00 € 19 % 20,00 €
+15 Position 15: Bauteil für den Innenausbau, Ausführung wie besprochen 2 Stk. 10,00 € 19 % 20,00 €
+16 Position 16: Bauteil für den Innenausbau, Ausführung wie besprochen 2 Stk. 10,00 € 19 % 20,00 €
+17 Position 17: Bauteil für den Innenausbau, Ausführung wie besprochen 2 Stk. 10,00 € 19 % 20,00 €
+18 Position 18: Bauteil für den Innenausbau, Ausführung wie besprochen 2 Stk. 10,00 € 19 % 20,00 €
+19 Position 19: Bauteil für den Innenausbau, Ausführung wie besprochen 2 Stk. 10,00 € 19 % 20,00 €
+20 Position 20: Bauteil für den Innenausbau, Ausführung wie
+besprochen
+2 Stk. 10,00 € 19 % 20,00 €
+21 Position 21: Bauteil für den Innenausbau, Ausführung wie besprochen 2 Stk. 10,00 € 19 % 20,00 €
+22 Position 22: Bauteil für den Innenausbau, Ausführung wie
+besprochen
+2 Stk. 10,00 € 19 % 20,00 €
+Beispiel Werkstatt GmbH
+Musterweg 1
+00000 Musterstadt
+Steuernummer: 000/000/00000
+USt-IdNr.: DE000000000
+Musterbank
+IBAN: DE00 0000 0000 0000 0000 00
+BIC: XXXXDEXXXXX
+Seite 1 von 3
+=== Seitenende ===
+Auftragsbestätigung AB-2026-0042
+Pos. Beschreibung Menge Einzelpreis USt Gesamt
+23 Position 23: Bauteil für den Innenausbau, Ausführung wie
+besprochen
+2 Stk. 10,00 € 19 % 20,00 €
+24 Position 24: Bauteil für den Innenausbau, Ausführung wie
+besprochen
+2 Stk. 10,00 € 19 % 20,00 €
+25 Position 25: Bauteil für den Innenausbau, Ausführung wie
+besprochen
+2 Stk. 10,00 € 19 % 20,00 €
+26 Position 26: Bauteil für den Innenausbau, Ausführung wie
+besprochen
+2 Stk. 10,00 € 19 % 20,00 €
+27 Position 27: Bauteil für den Innenausbau, Ausführung wie
+besprochen
+2 Stk. 10,00 € 19 % 20,00 €
+28 Position 28: Bauteil für den Innenausbau, Ausführung wie
+besprochen
+2 Stk. 10,00 € 19 % 20,00 €
+29 Position 29: Bauteil für den Innenausbau, Ausführung wie
+besprochen
+2 Stk. 10,00 € 19 % 20,00 €
+30 Position 30: Bauteil für den Innenausbau, Ausführung wie
+besprochen
+2 Stk. 10,00 € 19 % 20,00 €
+31 Position 31: Bauteil für den Innenausbau, Ausführung wie besprochen 2 Stk. 10,00 € 19 % 20,00 €
+32 Position 32: Bauteil für den Innenausbau, Ausführung wie
+besprochen
+2 Stk. 10,00 € 19 % 20,00 €
+33 Position 33: Bauteil für den Innenausbau, Ausführung wie
+besprochen
+2 Stk. 10,00 € 19 % 20,00 €
+34 Position 34: Bauteil für den Innenausbau, Ausführung wie
+besprochen
+2 Stk. 10,00 € 19 % 20,00 €
+35 Position 35: Bauteil für den Innenausbau, Ausführung wie
+besprochen
+2 Stk. 10,00 € 19 % 20,00 €
+36 Position 36: Bauteil für den Innenausbau, Ausführung wie
+besprochen
+2 Stk. 10,00 € 19 % 20,00 €
+37 Position 37: Bauteil für den Innenausbau, Ausführung wie
+besprochen
+2 Stk. 10,00 € 19 % 20,00 €
+38 Position 38: Bauteil für den Innenausbau, Ausführung wie
+besprochen
+2 Stk. 10,00 € 19 % 20,00 €
+39 Position 39: Bauteil für den Innenausbau, Ausführung wie
+besprochen
+2 Stk. 10,00 € 19 % 20,00 €
+40 Position 40: Bauteil für den Innenausbau, Ausführung wie
+besprochen
+2 Stk. 10,00 € 19 % 20,00 €
+41 Position 41: Bauteil für den Innenausbau, Ausführung wie besprochen 2 Stk. 10,00 € 19 % 20,00 €
+42 Position 42: Bauteil für den Innenausbau, Ausführung wie
+besprochen
+2 Stk. 10,00 € 19 % 20,00 €
+43 Position 43: Bauteil für den Innenausbau, Ausführung wie
+besprochen
+2 Stk. 10,00 € 19 % 20,00 €
+44 Position 44: Bauteil für den Innenausbau, Ausführung wie
+besprochen
+2 Stk. 10,00 € 19 % 20,00 €
+45 Position 45: Bauteil für den Innenausbau, Ausführung wie
+besprochen
+2 Stk. 10,00 € 19 % 20,00 €
+46 Position 46: Bauteil für den Innenausbau, Ausführung wie
+besprochen
+2 Stk. 10,00 € 19 % 20,00 €
+47 Position 47: Bauteil für den Innenausbau, Ausführung wie
+besprochen
+2 Stk. 10,00 € 19 % 20,00 €
+48 Position 48: Bauteil für den Innenausbau, Ausführung wie
+besprochen
+2 Stk. 10,00 € 19 % 20,00 €
+Beispiel Werkstatt GmbH
+Musterweg 1
+00000 Musterstadt
+Steuernummer: 000/000/00000
+USt-IdNr.: DE000000000
+Musterbank
+IBAN: DE00 0000 0000 0000 0000 00
+BIC: XXXXDEXXXXX
+Seite 2 von 3
+=== Seitenende ===
+Auftragsbestätigung AB-2026-0042
+Pos. Beschreibung Menge Einzelpreis USt Gesamt
+49 Position 49: Bauteil für den Innenausbau, Ausführung wie
+besprochen
+2 Stk. 10,00 € 19 % 20,00 €
+50 Position 50: Bauteil für den Innenausbau, Ausführung wie
+besprochen
+2 Stk. 10,00 € 19 % 20,00 €
+51 Position 51: Bauteil für den Innenausbau, Ausführung wie besprochen 2 Stk. 10,00 € 19 % 20,00 €
+52 Position 52: Bauteil für den Innenausbau, Ausführung wie
+besprochen
+2 Stk. 10,00 € 19 % 20,00 €
+53 Position 53: Bauteil für den Innenausbau, Ausführung wie
+besprochen
+2 Stk. 10,00 € 19 % 20,00 €
+54 Position 54: Bauteil für den Innenausbau, Ausführung wie
+besprochen
+2 Stk. 10,00 € 19 % 20,00 €
+55 Position 55: Bauteil für den Innenausbau, Ausführung wie
+besprochen
+2 Stk. 10,00 € 19 % 20,00 €
+56 Position 56: Bauteil für den Innenausbau, Ausführung wie
+besprochen
+2 Stk. 10,00 € 19 % 20,00 €
+57 Position 57: Bauteil für den Innenausbau, Ausführung wie
+besprochen
+2 Stk. 10,00 € 19 % 20,00 €
+58 Position 58: Bauteil für den Innenausbau, Ausführung wie
+besprochen
+2 Stk. 10,00 € 19 % 20,00 €
+59 Position 59: Bauteil für den Innenausbau, Ausführung wie
+besprochen
+2 Stk. 10,00 € 19 % 20,00 €
+60 Position 60: Bauteil für den Innenausbau, Ausführung wie
+besprochen
+2 Stk. 10,00 € 19 % 20,00 €
+Nettobetrag 1.200,00 €
+USt 19 % auf 1.200,00 € 228,00 €
+Gesamtbetrag 1.428,00 €
+Beispiel Werkstatt GmbH
+Musterweg 1
+00000 Musterstadt
+Steuernummer: 000/000/00000
+USt-IdNr.: DE000000000
+Musterbank
+IBAN: DE00 0000 0000 0000 0000 00
+BIC: XXXXDEXXXXX
+Seite 3 von 3
+=== Seitenende ===

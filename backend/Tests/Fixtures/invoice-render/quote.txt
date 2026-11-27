@@ -1,0 +1,35 @@
+Seiten: 1
+Beispiel Werkstatt GmbH
+Musterweg 1
+00000 Musterstadt
+Tel. +49 000 0000000
+kontakt@example.org
+www.example.org
+Beispiel Werkstatt GmbH · Musterweg 1 · 00000 Musterstadt
+Example Trading Ltd
+Beispielstraße 7
+11111 Beispielhausen
+AT
+Angebotsnummer AN-2026-0007
+Datum 23.11.2026
+Gültig bis 23.12.2026
+Ihre USt-IdNr. ATU00000000
+Angebot AN-2026-0007
+Sehr geehrte Damen und Herren,
+wir bieten Ihnen an:
+Pos. Beschreibung Menge Einzel brutto USt Gesamt brutto
+1 Tischlerarbeiten laut Skizze 1 Stk. 2.380,00 € 19 % 2.380,00 €
+Gesamtbetrag 2.380,00 €
+Nettobetrag 2.000,00 €
+enthaltene USt 19 % auf 2.000,00 € 380,00 €
+Wir freuen uns auf Ihre Rückmeldung.
+Beispiel Werkstatt GmbH
+Musterweg 1
+00000 Musterstadt
+Steuernummer: 000/000/00000
+USt-IdNr.: DE000000000
+Musterbank
+IBAN: DE00 0000 0000 0000 0000 00
+BIC: XXXXDEXXXXX
+Seite 1 von 1
+=== Seitenende ===

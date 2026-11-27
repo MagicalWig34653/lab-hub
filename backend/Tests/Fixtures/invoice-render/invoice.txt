@@ -1,0 +1,45 @@
+Seiten: 1
+Beispiel Werkstatt GmbH
+Musterweg 1
+00000 Musterstadt
+Tel. +49 000 0000000
+kontakt@example.org
+www.example.org
+Beispiel Werkstatt GmbH · Musterweg 1 · 00000 Musterstadt
+Kunde Beispiel AG
+Beispielstraße 7
+11111 Beispielhausen
+Rechnungsnummer RE-2026-0001
+Rechnungsdatum 23.11.2026
+Liefer-/Leistungsdatum 20.11.2026
+Fällig am 07.12.2026
+Rechnung RE-2026-0001
+Vielen Dank für Ihren Auftrag.
+Pos. Beschreibung Menge Einzelpreis USt Gesamt
+1 Beratung vor Ort
+Termin nach Absprache
+3 Std. 49,99 € 19 % 149,97 €
+2 Material Eiche, gehobelt 2,5 × 4 m 12,50 € 7 % 125,00 €
+Die folgenden Leistungen wurden pauschal vereinbart.
+3 Montagepauschale
+Rabatt 10 %
+1 1.180,00 € 19 % 1.062,00 €
+Zwischensumme 1.336,97 €
+Rabatt 5 % -66,85 €
+Versand (USt 19 %) 25,00 €
+Nettobetrag 1.295,12 €
+USt 7 % auf 118,75 € 8,31 €
+USt 19 % auf 1.176,37 € 223,51 €
+Gesamtbetrag 1.526,94 €
+Bei Zahlung innerhalb von 7 Tagen ab Rechnungsdatum gewähren wir 2 % Skonto.
+Zahlbar ohne Abzug bis zum Fälligkeitsdatum.
+Beispiel Werkstatt GmbH
+Musterweg 1
+00000 Musterstadt
+Steuernummer: 000/000/00000
+USt-IdNr.: DE000000000
+Musterbank
+IBAN: DE00 0000 0000 0000 0000 00
+BIC: XXXXDEXXXXX
+Seite 1 von 1
+=== Seitenende ===

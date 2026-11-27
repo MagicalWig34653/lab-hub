@@ -407,7 +407,7 @@ final class InvoiceRenderE2ETests: InvoiceTestBase, @unchecked Sendable {
     func testE2E_finalizedDocumentFromApiRendersToPDF() async throws {
         try await RenderFixtures.requireTools(qpdf: true)
         let w = try await world()
-        let settings = try await call(app1, .PUT, base(w.tenantA) + "/settings", json: ["sender_name": "Muster GmbH", "city": "Musterstadt", "currency": "EUR", "iban": "DE00000000000000000000"], token: w.alice.token)
+        let settings = try await call(app1, .PUT, base(w.tenantA) + "/settings", json: ["sender_name": "Muster GmbH", "city": "Musterstadt", "currency": "EUR", "iban": "DE89370400440532013000"], token: w.alice.token)
         XCTAssertEqual(settings.status, .ok, "\(settings.json)")
         let s = try await series(w, format: "RE-{N:4}")
         let seriesID = try XCTUnwrap(s.json["id"] as? String)
@@ -434,7 +434,7 @@ final class InvoiceRenderE2ETests: InvoiceTestBase, @unchecked Sendable {
         XCTAssertEqual(pdf, again)
         let text = try await RenderFixtures.extract(pdf)
         let gross = InvoiceRenderFormat.money(try XCTUnwrap(final.json["gross_total"] as? String), currency: "EUR")
-        for expected in ["Rechnung \(number)", "Muster GmbH", "Kunde AG", "Beratung", "Versand (USt 19 %)", "Gesamtbetrag \(gross)", "2 % Skonto", "DE00000000000000000000"] {
+        for expected in ["Rechnung \(number)", "Muster GmbH", "Kunde AG", "Beratung", "Versand (USt 19 %)", "Gesamtbetrag \(gross)", "2 % Skonto", "DE89370400440532013000"] {
             XCTAssertTrue(text.contains(expected), expected + "\n" + text)
         }
     }

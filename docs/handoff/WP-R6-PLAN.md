@@ -1,6 +1,6 @@
 # Plan WP-R6 – Server-Renderer und Layout-Engine
 
-Stand 27.11.2026. Status: **Plan, nichts umgesetzt.** Grundlage: F-08 entschieden (Typst + Factur-X-Metadatenschritt, ADR 0008), Spike `docs/spikes/WP-R6a/BERICHT.md`, `MODUL-RECHNUNG.md` Abschnitte 5 und 14, ADR 0003/0006.
+Stand 27.11.2026. Status: **R6b umgesetzt** (`docs/handoff/WP-R6b.md`), R6c bis R6e Plan. Grundlage: F-08 entschieden (Typst + Factur-X-Metadatenschritt, ADR 0008), Spike `docs/spikes/WP-R6a/BERICHT.md`, `MODUL-RECHNUNG.md` Abschnitte 5 und 14, ADR 0003/0006.
 
 WP-R6 (L) wird in vier Pakete geschnitten. Jedes ist einzeln testbar und pushbar.
 
@@ -11,7 +11,7 @@ WP-R6 (L) wird in vier Pakete geschnitten. Jedes ist einzeln testbar und pushbar
 | R6d | Layoutmodell V1, Parameter, Zuordnung, Vorschau | R6c | M |
 | R6e | Import vorhandener Layouts | R6d, Importformat | M |
 
-WP-F6 (Rechnungs-UI) braucht R6b–R6d; WP-F7a braucht zusätzlich R6e. Nächster Schritt: **R6b**.
+WP-F6 (Rechnungs-UI) braucht R6b–R6d; WP-F7a braucht zusätzlich R6e. Nächster Schritt: **R6c**.
 
 ## Ausgangslage im Code
 
@@ -22,7 +22,9 @@ WP-F6 (Rechnungs-UI) braucht R6b–R6d; WP-F7a braucht zusätzlich R6e. Nächste
 
 Am 27.11.2026 zusätzlich geprüft (arm64): Das Binary aus `ghcr.io/typst/typst:0.15.1` ist statisch gelinkt und übersetzt in `ubuntu:24.04` als Nicht-Root, mit read-only Root, `tmpfs /tmp` und `--network none` nach PDF/A-3b. Index-Digest des Images: `sha256:032e292249bcd378480cc7c142cfa324b63ef8aadeb88d7e7230320c4c9c422f` (amd64 und arm64).
 
-## R6b – Render-Werkzeugkette und Standardlayout
+## R6b – Render-Werkzeugkette und Standardlayout (fertig, 27.11.2026)
+
+Umsetzung und Belege: `docs/handoff/WP-R6b.md`. Abweichungen vom Plan: Die Annahme `qpdf --update-from-json` hat sich bestätigt, braucht aber `--newline-before-endstream` (sonst verletzt der Strom PDF/A 6.1.7.1); der Prozess-Aufruf `OCRProcess` heißt jetzt `ToolProcess` und liegt im Kern.
 
 Umfang:
 - Typst 0.15.1 per Digest in die Stufen `worker` und `worker-test` von `Dockerfile.worker`; das API-Image bleibt ohne Typst.

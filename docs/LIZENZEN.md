@@ -1,6 +1,6 @@
 # Lizenzen und Abhängigkeitsprüfung
 
-Stand: 01.11.2026 (BoringSSL-Update 20.11.2026). Das SPDX-Inventar und die SBOM (WP-H1) stehen im Abschnitt „SPDX-Inventar und SBOM“ am Ende; die übrigen Abschnitte sind die Prüfbefunde der einzelnen WPs. Keine Rechtsberatung; die Rechtsfrage ist **nicht abschließend geklärt**.
+Stand: 27.11.2026 (Render-Werkzeuge WP-R6b; BoringSSL-Update 20.11.2026). Das SPDX-Inventar und die SBOM (WP-H1) stehen im Abschnitt „SPDX-Inventar und SBOM“ am Ende; die übrigen Abschnitte sind die Prüfbefunde der einzelnen WPs. Keine Rechtsberatung; die Rechtsfrage ist **nicht abschließend geklärt**.
 
 ## Befund BoringSSL in `swift-nio-ssl` (WP-K0, F-03)
 
@@ -94,6 +94,20 @@ Pflichten bei **Weitergabe** des Worker-Images (Registry): Ghostscript (AGPL-3.0
 ## WP-F4c (Dokumentübersicht, Seitenleiste, 08.11.2026)
 
 **Keine neue Abhängigkeit.** Die Seitenleiste folgt dem Aufbau der Projekte thermoctl und timetrack-pwa (gruppierte, einklappbare Navigation, Schublade auf Mobilgeräten, Seitenkopf-Typografie); es wurde nur das Muster nachgebaut, kein Code kopiert. Beide nutzen dieselben Bausteine wie der Hub (`@lucide/svelte` ISC, `bits-ui`, `tailwind-variants`, `clsx`, `tailwind-merge`: MIT), weitere Pakete werden nicht benötigt. Neue lucide-Icons (ISC) stammen aus dem vorhandenen Paket.
+
+## Render-Werkzeuge im Worker-Image (WP-R6b, 27.11.2026, keine Rechtsberatung)
+
+Nur das Worker-Image enthält sie (`Dockerfile.worker`, Stufen `worker-tools`, `worker`, `worker-test`); das API-Image bleibt ohne Typst und Schriften. Typst läuft als eigener Prozess (`typst compile`), nie gelinkt. Die Lizenztexte liegen unverändert in `legal/third-party/` und werden mit `legal/` in die Images kopiert; `scripts/check-third-party-notices.sh` prüft Pins, Prüfsummen und Inhalt (Teil von `scripts/ci.sh`).
+
+| Komponente | Version / Pin | Lizenz | Hinweis |
+| --- | --- | --- | --- |
+| Typst 0.15.1 | Image `ghcr.io/typst/typst:0.15.1@sha256:032e2922…c422f` (Index-Digest amd64 und arm64); Binary `/bin/typst` | Apache-2.0 | Statisch gelinkt; `legal/third-party/typst/LICENSE` und `NOTICE` (Archiv der Version 0.15.1, wörtlich). Das NOTICE nennt Drittcode unter MIT und der LLVM-Ausnahme. Neue Typst-Version = neue PDF-Bytes: Referenzen und Pins gemeinsam ändern. |
+| typst-assets 0.15.1 | im Typst-Binary eingebettet | Libertinus Serif OFL-1.1; New Computer Modern GUST Font License; DejaVu Sans Mono Bitstream Vera / gemeinfrei; ICC-Profile CC0-1.0 | `legal/third-party/typst-assets/LICENSE` und `NOTICE` (Tag v0.15.1, wörtlich). Eingebettete Schriften bleiben aktiv (Rückfallschriften für fehlende Zeichen); Systemschriften werden mit `--ignore-system-fonts` ignoriert. |
+| Inter 4.1 | `Inter-4.1.zip` von `github.com/rsms/inter` (SHA-256 `9883fdd4…6b11e`, im Dockerfile mit `--checksum` geprüft); genutzt: `Inter-Regular.ttf`, `Inter-Bold.ttf` | OFL-1.1 | Eigene Schrift der Standardlayouts; in PDFs als Teilmenge eingebettet. Die OFL erlaubt Einbettung; der Schriftname bleibt unverändert, die Schrift wird nicht einzeln verkauft. `legal/third-party/inter/LICENSE.txt`. (Die PWA nutzt Inter über `@fontsource-variable/inter`, siehe WP-F1.) |
+| qpdf 11.9 | Ubuntu-24.04-Paket (WP-O2) | Apache-2.0 | Neu genutzt für den Factur-X-Metadatenschritt (`--update-from-json`), weiter als eigener Prozess. |
+| veraPDF 1.30.4 | Image `verapdf/cli:v1.30.4@sha256:3252b493…c28c0` | GPL-3.0+ / MPL-2.0 | Nur Prüfwerkzeug in Tests und CI (`scripts/verapdf-check.sh`), nicht im Produkt oder in einem Image des Hubs. |
+
+Pflichten bei **Weitergabe** des Worker-Images: die Lizenztexte reisen mit (`/usr/share/doc/lab-hub/legal/`); Typst steht unter Apache-2.0 (kein Quellangebot nötig), die OFL-Schriften dürfen mit dem Programm weitergegeben werden. Offen wie bei WP-O2: Bestätigung durch den Nutzer/Juristen, SBOM-Erweiterung um Image-Pakete.
 
 ## SPDX-Inventar und SBOM (WP-H1, 20.11.2026; keine Rechtsberatung, keine rechtliche Freigabe)
 

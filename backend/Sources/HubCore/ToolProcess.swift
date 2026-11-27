@@ -77,7 +77,8 @@ package enum ToolProcess {
         #endif
         p.arguments = ["-c", script, "sh", executable] + arguments
         p.currentDirectoryURL = workDir
-        var env = ProcessInfo.processInfo.environment
+        let own = ProcessInfo.processInfo.environment
+        var env = inheritEnvironment ? own : own.filter { $0.key == "PATH" }
         for (k, v) in environment { env[k] = v }
         p.environment = env
         p.standardOutput = outHandle; p.standardError = errHandle; p.standardInput = FileHandle.nullDevice

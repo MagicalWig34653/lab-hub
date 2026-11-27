@@ -2,10 +2,20 @@
 # Das API-Image (Dockerfile) bleibt ohne diese Pakete. Alle Werkzeuge laufen nur als eigene Prozesse (Lizenzen: docs/LIZENZEN.md).
 #
 #   Worker-Image:   docker build -f Dockerfile.worker -t lab-hub:latest-worker .
+#   Nur Werkzeuge:  docker build -f Dockerfile.worker --target worker-tools -t lab-hub-worker-tools .   (scripts/render-image-smoke.sh)
 #   Test-Image:     docker build -f Dockerfile.worker --target worker-test -t lab-hub-worker-test .   (scripts/ocr-container-test.sh)
 #
 # Betrieb: read-only Root, Schreiben nur nach /tmp (tmpfs). Der Worker legt je Auftrag ein Arbeitsverzeichnis unter $OCR_TMPDIR (Standard /tmp) an.
 ARG OCR_PACKAGES="ocrmypdf tesseract-ocr-deu tesseract-ocr-eng ghostscript poppler-utils qpdf ca-certificates tzdata curl libcurl4t64"
+
+# WP-R6b (ADR 0008): Typst (statisches Binary) per Digest; Schriften als Download mit Prüfsumme. Beide nur in den Worker-Stufen.
+# Eine neue Version ändert die PDF-Bytes: Referenzen unter backend/Tests/Fixtures/invoice-render/ neu erzeugen, legal/ und docs/LIZENZEN.md nachziehen.
+FROM ghcr.io/typst/typst:0.15.1@sha256:032e292249bcd378480cc7c142cfa324b63ef8aadeb88d7e7230320c4c9c422f AS typst
+
+FROM ubuntu:24.04 AS fonts
+ADD --checksum=sha256:9883fdd4a49d4fb66bd8177ba6625ef9a64aa45899767dde3d36aa425756b11e https://github.com/rsms/inter/releases/download/v4.1/Inter-4.1.zip /tmp/inter.zip
+RUN apt-get update && apt-get install -y --no-install-recommends unzip && rm -rf /var/lib/apt/lists/* \
+ && unzip -j /tmp/inter.zip extras/ttf/Inter-Regular.ttf extras/ttf/Inter-Bold.ttf -d /fonts && chmod 0644 /fonts/*
 
 FROM swift:6.2-noble AS build
 WORKDIR /src
@@ -18,7 +28,12 @@ ARG OCR_PACKAGES
 RUN apt-get update && apt-get install -y --no-install-recommends ${OCR_PACKAGES} && rm -rf /var/lib/apt/lists/* \
  && (id -u labhub >/dev/null 2>&1 || useradd --system --uid 10001 --create-home labhub)
 
-FROM ocr-tools AS worker
+# Alle Werkzeuge des Workers ohne die Anwendung (so prüft die CI das Laufzeit-Image, ohne zu übersetzen)
+FROM ocr-tools AS worker-tools
+COPY --from=typst /bin/typst /usr/local/bin/typst
+COPY --from=fonts /fonts/ /usr/local/share/lab-hub/fonts/
+
+FROM worker-tools AS worker
 COPY --from=build /src/.build/release/App /usr/local/bin/lab-hub
 # F-03: Lizenz-/Copyright-Texte der statisch eingebundenen Drittanbieter (BoringSSL), siehe legal/THIRD-PARTY-NOTICES.md
 COPY legal/ /usr/share/doc/lab-hub/legal/
@@ -28,7 +43,9 @@ ENV OCR_TMPDIR=/tmp HOME=/tmp
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 CMD ["worker", "--kinds", "dms.ocr"]
 
-# Nur für Tests: Swift-Toolchain plus dieselben Werkzeuge (swift test mit echtem ocrmypdf, siehe scripts/ocr-container-test.sh)
+# Nur für Tests: Swift-Toolchain plus dieselben Werkzeuge (swift test mit echtem ocrmypdf und Typst, siehe scripts/ocr-container-test.sh, scripts/render-test.sh)
 FROM swift:6.2-noble AS worker-test
 ARG OCR_PACKAGES
 RUN apt-get update && apt-get install -y --no-install-recommends ${OCR_PACKAGES} git && rm -rf /var/lib/apt/lists/*
+COPY --from=typst /bin/typst /usr/local/bin/typst
+COPY --from=fonts /fonts/ /usr/local/share/lab-hub/fonts/

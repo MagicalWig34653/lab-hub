@@ -49,6 +49,10 @@ Einstellungen (alle optional, als Umgebung des Dienstes): `OCR_TIMEOUT_SECONDS` 
 
 Stand: Compose-Datei real getestet (siehe `docs/handoff/WP-O2.md`); `swarm/stack.yaml` (Dienst `worker`, `WORKER_REPLICAS`) und die Swarm-Zweige in `setup.sh`/`update.sh` sind **nicht unter Swarm getestet** (nur Syntaxprüfung der Datei).
 
+### Render-Werkzeuge im Worker-Image (WP-R6b)
+
+Das Worker-Image enthält zusätzlich Typst 0.15.1 (`/usr/local/bin/typst`, per Digest gepinnt) und die Schriften Inter Regular und Bold (`/usr/local/share/lab-hub/fonts`, Prüfsumme im Dockerfile); das Backend-Image enthält beides nicht. Die Werkzeuge sind **noch an keinen Job angeschlossen** (`invoice.render` und die Auslieferung des PDF folgen mit WP-R6c); der Worker startet deshalb unverändert mit `--kinds dms.ocr,…`, und es gibt keine neuen Einstellungen. Rauchtest des Laufzeit-Images (read-only Root, Nicht-Root, ohne Netz): `scripts/render-image-smoke.sh`. Tests mit Typst: `scripts/ci-backend.sh` (volle Suite im Worker-Test-Image, danach veraPDF-Prüfung aller erzeugten PDFs).
+
 ## Quellen: Mail, Konsumordner, Share-/Scan-API (WP-D4)
 
 Der Worker-Dienst startet `--kinds dms.ocr,dms.verify,dms.export,dms.mail.poll,dms.folder.scan,dms.import.paperless` (Compose real getestet, Swarm nur Syntax). Quellen werden je Mandant über die API angelegt (`/api/v1/tenants/{tenant}/dms/sources`, Recht `dms.source.manage`, Buchhaltung/Owner); jede Quelle ist eine Kette aus Worker-Jobs mit Lease, kein Dauerprozess und kein offener Port.

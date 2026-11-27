@@ -1,0 +1,27 @@
+Seiten: 1
+Beispiel Werkstatt GmbH
+Musterweg 1
+00000 Musterstadt
+Tel. +49 000 0000000
+kontakt@example.org
+www.example.org
+Beispiel Werkstatt GmbH · Musterweg 1 · 00000 Musterstadt
+Kunde Beispiel AG
+Beispielstraße 7
+11111 Beispielhausen
+Gutschriftnummer GS-2026-0002
+Datum 23.11.2026
+Gutschrift GS-2026-0002
+Pos. Beschreibung Menge Einzelpreis USt Gesamt
+1 Rückgabe Beratung -1 Std. 1.234,50 € 0 % -1.234,50 €
+Gesamtbetrag -1.234,50 €
+Gemäß § 19 UStG wird keine Umsatzsteuer berechnet (Kleinunternehmerregelung).
+Der Betrag wird auf Ihr Konto überwiesen.
+Beispiel Werkstatt GmbH
+Musterweg 1
+00000 Musterstadt
+Steuernummer: 000/000/00000 Musterbank
+IBAN: DE00 0000 0000 0000 0000 00
+BIC: XXXXDEXXXXX
+Seite 1 von 1
+=== Seitenende ===

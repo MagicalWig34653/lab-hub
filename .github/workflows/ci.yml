@@ -38,6 +38,40 @@ jobs:
           # erwartet: AK-S1-7 Messlauf und AK-O2-5 (read-only Root); jeder weitere Skip ist rot
           LH_MAX_SKIPPED: "2"
         run: scripts/ci-backend.sh
+      - name: Render-Werkzeuge im Laufzeit-Image (read-only, ohne Netz)
+        run: scripts/render-image-smoke.sh
+
+  # WP-R6b (AK-R6b-3): dieselben Prüfsummen und veraPDF auf arm64; der Job `backend` prüft sie auf amd64
+  render-arm64:
+    name: Renderer auf arm64 (Bytegleichheit, veraPDF)
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 60
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          # nur für diese Wegwerf-Datenbank im Lauf, kein Geheimnis
+          POSTGRES_USER: labhub
+          POSTGRES_PASSWORD: devtest-pw
+          POSTGRES_DB: labhub
+        ports:
+          - 127.0.0.1:15432:5432
+        options: >-
+          --health-cmd "pg_isready -U labhub -d labhub"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Render- und Datenbanktests im Worker-Test-Image, veraPDF
+        env:
+          LH_MAX_SKIPPED: "0"
+          LH_CI_TEST_FILTER: InvoiceRender|PostgresTests
+        run: scripts/ci-backend.sh
+      - name: Render-Werkzeuge im Laufzeit-Image (read-only, ohne Netz)
+        run: scripts/render-image-smoke.sh
 
   pwa:
     name: PWA, Vertrag, Skripte

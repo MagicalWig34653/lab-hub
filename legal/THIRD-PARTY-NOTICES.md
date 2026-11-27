@@ -2,7 +2,7 @@
 
 lab-hub (AGPL-3.0-only) is shipped with statically linked third-party code. This file and the
 `third-party/` directory travel with every release image (`/usr/share/doc/lab-hub/legal/`).
-Stand: 20.11.2026. Keine Rechtsberatung.
+Stand: 27.11.2026. Keine Rechtsberatung.
 
 ## BoringSSL (statically linked via `swift-nio-ssl`)
 
@@ -48,10 +48,22 @@ BoringSSL revision is `third-party/boringssl/LICENSE`.
 Apache License 2.0: `third-party/swift-nio-ssl/LICENSE.txt` (verbatim) and
 `third-party/swift-nio-ssl/NOTICE.txt` (verbatim, see above).
 
+## Render tools in the worker image (WP-R6b, ADR 0008)
+
+Only the worker image (`Dockerfile.worker`, stages `worker-tools`, `worker`, `worker-test`) carries these tools; the API image does not. They run as separate
+processes and are never linked.
+
+| Item | Value |
+| --- | --- |
+| Typst 0.15.1 | Apache-2.0. Static binary from `ghcr.io/typst/typst:0.15.1@sha256:032e292249bcd378480cc7c142cfa324b63ef8aadeb88d7e7230320c4c9c422f`. `third-party/typst/LICENSE` and `NOTICE` are the files of the release archive, verbatim (the NOTICE lists third-party code, e.g. MIT and the LLVM exception). |
+| typst-assets 0.15.1 | Fonts and ICC profiles embedded in the Typst binary: Libertinus Serif (OFL-1.1), New Computer Modern (GUST Font License), DejaVu Sans Mono (Bitstream Vera / public domain), ICC profiles (CC0-1.0). `third-party/typst-assets/LICENSE` and `NOTICE`, verbatim from the tag `v0.15.1`. Embedded fonts stay enabled; system fonts are ignored. |
+| Inter 4.1 | OFL-1.1 (SIL Open Font License). `Inter-Regular.ttf` and `Inter-Bold.ttf` from `https://github.com/rsms/inter/releases/download/v4.1/Inter-4.1.zip` (SHA-256 `9883fdd4a49d4fb66bd8177ba6625ef9a64aa45899767dde3d36aa425756b11e`); `third-party/inter/LICENSE.txt` verbatim. The font names are unchanged; the font files are embedded (subset) in generated PDFs. |
+| qpdf 11.9, poppler-utils | Distribution packages (Apache-2.0, GPL), see `docs/LIZENZEN.md` (WP-O2). |
+
 ## Other dependencies
 
 The complete inventory with SPDX identifiers and an SBOM is tracked in WP-H1 (`docs/LIZENZEN.md`);
-this directory currently covers the BoringSSL / swift-nio-ssl finding F-03.
+this directory covers the BoringSSL / swift-nio-ssl finding F-03 and the render tools above.
 
 ## Verification
 
