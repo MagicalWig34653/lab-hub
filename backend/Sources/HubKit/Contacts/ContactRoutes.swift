@@ -71,11 +71,9 @@ func registerContactRoutes(_ app: Application) {
         return try await contactResponse(out, req)
     }
 
-    /// Herkunft für Schutzregeln des DMS: darf die Rolle Dokumente ändern?
+    /// Herkunft für die Link-Schutzregeln der Module (WP-ST2): installierte Module und Rolle der Anfrage.
     @Sendable func origin(_ req: Request) throws -> LinkService.Origin {
-        let ctx = try req.requireTenant()
-        let dms = req.application.hubModules.permissions(of: ctx.role, module: "dms")
-        return .external(canWriteDocuments: dms.contains("dms.document.update"), canReadDocuments: dms.contains("dms.document.read"))
+        .external(modules: req.application.hubModules, role: try req.requireTenant().role)
     }
 
     on(.GET, "links", permission: "contact.link.read") { req in

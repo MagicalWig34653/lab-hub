@@ -7,9 +7,10 @@ import Foundation
 // Tabelle `api_tokens` (nur der SHA-256 des Tokens wird gespeichert), Scope, Pflicht-Ablauf, Widerruf, Audit, Erstellen/Listen/Widerrufen.
 // Ein API-Token ersetzt NIE eine Sitzung: es wird nur von Routen akzeptiert, die ausdrücklich einen Scope verlangen (`ApiTokenModuleGuard`),
 // nie von `SessionMiddleware`. Das Token hat eine feste Länge (47 Zeichen, Präfix `lhp_`), Sitzungstokens 43 Zeichen: keine Verwechslung.
-// WP-H10b: jedes Token ist an genau einen Mandanten gebunden (`api_tokens.tenant_id`, Migration `dms_026_api_token_tenant`); die Bindung wird bei JEDER Nutzung
+// WP-H10b: jedes Token ist an genau einen Mandanten gebunden (`api_tokens.tenant_id`, Kernmigration `CreateApiTokenTenant`); die Bindung wird bei JEDER Nutzung
 // gegen den Mandanten der Route geprüft (fremder Mandant 404 `not_found`, Token ohne Bindung 401 `api_token_unbound`).
-// Nicht enthalten (spätere WPs): Scopes außer `dms.upload`, Nutzungsprotokoll je Aufruf, Rotation, OAuth.
+// WP-ST2: die Scopes deklarieren die Module (`HubModule.tokenScopes`, z. B. `dms.upload`); der Kern kennt keinen Scope beim Namen.
+// Nicht enthalten (spätere WPs): Nutzungsprotokoll je Aufruf, Rotation, OAuth.
 
 struct CreateApiTokens: AsyncMigration {
     let name = "020_api_tokens"
@@ -60,7 +61,6 @@ struct ApiTokenIDKey: StorageKey { typealias Value = UUID }
 
 enum ApiTokens {
     static let prefix = "lhp_"
-    static let scopes: Set<String> = ["dms.upload"]
     static let defaultDays = 365, maxDays = 730
 
     static func newToken() -> String { prefix + AuthSecrets.token() }   // 4 + 43 Zeichen
@@ -92,25 +92,25 @@ enum ApiTokens {
     /// zu Clients vor WP-H10b), bei mehreren oder keinem 422.
     private static func bindingTenant(user: UUID, body: [String: Any], on db: any Database) async throws -> UUID {
         if let raw = body["tenant_id"] {
-            guard let text = raw as? String, let tenant = UUID(uuidString: text) else { throw DMSError.invalid("tenant_id") }
+            guard let text = raw as? String, let tenant = UUID(uuidString: text) else { throw HubError.invalid("tenant_id") }
             guard try await TenancyService.role(of: user, in: tenant, on: db) != nil else { throw HubError(.notFound, "not_found") }
             return tenant
         }
         let rows = try await sql(db).raw("SELECT tenant_id FROM memberships WHERE user_id = \(bind: user) LIMIT 2").all()
-        guard rows.count == 1 else { throw DMSError.invalid("tenant_id") }
+        guard rows.count == 1 else { throw HubError.invalid("tenant_id") }
         return try rows[0].decode(column: "tenant_id", as: UUID.self)
     }
 
-    /// Erstellt ein Token; der Klartext steht nur in dieser Antwort.
-    static func create(user: UUID, body: [String: Any], requestID: String, on db: any Database) async throws -> Out {
-        for key in body.keys where !["name", "scopes", "expires_in_days", "tenant_id"].contains(key) { throw DMSError.invalid(key, "unknown") }
+    /// Erstellt ein Token; der Klartext steht nur in dieser Antwort. `scopes`: die von den installierten Modulen deklarierten Scopes.
+    static func create(user: UUID, body: [String: Any], scopes: Set<String>, requestID: String, on db: any Database) async throws -> Out {
+        for key in body.keys where !["name", "scopes", "expires_in_days", "tenant_id"].contains(key) { throw HubError.invalid(key, "unknown") }
         guard let name = (body["name"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines), (1...80).contains(name.count),
-              !name.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }) else { throw DMSError.invalid("name") }
-        guard let requested = body["scopes"] as? [String], !requested.isEmpty, requested.count <= 8 else { throw DMSError.invalid("scopes") }
-        guard Set(requested).isSubset(of: scopes) else { throw DMSError.invalid("scopes", "unknown_scope") }
+              !name.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }) else { throw HubError.invalid("name") }
+        guard let requested = body["scopes"] as? [String], !requested.isEmpty, requested.count <= 8 else { throw HubError.invalid("scopes") }
+        guard Set(requested).isSubset(of: scopes) else { throw HubError.invalid("scopes", "unknown_scope") }
         let days: Int
         if let raw = body["expires_in_days"] {
-            guard let d = raw as? Int, (1...maxDays).contains(d) else { throw DMSError.invalid("expires_in_days") }
+            guard let d = raw as? Int, (1...maxDays).contains(d) else { throw HubError.invalid("expires_in_days") }
             days = d
         } else { days = defaultDays }
         let tenant = try await bindingTenant(user: user, body: body, on: db)
@@ -194,8 +194,8 @@ func registerApiTokenRoutes(_ app: Application) {
         try jsonResponse(["items": try await ApiTokens.list(user: try req.requireAuth().user.id, on: try sql(req.db)).map { try JSONSerialization.jsonObject(with: JSONEncoder().encode($0)) }])
     }
     api.on(.POST) { req async throws -> Response in
-        guard let buffer = req.body.data, let body = StrictJSON.object(Data(buffer: buffer)) else { throw DMSError.invalid("body") }
-        let created = try await ApiTokens.create(user: try req.requireAuth().user.id, body: body, requestID: req.requestId, on: req.db)
+        guard let buffer = req.body.data, let body = StrictJSON.object(Data(buffer: buffer)) else { throw HubError.invalid("body") }
+        let created = try await ApiTokens.create(user: try req.requireAuth().user.id, body: body, scopes: req.application.hubModules.tokenScopes, requestID: req.requestId, on: req.db)
         return try jsonResponse(try JSONSerialization.jsonObject(with: JSONEncoder().encode(created)), status: .created)
     }
     api.delete(":token") { req async throws -> Response in

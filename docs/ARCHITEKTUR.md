@@ -61,7 +61,19 @@ public protocol HubModule: Sendable {
 }
 ```
 
-Das Protokoll ist Entwurf; Signaturen werden in WP-K3 per Test festgelegt. Akzeptanzkriterien siehe unten.
+Das Protokoll ist Entwurf; verbindlich ist `backend/Sources/HubKit/Modules/HubModule.swift` (WP-K3, per Test festgelegt). Akzeptanzkriterien siehe unten.
+
+**Haken des Kerns (WP-ST2):** Der Kern nennt kein Modul beim Namen; Bezeichner mit `DMS`/`Invoice` stehen nur unter `Modules/<Name>/` und in `Modules/InstalledModules.swift` (`ArchitectureTests`). Module liefern dafür:
+
+| Anforderung | Zweck | Regel |
+| --- | --- | --- |
+| `jobHandlers(environment:)` | Handler für den Befehl `worker` | Arten `<key>.…`, fremd oder doppelt = Startfehler |
+| `workerPreflight(kinds:environment:)` | Vorabprüfung externer Werkzeuge (DMS: OCR) | Meldung bricht den Worker-Start ab |
+| `tokenScopes` | API-Token-Scopes | `<key>.<name>`, nur deklarierte Scopes vergebbar |
+| `linkVisibility(tenant:permissions:on:)` | Seiten des Moduls in der generischen Verknüpfungsliste | verborgen: aus Listen entfernt, direkte Abfrage wirft |
+| `guardLinkEnds(_:creating:permissions:tenant:on:)` | Schutz beim Anlegen, Entfernen, Wiederherstellen | in der Transaktion der Änderung |
+
+Verknüpfungstypen eines Moduls, das nicht in der Modulliste steht, schützt niemand; die Modulliste ist zur Build-Zeit fest.
 
 ### 3.2 Registrierung und Migrationen
 

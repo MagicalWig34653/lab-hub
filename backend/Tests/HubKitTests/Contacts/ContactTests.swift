@@ -7,6 +7,8 @@ import SQLKit
 final class ContactTests: AuthTestCase {
     static let ibanA = "DE89370400440532013000"
     static let ibanB = "GB82WEST12345698765432"
+    /// WP-ST2: Der Link-Schutz für `dms.*` kommt vom DMS-Modul; es ist installiert, aber in keinem Mandanten aktiv (wie in Betrieb vor der Aktivierung).
+    override var testModules: [any HubModule] { [DMSModule()] }
 
     // MARK: Hilfen
 

@@ -233,16 +233,17 @@ final class WorkerProcessTests: JobTestBase {
             .first { FileManager.default.isExecutableFile(atPath: $0.path) }
     }
 
-    func startWorker(lease: Int = 2) throws -> Process {
+    func startWorker(lease: Int = 2, kinds: String = "worker.selftest", environment: [String: String] = [:], output: Pipe? = nil) throws -> Process {
         guard let bin = Self.appBinary else { throw XCTSkip("App-Executable nicht gefunden (neben dem Testbundle); Mehrprozess-Test übersprungen") }
         let p = Process()
         p.executableURL = bin
-        p.arguments = ["worker", "--kinds", "worker.selftest", "--lease-seconds", String(lease), "--poll-ms", "200", "--retry-backoff-seconds", "0"]
+        p.arguments = ["worker", "--kinds", kinds, "--lease-seconds", String(lease), "--poll-ms", "200", "--retry-backoff-seconds", "0"]
         var env = ProcessInfo.processInfo.environment
         for (k, v) in HubTestDB.env { env[k] = v }
         env["WORKER_ENABLE_SELFTEST"] = "1"
+        for (k, v) in environment { env[k] = v }
         p.environment = env
-        p.standardOutput = FileHandle.nullDevice; p.standardError = FileHandle.nullDevice
+        p.standardOutput = output ?? FileHandle.nullDevice as Any; p.standardError = output ?? FileHandle.nullDevice as Any
         try p.run()
         return p
     }
@@ -290,6 +291,38 @@ final class WorkerProcessTests: JobTestBase {
         XCTAssertEqual(row.state, "queued"); XCTAssertNil(row.owner); XCTAssertFalse(row.leaseActive); XCTAssertEqual(row.attempts, 0)
         let next = try await jobs.claim(owner: "other", leaseSeconds: 30)
         XCTAssertEqual(next?.id, id)
+    }
+
+    /// AK-ST2-1 (E2E): Route reiht einen DMS-Job ein, der echte `App worker`-Prozess bekommt den Handler vom DMS-Modul und schließt ihn ab.
+    func testAKST2_1_workerProcessRunsModuleJobFromRoute() async throws {
+        let owner = try await bootstrap(app1, VirtualAuthenticator())
+        let tenant = try await scalar("SELECT tenant_id::text AS v FROM memberships WHERE user_id = '\(owner.userID)'", as: String.self)
+        let enabled = try await call(app1, .PUT, "api/v1/tenants/\(tenant)/modules/dms", json: ["enabled": true], token: owner.token)
+        XCTAssertEqual(enabled.status, .ok, "\(enabled.json)")
+        let started = try await call(app1, .POST, "api/v1/tenants/\(tenant)/dms/integrity-runs", json: [:], token: owner.token)
+        XCTAssertEqual(started.status, .accepted, "\(started.json)")
+        let a = try startWorker(lease: 30, kinds: "dms.verify")
+        defer { stop([a]) }
+        try await waitFor("verify job done", timeout: 60) {
+            try await scalar("SELECT count(*)::bigint AS v FROM jobs WHERE kind = 'dms.verify' AND state = 'done'", as: Int64.self) == 1
+        }
+        XCTAssertTrue(a.isRunning)
+    }
+
+    /// AK-ST2-1 (E2E): unbekannte Art und fehlgeschlagene Modul-Vorabprüfung (OCR-Werkzeuge nicht im PATH) beenden den Prozess mit Status 1.
+    func testAKST2_1_workerProcessRejectsUnknownKindAndFailedPreflight() async throws {
+        for (kinds, env, expected) in [("dms.nope", [:], "Kein Handler für: dms.nope"),
+                                       ("dms.ocr", ["PATH": "/nonexistent"], "Werkzeug fehlt oder startet nicht")] as [(String, [String: String], String)] {
+            let pipe = Pipe()
+            let p = try startWorker(kinds: kinds, environment: env, output: pipe)
+            defer { stop([p]) }
+            await reap(p, timeout: 60)
+            guard !p.isRunning else { XCTFail("Worker \(kinds) läuft weiter"); continue }
+            XCTAssertEqual(p.terminationStatus, 1, kinds)
+            try? pipe.fileHandleForWriting.close()   // sonst kann das Lesen auf Dateiende warten
+            let text = String(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+            XCTAssertTrue(text.contains(expected), "\(kinds): \(text.suffix(600))")
+        }
     }
 
     /// AK-O1-3 über Prozesse: scheiternder Job -> `failed_permanent` nach 3 Versuchen, nie mehr als 3 über beide Prozesse.

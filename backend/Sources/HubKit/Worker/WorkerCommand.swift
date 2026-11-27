@@ -2,31 +2,31 @@ import Vapor
 import Foundation
 import SQLKit
 
-/// Handler-Registry des Worker-Befehls. Fachliche Handler tragen die jeweiligen WPs ein (WP-O2: `dms.ocr`).
+/// Handler-Registry des Worker-Befehls. Fachliche Handler liefern die Module (`HubModule.jobHandlers`, WP-ST2); der Kern selbst kennt nur `worker.selftest`.
 public enum WorkerHandlers {
     /// `worker.selftest`: Diagnose-Art für Prozesstests, nur mit `WORKER_ENABLE_SELFTEST=1`. Payload (JSON): `sleep_first_ms` (nur beim ersten Versuch), `fail` (immer werfen).
     static let selftestKind = "worker.selftest"
 
-    public static func registry(environment: [String: String] = ProcessInfo.processInfo.environment) -> [String: JobHandler] {
+    /// Fremde (nicht `<key>.`) oder doppelte Job-Arten eines Moduls sind ein Programmierfehler (`ConfigError`).
+    public static func registry(environment: [String: String] = ProcessInfo.processInfo.environment, modules: [any HubModule]) throws -> [String: JobHandler] {
         var map: [String: JobHandler] = [:]
         if environment["WORKER_ENABLE_SELFTEST"] == "1" { map[selftestKind] = selftest }
-        // WP-O2: OCR; Objektspeicher aus der Umgebung (wie das Backend), Arbeitsverzeichnis auf tmpfs (OCR_TMPDIR, Standard TMPDIR)
-        let ocr = OCRConfig.fromEnvironment(environment)
-        map[DMSOCR.kind] = DMSOCR.handler(engine: OCRToolEngine(config: ocr), tempRoot: ocr.tempRoot) { s in
-            try ObjectStoreConfig.fromEnvironment(environment).makeStore(db: s)
+        for module in modules {
+            for (kind, handler) in module.jobHandlers(environment: environment) {
+                guard kind.hasPrefix(module.key + "."), map[kind] == nil else { throw ConfigError(description: "Job-Art \(kind) von Modul \(module.key) ungültig oder doppelt") }
+                map[kind] = handler
+            }
         }
-        // WP-D5: Prüf-Job und Export-Job
-        map[DMSIntegrity.kind] = DMSIntegrity.handler { s in try ObjectStoreConfig.fromEnvironment(environment).makeStore(db: s) }
-        map[DMSExport.kind] = DMSExport.handler(tempRoot: ocr.tempRoot) { s in try ObjectStoreConfig.fromEnvironment(environment).makeStore(db: s) }
-        // WP-D4: Quellen. Mail-Passwort nur über SECRET_KEY(_FILE) entschlüsselbar; Konsumordner nur als eingebundenes Volume `DMS_FOLDER_ROOT` im Worker.
-        let limits = DMSSourceLimits.fromEnvironment(environment)
-        let storeConfig: @Sendable () throws -> ObjectStoreConfig = { try ObjectStoreConfig.fromEnvironment(environment) }
-        map[DMSMailPoll.kind] = DMSMailPoll.handler(storeConfig: storeConfig, box: SecretBox.fromEnvironment(environment), imap: IMAPOptions.fromEnvironment(environment), limits: limits)
-        map[DMSFolderScan.kind] = DMSFolderScan.handler(storeConfig: storeConfig, root: environment["DMS_FOLDER_ROOT"], limits: limits)
-        // WP-D6: Paperless-Import. Export-Verzeichnisse nur als Volume `DMS_IMPORT_ROOT` im Worker; das Token der REST-Quelle nur über SECRET_KEY(_FILE) lesbar.
-        map[DMSImport.kind] = DMSImport.handler(storeConfig: storeConfig, box: SecretBox.fromEnvironment(environment), root: environment["DMS_IMPORT_ROOT"], tempRoot: ocr.tempRoot,
-                                                policy: PaperlessEndpoint.Policy.fromEnvironment(environment), limits: limits)
         return map
+    }
+
+    /// Vorabprüfung der Module für die gewählten Arten; die erste Meldung bricht den Start ab.
+    public static func preflight(kinds: Set<String>, environment: [String: String] = ProcessInfo.processInfo.environment, modules: [any HubModule]) async -> String? {
+        for module in modules {
+            let own = kinds.filter { $0.hasPrefix(module.key + ".") }
+            if !own.isEmpty, let problem = await module.workerPreflight(kinds: own, environment: environment) { return problem }
+        }
+        return nil
     }
 
     private struct SelftestPayload: Decodable { var sleep_first_ms: Int?; var fail: Bool? }
@@ -63,13 +63,12 @@ public struct WorkerCommand: AsyncCommand {
         guard !kinds.isEmpty else { fail("--kinds fehlt") }
         let lease = signature.leaseSeconds ?? 60, poll = signature.pollMs ?? 1000, backoff = signature.retryBackoffSeconds ?? 5
         guard (1...3600).contains(lease), (10...60_000).contains(poll), (0...3600).contains(backoff) else { fail("Ungültiger Zahlenwert") }
-        let registry = WorkerHandlers.registry()
+        let modules = app.hubModules.modules
+        let registry: [String: JobHandler]
+        do { registry = try WorkerHandlers.registry(modules: modules) } catch { fail("\(error)") }
         let unknown = kinds.filter { registry[$0] == nil }
         guard unknown.isEmpty else { fail("Kein Handler für: \(unknown.joined(separator: ","))") }
-        if kinds.contains(DMSOCR.kind) {
-            let config = OCRConfig.fromEnvironment()
-            if let problem = await OCRToolEngine.preflight(config: config, workDir: URL(fileURLWithPath: config.tempRoot, isDirectory: true)) { fail(problem) }
-        }
+        if let problem = await WorkerHandlers.preflight(kinds: Set(kinds), modules: modules) { fail(problem) }
         guard await schemaIsCurrent(app) else { fail("Schema nicht aktuell (zuerst `migrate`)") }
 
         let worker = JobWorker(db: try sql(app.db(.psql)), kinds: kinds, handlers: registry.filter { kinds.contains($0.key) }, leaseSeconds: lease,

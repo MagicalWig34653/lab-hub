@@ -4,9 +4,7 @@ import Foundation
 // WP-D2: Ein- und Ausgabeformate des DMS. Felder in snake_case wie im Vertrag (contracts/openapi.yaml).
 
 enum DMSError {
-    static func invalid(_ field: String, _ code: String = "invalid") -> HubError {
-        HubError(.unprocessableEntity, "validation_failed", errors: [FieldError(field: field, code: code)])
-    }
+    static func invalid(_ field: String, _ code: String = "invalid") -> HubError { HubError.invalid(field, code) }
     static let notFound = HubError(.notFound, "not_found")
     static let trashed = HubError(.conflict, "document_trashed")
 }

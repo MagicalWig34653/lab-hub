@@ -5,8 +5,10 @@ import SQLKit
 /// WP-H10b (Expand): API-Token an genau einen Mandanten binden. `tenant_id` ist zunächst nullable (Expand/Contract, alte Instanzen lesen die Tabelle weiter).
 /// Backfill: Tokens von Nutzern mit genau einer Mitgliedschaft werden an diesen Mandanten gebunden (eindeutig); bei mehreren Mitgliedschaften bleibt die
 /// Bindung leer und das Token wird abgewiesen (401 `api_token_unbound`), bis es neu erstellt wird. NOT NULL folgt als Contract-Schritt in einem späteren WP.
-/// `schema_version` bleibt unverändert (wie die übrigen DMS-Modulmigrationen).
-struct CreateDMSApiTokenTenant: AsyncMigration {
+/// `schema_version` bleibt unverändert.
+/// WP-ST2: Die Spalte gehört zur Kerntabelle `api_tokens`, die Migration lief aber als DMS-Modulmigration (ohne DMS fehlte die Spalte). Sie steht jetzt in den
+/// Kernmigrationen; der gespeicherte Name `dms_026_api_token_tenant` bleibt, damit Bestandsdatenbanken sie nicht erneut ausführen.
+struct CreateApiTokenTenant: AsyncMigration {
     let name = "dms_026_api_token_tenant"
     func prepare(on db: any Database) async throws {
         try await run(db, [

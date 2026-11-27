@@ -12,6 +12,13 @@ public struct HubError: Error, Sendable {
     }
 }
 
+public extension HubError {
+    /// 422 `validation_failed` mit einem Feldfehler (WP-ST2: gemeinsamer Fehlertyp für Kern und Module).
+    static func invalid(_ field: String, _ code: String = "invalid") -> HubError {
+        HubError(.unprocessableEntity, "validation_failed", errors: [FieldError(field: field, code: code)])
+    }
+}
+
 public struct FieldError: Content, Equatable {
     public let field: String
     public let code: String

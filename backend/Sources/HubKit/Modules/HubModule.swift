@@ -3,7 +3,8 @@ import Fluent
 import SQLKit
 
 // WP-K3 Modul-System (ADR 0004, ARCHITEKTUR 3). Bewusst schlank: Migrationen, Berechtigungen, Navigation, Routen, Aktivierungs-Hook.
-// Events, Jobs und Suchindex-Hook kommen als weitere Protokollanforderungen mit Default-Implementierung, sobald deren WPs sie brauchen.
+// WP-ST2: Job-Handler, Token-Scopes und Link-Schutz liefern die Module über Haken mit Default-Implementierung; der Kern kennt kein Modul beim Namen.
+// Events und Suchindex-Hook kommen als weitere Protokollanforderungen, sobald deren WPs sie brauchen.
 
 public typealias ModuleKey = String
 
@@ -39,6 +40,18 @@ public protocol HubModule: Sendable {
     func registerRoutes(_ routes: ModuleRoutes) throws
     /// Beim Übergang aus -> an für einen Mandanten, in derselben Transaktion wie die Aktivierung. Muss idempotent sein.
     func onActivate(tenant: UUID, on db: any SQLDatabase) async throws
+    /// WP-ST2 (AK-ST2-1): Job-Handler des Moduls für den Befehl `worker`. Arten `<key>.<name>`; fremde oder doppelte Arten sind ein Startfehler.
+    func jobHandlers(environment: [String: String]) -> [String: JobHandler]
+    /// Prüfung vor dem Worker-Start für die gewählten eigenen Arten (z. B. externe Werkzeuge). Eine Meldung bricht den Start ab.
+    func workerPreflight(kinds: Set<String>, environment: [String: String]) async -> String?
+    /// WP-ST2 (AK-ST2-2): API-Token-Scopes des Moduls, `<key>.<name>`. Nur deklarierte Scopes lassen sich vergeben und an Token-Routen binden.
+    var tokenScopes: [String] { get }
+    /// WP-ST2 (AK-ST2-3): Sichtbarkeit von Verknüpfungen mit Objekten des Moduls (Typen `<key>.…`) über die generische Route. `permissions` sind die
+    /// Modulrechte der Rolle. `hidden`: solche Seiten fehlen in Listen, eine direkte Abfrage eines `<key>.…`-Typs wirft den mitgegebenen Fehler.
+    func linkVisibility(tenant: UUID, permissions: Set<String>, on db: any SQLDatabase) async throws -> LinkVisibility
+    /// Schutz beim Anlegen (`creating`), Entfernen und Wiederherstellen von Verknüpfungen über die generische Route, nur mit den Enden des Moduls.
+    /// Läuft in der Transaktion der Änderung; ein Fehler bricht sie ab.
+    func guardLinkEnds(_ ends: [LinkEnd], creating: Bool, permissions: Set<String>, tenant: UUID, on db: any SQLDatabase) async throws
 }
 
 public extension HubModule {
@@ -49,11 +62,11 @@ public extension HubModule {
     var navigation: [NavigationItem] { [] }
     func registerRoutes(_ routes: ModuleRoutes) throws {}
     func onActivate(tenant: UUID, on db: any SQLDatabase) async throws {}
-}
-
-/// Feste, zur Build-Zeit bekannte Modulliste (ADR 0004). Hier trägt WP-D2 usw. ein Modul ein.
-public enum InstalledModules {
-    public static let all: [any HubModule] = [DMSModule(enqueueOCR: ProcessInfo.processInfo.environment["DMS_OCR_ENABLED"] != "false"), InvoiceModule()]
+    func jobHandlers(environment: [String: String]) -> [String: JobHandler] { [:] }
+    func workerPreflight(kinds: Set<String>, environment: [String: String]) async -> String? { nil }
+    var tokenScopes: [String] { [] }
+    func linkVisibility(tenant: UUID, permissions: Set<String>, on db: any SQLDatabase) async throws -> LinkVisibility { .visible }
+    func guardLinkEnds(_ ends: [LinkEnd], creating: Bool, permissions: Set<String>, tenant: UUID, on db: any SQLDatabase) async throws {}
 }
 
 /// Geprüfte Modulliste. Ein Registrierungsfehler ist ein Programmierfehler und bricht den Start ab.
@@ -78,6 +91,12 @@ public struct ModuleRegistry: Sendable {
                 }
                 guard !Permissions.catalog.contains(p.name) else { throw ConfigError(description: "Berechtigung \(p.name) steht bereits im Kernkatalog") }
             }
+            for scope in m.tokenScopes {
+                let parts = scope.split(separator: ".", omittingEmptySubsequences: false)
+                guard parts.count == 2, parts[0] == m.key, AuditValue.isSafeToken(scope) else {
+                    throw ConfigError(description: "Token-Scope \(scope) passt nicht zu Modul \(m.key)")
+                }
+            }
         }
         for m in modules {
             for r in m.requires where map[r] == nil { throw ConfigError(description: "Modul \(m.key) benötigt unbekanntes Modul \(r)") }
@@ -95,6 +114,8 @@ public struct ModuleRegistry: Sendable {
 
     public func module(_ key: ModuleKey) -> (any HubModule)? { byKey[key] }
     public var migrations: [any Migration] { modules.flatMap(\.migrations) }
+    /// Alle API-Token-Scopes der installierten Module (WP-ST2).
+    public var tokenScopes: Set<String> { Set(modules.flatMap(\.tokenScopes)) }
 
     /// Berechtigungen des Moduls für eine Rolle (Owner: alle).
     func permissions(of role: Role, module key: ModuleKey) -> Set<String> {

@@ -28,7 +28,10 @@ final class ArchitectureTests: XCTestCase {
             scanned += 1
             if Self.isAllowed(relative) { continue }
             let text = try String(contentsOf: url, encoding: .utf8)
-            for (line, name) in SwiftIdentifierScanner.identifiers(in: text) where Self.forbidden.contains(where: name.contains) {
+            let result = SwiftIdentifierScanner.scan(text)
+            // Endet der Lexer nicht im Code, hat er sich verlesen und könnte Bezeichner übersehen
+            XCTAssertTrue(result.clean, "Scanner endet nicht im Code: \(relative)")
+            for (line, name) in result.identifiers where Self.forbidden.contains(where: name.contains) {
                 findings.append("\(relative):\(line) \(name)")
             }
         }
@@ -58,6 +61,8 @@ final class ArchitectureTests: XCTestCase {
             XCTAssertFalse(names.contains(hidden), hidden)
         }
         XCTAssertEqual(SwiftIdentifierScanner.identifiers(in: sample).first { $0.1 == "DMSError" }?.0, 3)
+        XCTAssertTrue(SwiftIdentifierScanner.scan(sample).clean)
+        XCTAssertFalse(SwiftIdentifierScanner.scan("let x = \"offen").clean)
         XCTAssertTrue(ArchitectureTests.isAllowed("HubKit/Modules/DMS/DMSModule.swift"))
         XCTAssertTrue(ArchitectureTests.isAllowed("HubKit/Modules/InstalledModules.swift"))
         XCTAssertFalse(ArchitectureTests.isAllowed("HubKit/Modules/HubModule.swift"))
@@ -70,7 +75,10 @@ final class ArchitectureTests: XCTestCase {
 enum SwiftIdentifierScanner {
     private enum Frame { case code(parens: Int), string(multiline: Bool, hashes: Int) }
 
-    static func identifiers(in source: String) -> [(Int, String)] {
+    static func identifiers(in source: String) -> [(Int, String)] { scan(source).identifiers }
+
+    /// `clean`: Am Ende steht der Lexer wieder im Code der obersten Ebene (keine offene Zeichenkette oder Interpolation).
+    static func scan(_ source: String) -> (identifiers: [(Int, String)], clean: Bool) {
         let c = Array(source.unicodeScalars)
         var i = 0, line = 1, out: [(Int, String)] = []
         var stack: [Frame] = [.code(parens: 0)]
@@ -127,6 +135,7 @@ enum SwiftIdentifierScanner {
                 i += 1
             }
         }
-        return out
+        if case .code = stack[stack.count - 1], stack.count == 1 { return (out, true) }
+        return (out, false)
     }
 }

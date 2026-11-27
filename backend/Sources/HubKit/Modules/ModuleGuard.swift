@@ -79,7 +79,7 @@ public struct ModuleRoutes {
     public func onToken(_ method: HTTPMethod, _ path: PathComponent..., scope: String, permission: String, body: HTTPBodyStreamStrategy = .collect,
                         use handler: @escaping @Sendable (Request) async throws -> Response) {
         precondition(app.hubModules.module(key)?.permissions.contains { $0.name == permission } == true, "Berechtigung \(permission) nicht von Modul \(key) deklariert")
-        precondition(ApiTokens.scopes.contains(scope), "unbekannter Scope \(scope)")
+        precondition(app.hubModules.module(key)?.tokenScopes.contains(scope) == true, "Scope \(scope) nicht von Modul \(key) deklariert")
         tokenGroup.grouped(ApiTokenModuleGuard(scope: scope, module: key, permission: permission)).on(method, path, body: body, use: handler)
         let rest = path.map { "\($0)" }.map { $0.hasPrefix(":") ? "{\($0.dropFirst())}" : $0 }
         let template = (["api", "v1", "tenants", "{tenant}", key] + rest).joined(separator: "/")
