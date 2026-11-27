@@ -15,8 +15,8 @@ enum InvoicePreviewJob {
     static let ttlSeconds = 900
     static let maxActivePerTenant = 20
     static let maxBytes = 20 * 1024 * 1024
-    /// Vor PDF-Erzeugung finaler Belege (5): eine Vorschau wartet jemand ab.
-    static let priority = 4
+    /// Höher = früher (`JobService`): vor der PDF-Erzeugung finaler Belege (5), weil jemand auf die Vorschau wartet; nach manuellen DMS-Uploads (10).
+    static let priority = 6
 
     struct Payload: Codable, Sendable { let tenant_id: UUID; let preview_id: UUID }
 

@@ -7,6 +7,7 @@ import HubCore
 // Berechtigungen `invoice.master.read|manage`. Das Modul nutzt den Kern nur über dessen Dienste (CounterService, AuditLog, IdempotencyService).
 // WP-R2: Belege, Berechnung und Finalisieren; die Berechtigungen `invoice.document.*` deklariert das Modul selbst (nicht mehr der Kernkatalog).
 // WP-R6c: Render-Job und PDF-Download (`Render/`), Haken für Worker (`InvoiceModuleHooks.swift`).
+// WP-R6d: Layoutmodell V1, Logos, Zuordnung, Vorschau (`Render/InvoiceLayout*.swift`, `Render/InvoicePreviewJob.swift`).
 
 public struct InvoiceModule: HubModule {
     public let key = "invoice"
@@ -36,7 +37,7 @@ public struct InvoiceModule: HubModule {
          PermissionDefinition("invoice.payment.write", roles: [.accountant])]
     }
 
-    public var migrations: [any Migration] { [CreateInvoiceMaster(), CreateInvoiceDocuments(), CreateInvoicePayments(), CreateInvoiceRender()] }
+    public var migrations: [any Migration] { [CreateInvoiceMaster(), CreateInvoiceDocuments(), CreateInvoicePayments(), CreateInvoiceRender(), CreateInvoiceLayouts()] }
 
     public var navigation: [NavigationItem] { [NavigationItem(key: "invoice", labelKey: "nav.invoice", path: "/invoice", permission: "invoice.master.read")] }
 
@@ -63,6 +64,19 @@ public struct InvoiceModule: HubModule {
             try await InvoiceRenderRoutes.pdf(req) { s in try module.objectStore.get().makeStore(db: s) }
         }
         routes.on(.POST, "documents", ":id", "render", permission: "invoice.document.finalize") { req in try await InvoiceRenderRoutes.render(req) }
+        // WP-R6d: Layouts (Stammdaten), Logos, Zuordnung, Vorschau eines Entwurfs über den Worker (`invoice.preview`)
+        routes.on(.GET, "layouts", permission: "invoice.master.read") { req in try await InvoiceLayouts.list(req) }
+        routes.on(.POST, "layouts", permission: "invoice.master.manage") { req in try await InvoiceLayouts.create(req) }
+        routes.on(.POST, "layouts", "logos", permission: "invoice.master.manage", body: .collect(maxSize: "1mb")) { req in
+            try await InvoiceLayouts.uploadLogo(req) { s in try module.objectStore.get().makeStore(db: s) }
+        }
+        routes.on(.GET, "layouts", ":id", permission: "invoice.master.read") { req in try await InvoiceLayouts.get(req) }
+        routes.on(.POST, "layouts", ":id", "versions", permission: "invoice.master.manage") { req in try await InvoiceLayouts.createVersion(req) }
+        routes.on(.GET, "layouts", ":id", "versions", ":version", permission: "invoice.master.read") { req in try await InvoiceLayouts.getVersion(req) }
+        routes.on(.GET, "layout-assignments", permission: "invoice.master.read") { req in try await InvoiceLayouts.getAssignments(req) }
+        routes.on(.PUT, "layout-assignments", permission: "invoice.master.manage") { req in try await InvoiceLayouts.putAssignments(req) }
+        routes.on(.POST, "documents", ":id", "preview", permission: "invoice.document.update") { req in try await InvoicePreviewJob.create(req) }
+        routes.on(.GET, "previews", ":id", permission: "invoice.document.read") { req in try await InvoicePreviewJob.get(req) }
         // WP-R3: Umwandlung, Gutschrift, Verknüpfungen, Zahlungen
         routes.on(.POST, "documents", ":id", "convert", permission: "invoice.document.create") { req in try await InvoiceLinks.convert(req) }
         routes.on(.POST, "documents", ":id", "credit-note", permission: "invoice.document.create") { req in try await InvoiceLinks.creditNote(req) }

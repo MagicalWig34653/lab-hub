@@ -216,6 +216,7 @@ export const en: Record<MessageKey, string> = {
 	'error.series_in_use': 'The number series has already issued numbers and cannot be changed or deleted.',
 	'error.document_final_immutable': 'The document is final and can no longer be changed, deleted or finalized again.',
 	'error.number_conflict': 'The document number is already taken in the series. The operation was rolled back; no number was consumed.',
+	'error.document_not_draft': 'A preview is only available for drafts; final documents have their PDF.',
 	'error.document_not_final': 'The document has to be final for this.',
 	'error.render_pending': 'The PDF is being created. Please try again in a few seconds.',
 	'error.render_failed': 'The PDF could not be created. You can start the creation again.',

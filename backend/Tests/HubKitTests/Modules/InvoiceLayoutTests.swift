@@ -243,6 +243,56 @@ final class InvoiceLayoutTests: InvoiceLayoutTestBase {
         try await aEq(try await count("invoice_layout_versions"), 3)
     }
 
+    /// AK-R6d-2 (Rolling Update): Ein Worker ohne R6d würde mit dem Standardlayout rendern; die Datenbank lehnt eine Zustandszeile ab, deren Layout nicht
+    /// zur eingefrorenen Version passt. Mit dem passenden Layout geht sie.
+    func testAKR6d_2_databaseRejectsStateWithOtherLayoutThanFrozen() async throws {
+        let s = try await setup()
+        let created = try await createLayout(s, params: params())
+        let id = try XCTUnwrap(created.json["id"] as? String)
+        let assigned = try await assign(s, [["layout_id": id]])
+        XCTAssertEqual(assigned.status, .ok)
+        let doc = try await finalDocument(s)
+        let hash = try await value("SELECT content_hash AS v FROM invoice_documents WHERE id = '\(doc)'", as: String.self)
+        let sha = String(repeating: "c", count: 64)
+        try await db.raw(SQLQueryString("INSERT INTO files (tenant_id, sha256, size_bytes, content_type, backend, storage_key) VALUES ('\(s.w.tenantA)', '\(sha)', 1, 'application/pdf', 'db', '\(sha)')")).run()
+        let file = try await value("SELECT id::text AS v FROM files WHERE sha256 = '\(sha)'", as: String.self)
+        func insert(_ key: String, _ version: Int) async throws {
+            try await db.raw(SQLQueryString("""
+                INSERT INTO invoice_render_states (tenant_id, document_id, layout_key, layout_version, input_hash, pdf_sha256, file_id, renderer_version)
+                VALUES ('\(s.w.tenantA)', '\(doc)', '\(key)', \(literal: version), '\(hash)', '\(sha)', '\(file)', 'old-worker')
+                """)).run()
+        }
+        for (key, version) in [("standard", 1), (id.lowercased(), 2)] {
+            do { try await insert(key, version); XCTFail("Zustandszeile mit \(key) v\(version) erlaubt") } catch {}
+        }
+        try await insert(id.lowercased(), 1)
+        try await aEq(try await count("invoice_render_states"), 1)
+    }
+
+    /// Eingaben bis zu den Grenzwerten kommen durch einen echten HTTP-Server (Vapor begrenzt Bodys sonst auf 16 KiB): Logo über 16 KiB, 200 Zuordnungen.
+    func testAKR6d_1_realServerAcceptsMaximumSizedRequests() async throws {
+        let s = try await setup()
+        let created = try await createLayout(s, params: params())
+        let id = try XCTUnwrap(created.json["id"] as? String)
+        let series = try await value("SELECT id::text AS v FROM invoice_series LIMIT 1", as: String.self)
+        let item = ["document_kind": "order_confirmation", "series_id": series, "layout_id": id]
+        let body = try JSONSerialization.data(withJSONObject: ["items": Array(repeating: item, count: 200)])
+        XCTAssertGreaterThan(body.count, 16 * 1024)
+        let png = TestImages.png(width: 150, height: 100)
+        XCTAssertGreaterThan(png.count, 16 * 1024)
+        var headers = HTTPHeaders()
+        headers.bearerAuthorization = BearerAuthorization(token: s.w.alice.token)
+        let server = try app1.testable(method: .running(port: 0))
+        headers.contentType = .json
+        try await server.test(.PUT, base(s.w.tenantA) + "/layout-assignments", headers: headers, body: ByteBuffer(data: body)) { res async throws in
+            XCTAssertEqual(res.status, .unprocessableEntity, "angenommen und als Duplikat abgelehnt, nicht 413: \(res.body.string.prefix(200))")
+        }
+        headers.replaceOrAdd(name: .contentType, value: "image/png")
+        try await server.test(.POST, base(s.w.tenantA) + "/layouts/logos", headers: headers, body: ByteBuffer(data: png)) { res async throws in
+            XCTAssertEqual(res.status, .created, String(res.body.string.prefix(200)))
+        }
+    }
+
     /// Zuordnung: Belegart und Serie > nur Serie > nur Belegart > Vorgabe > Standardlayout. Ohne Zuordnung bleibt das Standardlayout (wie R6c).
     func testAKR6d_assignmentResolutionOrder() async throws {
         let s = try await setup()
@@ -345,6 +395,8 @@ final class InvoiceLayoutLogoTests: InvoiceLayoutTestBase {
         }
         try await aEq(try await count("invoice_layout_assets"), assetsBefore, "abgelehnt: keine Zeile")
         try await aEq(try await count("files"), filesBefore, "abgelehnt: keine Datei")
+        // Aufräumwege können ein Logo nicht entfernen: die `files`-Zeile ist referenziert (Fremdschlüssel ohne CASCADE)
+        do { try await db.raw("DELETE FROM files WHERE id IN (SELECT file_id FROM invoice_layout_assets)").run(); XCTFail("Logo-Datei gelöscht") } catch {}
     }
 }
 
@@ -501,7 +553,8 @@ final class InvoicePreviewTests: InvoiceLayoutTestBase {
         let r = try await preview(s, final)
         XCTAssertEqual(r.status, .conflict); XCTAssertEqual(r.json["code"] as? String, "document_not_draft")
         let doc = try await draft(s)
-        // Renderer scheitert endgültig
+        // Renderer scheitert endgültig (der Render-Job des finalen Belegs soll den Fehler nicht abbekommen)
+        try await db.raw("DELETE FROM jobs WHERE kind = 'invoice.render'").run()
         let failing = FakeRenderer(failFirst: 1)
         let h29 = try await preview(s, doc)
         let p1 = try XCTUnwrap((h29).json["id"] as? String)
@@ -522,6 +575,18 @@ final class InvoicePreviewTests: InvoiceLayoutTestBase {
         }
         let over = try await preview(s, doc)
         XCTAssertEqual(over.status, .tooManyRequests, "\(over.json)")
+        // Zwei Instanzen gleichzeitig: bei einem freien Platz wird genau eine angenommen
+        for round in 0..<3 {
+            try await db.raw("DELETE FROM invoice_previews WHERE id IN (SELECT id FROM invoice_previews LIMIT 1)").run()
+            let statuses = try await withThrowingTaskGroup(of: HTTPStatus.self) { group in
+                for i in 0..<8 { group.addTask { [s] in try await self.preview(s, doc, via: i % 2 == 0 ? self.app1 : self.app2).status } }
+                var out: [HTTPStatus] = []
+                for try await r in group { out.append(r) }
+                return out
+            }
+            XCTAssertEqual(statuses.filter { $0 == .accepted }.count, 1, "Runde \(round): \(statuses)")
+            try await aEq(try await count("invoice_previews"), Int64(InvoicePreviewJob.maxActivePerTenant))
+        }
     }
 }
 

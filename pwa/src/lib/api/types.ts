@@ -2224,6 +2224,168 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tenants/{tenant}/invoice/layouts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Liste Layouts mit neuester Version (Berechtigung invoice.master.read)
+         * @description WP-R6d: Layouts des Mandanten, sortiert nach Name; je Layout die neueste Version mit Parametern.
+         */
+        get: operations["listInvoiceLayouts"];
+        put?: never;
+        /**
+         * Layout anlegen (Berechtigung invoice.master.manage)
+         * @description Legt das Layout mit Version 1 an. params werden streng geprueft (unbekannte Felder, Schrift ausserhalb der Liste, Farben, Logo-Verweis auf ein Logo des Mandanten, Platzhalter, Laengen): 422 mit errors[params.<pfad>]. Gespeichert und ausgeliefert wird die kanonische Form.
+         */
+        post: operations["createInvoiceLayout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/invoice/layouts/logos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Logo hochladen (Berechtigung invoice.master.manage)
+         * @description Rohe Bildbytes. Nur image/png und image/jpeg (sonst 415), Bytes muessen zum Typ passen (422 errors[logo] type_mismatch), gueltige Struktur (invalid), hoechstens 2000 x 2000 Pixel (dimensions) und 512 KiB (413). Gleiche Bytes ergeben dieselbe Antwort. Verweis in params.logo.sha256.
+         */
+        post: operations["uploadInvoiceLayoutLogo"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/invoice/layouts/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Layout mit neuester Version (Berechtigung invoice.master.read)
+         * @description Fremder Mandant oder unbekannte Id: 404.
+         */
+        get: operations["getInvoiceLayout"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/invoice/layouts/{id}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Neue Layoutversion (Berechtigung invoice.master.manage)
+         * @description Versionen sind unveraenderlich und fortlaufend nummeriert. Finale Belege behalten die Version, die beim Finalisieren galt; neue Versionen wirken nur fuer kuenftig finalisierte Belege.
+         */
+        post: operations["createInvoiceLayoutVersion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/invoice/layouts/{id}/versions/{version}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Bestimmte Layoutversion (Berechtigung invoice.master.read) */
+        get: operations["getInvoiceLayoutVersion"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/invoice/layout-assignments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Zuordnung der Layouts (Berechtigung invoice.master.read) */
+        get: operations["listInvoiceLayoutAssignments"];
+        /**
+         * Zuordnung ersetzen (Berechtigung invoice.master.manage)
+         * @description Ersetzt alle Zuordnungen. Beim Finalisieren gilt: Belegart und Serie, sonst nur Serie, sonst nur Belegart, sonst Vorgabe (beide leer), sonst Standardlayout; jeweils die neueste Version. Jede Kombination hoechstens einmal (422 duplicate); fremde Layouts oder Serien 422 not_found.
+         */
+        put: operations["replaceInvoiceLayoutAssignments"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/invoice/documents/{id}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Vorschau eines Entwurfs anfordern (Berechtigung invoice.document.update)
+         * @description Reiht den Worker-Job invoice.preview ein (API ohne Typst). Layout: layout_id (neueste Version) oder die Zuordnung. Ohne Nummer (ENTWURF) und mit Hinweis auf jeder Seite; verbraucht keine Nummer, legt keine Datei an. Gueltig 15 Minuten, hoechstens 20 gueltige Vorschauen je Mandant (429). Nur Entwuerfe (409 document_not_draft).
+         */
+        post: operations["requestInvoiceDocumentPreview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/invoice/previews/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Vorschau-PDF (Berechtigung invoice.document.read)
+         * @description 200 PDF (Cache-Control private, no-store); 409 render_pending (mit Retry-After) oder render_failed; abgelaufen, fremd oder unbekannt 404.
+         */
+        get: operations["getInvoicePreviewPdf"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/tenants/{tenant}/invoice/documents/{id}/convert": {
         parameters: {
             query?: never;
@@ -2566,7 +2728,7 @@ export interface components {
              * @description Stabiler maschinenlesbarer Code
              * @enum {string}
              */
-            code: "api_token_unbound" | "bad_request" | "conflict" | "contact_merged" | "csrf_invalid" | "document_final_immutable" | "document_link_locked" | "document_linked" | "document_not_final" | "document_not_trashed" | "document_trashed" | "forbidden" | "handle_taken" | "idempotency_in_progress" | "idempotency_key_required" | "idempotency_key_reused" | "ingest_not_failed" | "internal_error" | "invalid_cursor" | "invalid_limit" | "invitation_invalid" | "last_owner" | "last_passkey" | "legal_hold" | "login_failed" | "method_not_allowed" | "module_disabled" | "module_required_by" | "module_requires" | "module_unavailable" | "not_found" | "number_conflict" | "passkey_invalid" | "payload_too_large" | "payment_allocated" | "payment_voided" | "precondition_failed" | "recovery_session_restricted" | "render_failed" | "render_file_missing" | "render_not_started" | "render_pending" | "retention_not_expired" | "scan_bridge_offline" | "scan_command_invalid" | "scan_device_busy" | "scan_transition_invalid" | "series_in_use" | "service_unavailable" | "setup_token_invalid" | "storage_quota_exceeded" | "suggestion_decided" | "suggestion_stale" | "tax_period_overlap" | "tenant_required" | "too_many_requests" | "unauthorized" | "unsupported_media_type" | "upload_interrupted" | "validation_failed";
+            code: "api_token_unbound" | "bad_request" | "conflict" | "contact_merged" | "csrf_invalid" | "document_final_immutable" | "document_link_locked" | "document_linked" | "document_not_draft" | "document_not_final" | "document_not_trashed" | "document_trashed" | "forbidden" | "handle_taken" | "idempotency_in_progress" | "idempotency_key_required" | "idempotency_key_reused" | "ingest_not_failed" | "internal_error" | "invalid_cursor" | "invalid_limit" | "invitation_invalid" | "last_owner" | "last_passkey" | "legal_hold" | "login_failed" | "method_not_allowed" | "module_disabled" | "module_required_by" | "module_requires" | "module_unavailable" | "not_found" | "number_conflict" | "passkey_invalid" | "payload_too_large" | "payment_allocated" | "payment_voided" | "precondition_failed" | "recovery_session_restricted" | "render_failed" | "render_file_missing" | "render_not_started" | "render_pending" | "retention_not_expired" | "scan_bridge_offline" | "scan_command_invalid" | "scan_device_busy" | "scan_transition_invalid" | "series_in_use" | "service_unavailable" | "setup_token_invalid" | "storage_quota_exceeded" | "suggestion_decided" | "suggestion_stale" | "tax_period_overlap" | "tenant_required" | "too_many_requests" | "unauthorized" | "unsupported_media_type" | "upload_interrupted" | "validation_failed";
             detail?: string;
             request_id: string;
             errors?: components["schemas"]["FieldError"][];
@@ -3870,6 +4032,74 @@ export interface components {
              * @description Nur bei ready
              */
             rendered_at?: string;
+        };
+        /** @description Layoutparameter Schema 1 (FRONTEND.md Abschnitt 13 Stufe 1). Der Designer (WP-F7b) fuehrt ein neues schema ein. */
+        InvoiceLayoutParams: {
+            /** @enum {integer} */
+            schema: 1;
+            /** @enum {string} */
+            base: "standard";
+            /** @enum {string} */
+            font: "Inter" | "Libertinus Serif" | "New Computer Modern";
+            colors: {
+                accent: string;
+                text: string;
+            };
+            logo?: {
+                /** @description Logo des Mandanten (POST layouts/logos) */
+                sha256: string;
+                width_mm: number;
+                /** @enum {string} */
+                align: "left" | "right";
+            };
+            /** @description Platzhalter {{number}}, {{issue_date}}, {{due_date}}, {{sender}}, {{recipient}}; je hoechstens 2000 Zeichen */
+            texts?: {
+                header?: string;
+                footer?: string;
+            };
+        };
+        InvoiceLayout: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            version: number;
+            /** Format: uuid */
+            version_id: string;
+            params: components["schemas"]["InvoiceLayoutParams"];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: date-time */
+            version_created_at: string;
+        };
+        InvoiceLayoutLogo: {
+            sha256: string;
+            /** @enum {string} */
+            content_type: "image/png" | "image/jpeg";
+            width: number;
+            height: number;
+            size: number;
+        };
+        InvoiceLayoutAssignments: {
+            items: {
+                /** @enum {string|null} */
+                document_kind?: "quote" | "order_confirmation" | "delivery_note" | "invoice" | "credit_note" | null;
+                /** Format: uuid */
+                series_id?: string | null;
+                /** Format: uuid */
+                layout_id: string;
+            }[];
+        };
+        InvoicePreview: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            document_id: string;
+            /** @enum {string} */
+            status: "pending";
+            /** Format: date-time */
+            expires_at: string;
         };
         InvoiceBalance: {
             /** Format: uuid */
@@ -8840,6 +9070,313 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InvoiceRenderStatus"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+        };
+    };
+    listInvoiceLayouts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Layouts */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["InvoiceLayout"][];
+                    };
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    createInvoiceLayout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    params: components["schemas"]["InvoiceLayoutParams"];
+                };
+            };
+        };
+        responses: {
+            /** @description Angelegt */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceLayout"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    uploadInvoiceLayoutLogo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "image/png": string;
+                "image/jpeg": string;
+            };
+        };
+        responses: {
+            /** @description Gespeichert */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceLayoutLogo"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            413: components["responses"]["Problem"];
+            415: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getInvoiceLayout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                id: components["parameters"]["InvoiceMasterId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Layout */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceLayout"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    createInvoiceLayoutVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                id: components["parameters"]["InvoiceMasterId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    params: components["schemas"]["InvoiceLayoutParams"];
+                };
+            };
+        };
+        responses: {
+            /** @description Angelegt */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceLayout"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getInvoiceLayoutVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                id: components["parameters"]["InvoiceMasterId"];
+                version: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Layoutversion */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceLayout"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    listInvoiceLayoutAssignments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Zuordnungen */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceLayoutAssignments"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    replaceInvoiceLayoutAssignments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvoiceLayoutAssignments"];
+            };
+        };
+        responses: {
+            /** @description Neue Zuordnungen */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceLayoutAssignments"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    requestInvoiceDocumentPreview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                id: components["parameters"]["InvoiceMasterId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    layout_id?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Eingereiht */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoicePreview"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+            429: components["responses"]["Problem"];
+        };
+    };
+    getInvoicePreviewPdf: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                id: components["parameters"]["InvoiceMasterId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description PDF */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
                 };
             };
             401: components["responses"]["Problem"];

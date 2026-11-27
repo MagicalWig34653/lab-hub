@@ -78,7 +78,7 @@ services:
     image: ${LABHUB_WORKER_IMAGE:-${LABHUB_IMAGE:?LABHUB_IMAGE setzen}-worker}
     # WP-D4: zusätzlich Prüf-/Export-Jobs (D5) und die Quellen Mail-Poll und Konsumordner. Mail-Passwörter werden mit SECRET_KEY entschlüsselt (Secret, nie als Wert in der Umgebung);
     # der Konsumordner ist ein Volume NUR in diesem Dienst (ADR 0003: nichts im Backend-Container): <DMS_FOLDER_ROOT>/<mandanten-uuid>/<Pfad der Quelle>, schreibbar für Nutzer 10001.
-    command: ["worker", "--kinds", "dms.ocr,dms.verify,dms.export,dms.mail.poll,dms.folder.scan,dms.import.paperless,invoice.render"]
+    command: ["worker", "--kinds", "dms.ocr,dms.verify,dms.export,dms.mail.poll,dms.folder.scan,dms.import.paperless,invoice.render,invoice.preview"]
     restart: unless-stopped
     depends_on:
       migrate: { condition: service_completed_successfully }

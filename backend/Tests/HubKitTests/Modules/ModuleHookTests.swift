@@ -84,9 +84,9 @@ final class ModuleHookTests: JobTestBase {
         XCTAssertEqual(Set(handlers.keys), ["hook.job"])
         let withSelftest = try WorkerHandlers.registry(environment: ["WORKER_ENABLE_SELFTEST": "1"], modules: app1.hubModules.modules)
         XCTAssertEqual(Set(withSelftest.keys), ["hook.job", "worker.selftest"])
-        // Die Arten liefern die Module selbst (WP-R6c: auch das Rechnungsmodul, `invoice.render`)
+        // Die Arten liefern die Module selbst (WP-R6c/R6d: auch das Rechnungsmodul, `invoice.render` und `invoice.preview`)
         let dms = try WorkerHandlers.registry(environment: [:], modules: InstalledModules.all)
-        XCTAssertEqual(Set(dms.keys), ["dms.export", "dms.folder.scan", "dms.import.paperless", "dms.mail.poll", "dms.ocr", "dms.verify", "invoice.render"])
+        XCTAssertEqual(Set(dms.keys), ["dms.export", "dms.folder.scan", "dms.import.paperless", "dms.mail.poll", "dms.ocr", "dms.verify", "invoice.preview", "invoice.render"])
         XCTAssertThrowsError(try WorkerHandlers.registry(environment: [:], modules: [BadJobModule()]))
         XCTAssertThrowsError(try WorkerHandlers.registry(environment: [:], modules: [HookModule(), TwinJobModule()]))
         // Vorabprüfung des Moduls für die gewählten Arten

@@ -75,7 +75,7 @@ services:
     image: ${LABHUB_WORKER_IMAGE:-${LABHUB_IMAGE:?LABHUB_IMAGE setzen}-worker}
     # WP-D4 (UNGETESTET unter Swarm, nur Syntax): Prüf-/Export-Jobs, Mail-Poll und Konsumordner. Der Konsumordner (Volume) hängt nur am Worker; im Swarm braucht er ein Volume,
     # das auf jedem Knoten mit Worker-Replik dieselben Dateien zeigt (NFS o. ä.) oder die Worker-Replik an einen Knoten binden (placement constraint, Knoten-Label).
-    command: ["worker", "--kinds", "dms.ocr,dms.verify,dms.export,dms.mail.poll,dms.folder.scan,dms.import.paperless,invoice.render"]
+    command: ["worker", "--kinds", "dms.ocr,dms.verify,dms.export,dms.mail.poll,dms.folder.scan,dms.import.paperless,invoice.render,invoice.preview"]
     volumes:
       - ${DMS_FOLDER_SOURCE:-labhub-consume}:/mnt/consume
       # WP-D6: Export-Verzeichnisse für den Paperless-Import, nur lesend: <DMS_IMPORT_ROOT>/<mandanten-uuid>/<Pfad>

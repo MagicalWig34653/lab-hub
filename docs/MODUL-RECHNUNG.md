@@ -203,3 +203,22 @@ Migration `invoice_030_render` (Expand-only, Revert vorhanden), Code `Render/Inv
 **Ablauf:** `finalize` reiht den Job `invoice.render` in derselben Transaktion ein (Rollback = kein Job). Der Worker rendert nur aus den eingefrorenen Belegdaten, speichert die Bytes inhaltsadressiert, registriert sie in `files` und schreibt die Zustandszeile `invoice_render_states` (Layoutschlüssel und -version, Inhalt-Hash der Eingabe, SHA-256, `file_id`, Rendererversion). Abschluss nur als Lease-Besitzer; zwei Worker oder doppelte Jobs ergeben ein PDF und eine Zeile.
 
 **Invarianten in der Datenbank:** Zustandszeile nur für einen finalen Beleg mit dessen Inhalt-Hash und einer Datei desselben Mandanten und derselben Prüfsumme; nie ändern, löschen oder leeren; der Fremdschlüssel auf `files` ist RESTRICT, damit keine Löschfunktion (DMS-Löschen, Aufräumen unreferenzierter Bytes) eine referenzierte Beleg-Datei entfernt. **Ein fertiges PDF wird nie neu erzeugt** (F-37: Belege vor WP-R5 behalten ein PDF ohne eingebettetes XML).
+
+## 17. R6d – Layoutmodell V1, Logos, Zuordnung, Vorschau (WP-R6d, 27.11.2026)
+
+Migration `invoice_031_layouts` (Expand-only, Revert vorhanden), Code `Render/InvoiceLayoutModel`, `Render/InvoiceLayoutRoutes`, `Render/InvoicePreviewJob`, `Render/InvoiceLayoutMigrations`. Übergabe `docs/handoff/WP-R6d.md`. Basis `/api/v1/tenants/{tenant}/invoice/`:
+
+| Route | Berechtigung | Verhalten |
+| --- | --- | --- |
+| `GET/POST layouts`, `GET layouts/{id}` | `invoice.master.read` / `.manage` | Layout mit neuester Version; Anlegen = Version 1 |
+| `POST layouts/{id}/versions`, `GET layouts/{id}/versions/{n}` | `.manage` / `.read` | neue, unveränderliche Version (fortlaufend); ältere bleiben abrufbar |
+| `POST layouts/logos` | `invoice.master.manage` | rohes PNG/JPEG (415 sonst), Bytes passend zum Typ, gültige Struktur, ≤ 2000×2000 px, ≤ 512 KiB (413) |
+| `GET/PUT layout-assignments` | `.read` / `.manage` | Zuordnung je Belegart und/oder Serie, beide leer = Vorgabe |
+| `POST documents/{id}/preview` | `invoice.document.update` | Vorschau eines Entwurfs (optional `layout_id`), 202; 409 `document_not_draft`, 429 bei 20 gültigen Vorschauen |
+| `GET previews/{id}` | `invoice.document.read` | PDF, 409 `render_pending`/`render_failed`, abgelaufen 404 |
+
+**Parameter (Schema 1, FRONTEND.md Abschnitt 13 Stufe 1):** `base: standard`, `font` aus `Inter`, `Libertinus Serif`, `New Computer Modern` (Schriften im Worker-Image), `colors.accent`/`colors.text` (`#RRGGBB`), `logo` (`sha256` eines Logos des Mandanten, `width_mm` 10–80, `align`), `texts.header`/`texts.footer` (je ≤ 2000 Zeichen, Platzhalter `{{number}}`, `{{issue_date}}`, `{{due_date}}`, `{{sender}}`, `{{recipient}}`). Unbekannte Felder werden abgelehnt; gespeichert wird die kanonische Form.
+
+**Zuordnung beim Finalisieren:** Belegart und Serie > nur Serie > nur Belegart > Vorgabe > Standardlayout; die dann neueste Version wird in `invoice_documents.layout_version_id` eingefroren (Trigger: finaler Beleg unveränderlich). Der Render-Job rendert mit dieser Version und schreibt Layout-Id und Versionsnummer in die Zustandszeile. Neue Versionen wirken nur für künftig finalisierte Belege; ein fertiges PDF bleibt (R6c).
+
+**Vorschau:** Job `invoice.preview` (Priorität 6, vor `invoice.render`), Ergebnis 15 Minuten in `invoice_previews` (Datenbank, kein Objektspeicher, keine `files`-Zeile), Hinweis „ENTWURF – Vorschau, kein gültiger Beleg“ auf jeder Seite, Nummer `ENTWURF`, kein Zählerverbrauch (ADR 0008 Nachtrag R6d).

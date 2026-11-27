@@ -367,6 +367,7 @@ final class InvoiceDocumentTests: InvoiceTestBase {
         for tbl in tables { try await aEq(try await count("information_schema.tables", where: "table_name = '\(tbl)'"), 1, tbl) }
         try await aEq(try await count("_fluent_migrations", where: "name = 'invoice_028_documents'"), 1)
         let m = CreateInvoiceDocuments(), database = app1.db(.psql)
+        try await CreateInvoiceLayouts().revert(on: database)   // WP-R6d baut darauf auf
         try await CreateInvoiceRender().revert(on: database)    // WP-R6c baut darauf auf: Rückbau in umgekehrter Reihenfolge
         try await CreateInvoicePayments().revert(on: database)  // WP-R3 baut darauf auf
         try await m.revert(on: database)
@@ -375,6 +376,7 @@ final class InvoiceDocumentTests: InvoiceTestBase {
         try await m.prepare(on: database)
         try await CreateInvoicePayments().prepare(on: database)
         try await CreateInvoiceRender().prepare(on: database)
+        try await CreateInvoiceLayouts().prepare(on: database)
         for tbl in tables { try await aEq(try await count("information_schema.tables", where: "table_name = '\(tbl)'"), 1, tbl) }
     }
 }

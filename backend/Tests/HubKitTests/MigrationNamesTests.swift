@@ -17,7 +17,7 @@ final class MigrationNamesTests: XCTestCase {
             "dms_026_api_token_tenant", "021_idempotency_lease", "022_user_accent",  // gitleaks:allow (Migrationsname, kein Schlüssel)
             "dms_016_core", "dms_017_ingest", "dms_018_search", "dms_019_ocr", "dms_020_rules", "dms_021_revision", "dms_022_sources",
             "dms_023_import", "dms_024_extraction", "dms_025_document_source", "dms_027_ocr_quarantine_sync", "dms_028_scan_bridge",
-            "invoice_027_master", "invoice_028_documents", "invoice_029_payments", "invoice_030_render"
+            "invoice_027_master", "invoice_028_documents", "invoice_029_payments", "invoice_030_render", "invoice_031_layouts"
         ])
     }
 }

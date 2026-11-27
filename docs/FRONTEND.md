@@ -209,7 +209,7 @@ Befehle (festgeschrieben mit WP-F1, alle im Verzeichnis `pwa/`; `test:e2e:pwa` f
 ## 13. Layout-Verwaltung und Designer in der PWA (Entwurf, offen F-31)
 
 Da der Hub ohne App nutzbar sein muss, braucht die PWA Layouts für Belege. Stufen:
-1. **V1 (WP-F6):** Standardlayouts wählen, Parameter (Logo-Upload, Farben, Schrift aus freigegebener Liste, Kopf-/Fußtexte, Platzhalter-Vorschau); PDF-Vorschau kommt vom Server-Renderer (`invoice.render`), nicht aus dem Browser.
+1. **V1 (WP-F6):** Standardlayouts wählen, Parameter (Logo-Upload, Farben, Schrift aus freigegebener Liste, Kopf-/Fußtexte, Platzhalter-Vorschau); PDF-Vorschau kommt vom Server-Renderer (`invoice.render`), nicht aus dem Browser. Backend seit WP-R6d: Layout-API, Logo-Upload, Zuordnung und Vorschau-Job `invoice.preview` (`MODUL-RECHNUNG.md` Abschnitt 17).
 2. **WP-F7a:** Layoutliste, Versionen, Import vorhandener Layouts (Importformate der bisherigen App und eines Altsystems), Zuordnung je Belegtyp/Serie, Vorschau mit Beispieldaten.
 3. **WP-F7b:** Grafischer Designer (Elemente, Ebenen, Seiten, Inspector, Tastatur) nach dem Konzept der App; gemeinsames Layoutmodell mit Server-Renderer, Canvas-Vorschau nur zur Bearbeitung, maßgeblich ist das Serverergebnis.
 Akzeptanz F7: Layout-Roundtrip (speichern, laden, rendern) ohne Verlust; a11y der Bedienelemente (Tastaturalternative zu Drag&Drop); Mandantentrennung der Layouts.

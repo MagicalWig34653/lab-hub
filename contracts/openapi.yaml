@@ -3335,6 +3335,234 @@ paths:
         "403": { $ref: "#/components/responses/Problem" }
         "404": { $ref: "#/components/responses/Problem" }
         "409": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/invoice/layouts:
+    get:
+      operationId: listInvoiceLayouts
+      summary: "Liste Layouts mit neuester Version (Berechtigung invoice.master.read)"
+      description: "WP-R6d: Layouts des Mandanten, sortiert nach Name; je Layout die neueste Version mit Parametern."
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+      responses:
+        "200":
+          description: Layouts
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/InvoiceLayout" } }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+    post:
+      operationId: createInvoiceLayout
+      summary: "Layout anlegen (Berechtigung invoice.master.manage)"
+      description: "Legt das Layout mit Version 1 an. params werden streng geprueft (unbekannte Felder, Schrift ausserhalb der Liste, Farben, Logo-Verweis auf ein Logo des Mandanten, Platzhalter, Laengen): 422 mit errors[params.<pfad>]. Gespeichert und ausgeliefert wird die kanonische Form."
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, params]
+              additionalProperties: false
+              properties:
+                name: { type: string, minLength: 1, maxLength: 100 }
+                params: { $ref: "#/components/schemas/InvoiceLayoutParams" }
+      responses:
+        "201":
+          description: Angelegt
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoiceLayout" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/invoice/layouts/logos:
+    post:
+      operationId: uploadInvoiceLayoutLogo
+      summary: "Logo hochladen (Berechtigung invoice.master.manage)"
+      description: "Rohe Bildbytes. Nur image/png und image/jpeg (sonst 415), Bytes muessen zum Typ passen (422 errors[logo] type_mismatch), gueltige Struktur (invalid), hoechstens 2000 x 2000 Pixel (dimensions) und 512 KiB (413). Gleiche Bytes ergeben dieselbe Antwort. Verweis in params.logo.sha256."
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+      requestBody:
+        required: true
+        content:
+          image/png:
+            schema: { type: string, format: binary }
+          image/jpeg:
+            schema: { type: string, format: binary }
+      responses:
+        "201":
+          description: Gespeichert
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoiceLayoutLogo" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "413": { $ref: "#/components/responses/Problem" }
+        "415": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/invoice/layouts/{id}:
+    get:
+      operationId: getInvoiceLayout
+      summary: "Layout mit neuester Version (Berechtigung invoice.master.read)"
+      description: "Fremder Mandant oder unbekannte Id: 404."
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/InvoiceMasterId" }
+      responses:
+        "200":
+          description: Layout
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoiceLayout" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/invoice/layouts/{id}/versions:
+    post:
+      operationId: createInvoiceLayoutVersion
+      summary: "Neue Layoutversion (Berechtigung invoice.master.manage)"
+      description: "Versionen sind unveraenderlich und fortlaufend nummeriert. Finale Belege behalten die Version, die beim Finalisieren galt; neue Versionen wirken nur fuer kuenftig finalisierte Belege."
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/InvoiceMasterId" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [params]
+              additionalProperties: false
+              properties:
+                params: { $ref: "#/components/schemas/InvoiceLayoutParams" }
+      responses:
+        "201":
+          description: Angelegt
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoiceLayout" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/invoice/layouts/{id}/versions/{version}:
+    get:
+      operationId: getInvoiceLayoutVersion
+      summary: "Bestimmte Layoutversion (Berechtigung invoice.master.read)"
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/InvoiceMasterId" }
+        - { name: version, in: path, required: true, schema: { type: integer, minimum: 1 } }
+      responses:
+        "200":
+          description: Layoutversion
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoiceLayout" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/invoice/layout-assignments:
+    get:
+      operationId: listInvoiceLayoutAssignments
+      summary: "Zuordnung der Layouts (Berechtigung invoice.master.read)"
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+      responses:
+        "200":
+          description: Zuordnungen
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoiceLayoutAssignments" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+    put:
+      operationId: replaceInvoiceLayoutAssignments
+      summary: "Zuordnung ersetzen (Berechtigung invoice.master.manage)"
+      description: "Ersetzt alle Zuordnungen. Beim Finalisieren gilt: Belegart und Serie, sonst nur Serie, sonst nur Belegart, sonst Vorgabe (beide leer), sonst Standardlayout; jeweils die neueste Version. Jede Kombination hoechstens einmal (422 duplicate); fremde Layouts oder Serien 422 not_found."
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InvoiceLayoutAssignments" }
+      responses:
+        "200":
+          description: Neue Zuordnungen
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoiceLayoutAssignments" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/invoice/documents/{id}/preview:
+    post:
+      operationId: requestInvoiceDocumentPreview
+      summary: "Vorschau eines Entwurfs anfordern (Berechtigung invoice.document.update)"
+      description: "Reiht den Worker-Job invoice.preview ein (API ohne Typst). Layout: layout_id (neueste Version) oder die Zuordnung. Ohne Nummer (ENTWURF) und mit Hinweis auf jeder Seite; verbraucht keine Nummer, legt keine Datei an. Gueltig 15 Minuten, hoechstens 20 gueltige Vorschauen je Mandant (429). Nur Entwuerfe (409 document_not_draft)."
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/InvoiceMasterId" }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                layout_id: { type: string, format: uuid }
+      responses:
+        "202":
+          description: Eingereiht
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoicePreview" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "429": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/invoice/previews/{id}:
+    get:
+      operationId: getInvoicePreviewPdf
+      summary: "Vorschau-PDF (Berechtigung invoice.document.read)"
+      description: "200 PDF (Cache-Control private, no-store); 409 render_pending (mit Retry-After) oder render_failed; abgelaufen, fremd oder unbekannt 404."
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/InvoiceMasterId" }
+      responses:
+        "200":
+          description: PDF
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
   /api/v1/tenants/{tenant}/invoice/documents/{id}/convert:
     post:
       operationId: convertInvoiceDocument
@@ -3873,6 +4101,7 @@ components:
             - document_final_immutable
             - document_link_locked
             - document_linked
+            - document_not_draft
             - document_not_final
             - document_not_trashed
             - document_trashed
@@ -5005,6 +5234,81 @@ components:
         layout_version: { type: integer, description: "Nur bei ready" }
         renderer_version: { type: string, description: "Nur bei ready, z. B. typst 0.15.1" }
         rendered_at: { type: string, format: date-time, description: "Nur bei ready" }
+    InvoiceLayoutParams:
+      type: object
+      description: "Layoutparameter Schema 1 (FRONTEND.md Abschnitt 13 Stufe 1). Der Designer (WP-F7b) fuehrt ein neues schema ein."
+      required: [schema, base, font, colors]
+      additionalProperties: false
+      properties:
+        schema: { type: integer, enum: [1] }
+        base: { type: string, enum: [standard] }
+        font: { type: string, enum: [Inter, Libertinus Serif, New Computer Modern] }
+        colors:
+          type: object
+          required: [accent, text]
+          additionalProperties: false
+          properties:
+            accent: { type: string, pattern: "^#[0-9A-Fa-f]{6}$" }
+            text: { type: string, pattern: "^#[0-9A-Fa-f]{6}$" }
+        logo:
+          type: object
+          required: [sha256, width_mm, align]
+          additionalProperties: false
+          properties:
+            sha256: { type: string, pattern: "^[0-9a-f]{64}$", description: "Logo des Mandanten (POST layouts/logos)" }
+            width_mm: { type: integer, minimum: 10, maximum: 80 }
+            align: { type: string, enum: [left, right] }
+        texts:
+          type: object
+          additionalProperties: false
+          description: "Platzhalter {{number}}, {{issue_date}}, {{due_date}}, {{sender}}, {{recipient}}; je hoechstens 2000 Zeichen"
+          properties:
+            header: { type: string, maxLength: 2000 }
+            footer: { type: string, maxLength: 2000 }
+    InvoiceLayout:
+      type: object
+      required: [id, name, version, version_id, params, created_at, updated_at, version_created_at]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        version: { type: integer, minimum: 1 }
+        version_id: { type: string, format: uuid }
+        params: { $ref: "#/components/schemas/InvoiceLayoutParams" }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        version_created_at: { type: string, format: date-time }
+    InvoiceLayoutLogo:
+      type: object
+      required: [sha256, content_type, width, height, size]
+      properties:
+        sha256: { type: string, pattern: "^[0-9a-f]{64}$" }
+        content_type: { type: string, enum: [image/png, image/jpeg] }
+        width: { type: integer }
+        height: { type: integer }
+        size: { type: integer }
+    InvoiceLayoutAssignments:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          maxItems: 200
+          items:
+            type: object
+            required: [layout_id]
+            additionalProperties: false
+            properties:
+              document_kind: { type: [string, "null"], enum: [quote, order_confirmation, delivery_note, invoice, credit_note, null] }
+              series_id: { type: [string, "null"], format: uuid }
+              layout_id: { type: string, format: uuid }
+    InvoicePreview:
+      type: object
+      required: [id, document_id, status, expires_at]
+      properties:
+        id: { type: string, format: uuid }
+        document_id: { type: string, format: uuid }
+        status: { type: string, enum: [pending] }
+        expires_at: { type: string, format: date-time }
     InvoiceBalance:
       type: object
       required: [document_id, currency, gross_total, paid, skonto, credited, open_balance, total_balance, payment_status, skonto_terms, allocations, credit_notes]

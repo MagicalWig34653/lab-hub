@@ -214,6 +214,7 @@ export const de = {
 	'error.series_in_use': 'Die Nummernserie hat bereits Nummern vergeben und kann nicht geändert oder gelöscht werden.',
 	'error.document_final_immutable': 'Der Beleg ist finalisiert und kann nicht mehr geändert, gelöscht oder erneut finalisiert werden.',
 	'error.number_conflict': 'Die Belegnummer ist in der Serie bereits vergeben. Der Vorgang wurde zurückgenommen, es wurde keine Nummer verbraucht.',
+	'error.document_not_draft': 'Eine Vorschau gibt es nur für Entwürfe; finalisierte Belege haben ihr PDF.',
 	'error.document_not_final': 'Dafür muss der Beleg finalisiert sein.',
 	'error.render_pending': 'Das PDF wird gerade erzeugt. Bitte in einigen Sekunden erneut versuchen.',
 	'error.render_failed': 'Das PDF konnte nicht erzeugt werden. Die Erzeugung lässt sich erneut anstoßen.',
