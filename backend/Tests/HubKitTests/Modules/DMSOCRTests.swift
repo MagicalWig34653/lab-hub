@@ -268,7 +268,7 @@ final class OCRUnitTests: XCTestCase {
     func testAKO2_4_timeLimitKillsRunawayProcess() async throws {
         let dir = try scratch(); defer { try? FileManager.default.removeItem(at: dir) }
         let start = Date()
-        let r = try await OCRProcess.run("sh", ["-c", "sleep 60"], workDir: dir, timeout: 1)
+        let r = try await ToolProcess.run("sh", ["-c", "sleep 60"], workDir: dir, timeout: 1)
         XCTAssertTrue(r.timedOut)
         XCTAssertLessThan(Date().timeIntervalSince(start), 10)
         XCTAssertNotEqual(r.exitCode, 0)
@@ -279,7 +279,7 @@ final class OCRUnitTests: XCTestCase {
     func testAKO2_4_timeLimitReportedWhenProcessIgnoresTerm() async throws {
         let dir = try scratch(); defer { try? FileManager.default.removeItem(at: dir) }
         let start = Date()
-        let r = try await OCRProcess.run("sh", ["-c", "trap '' TERM; exec sleep 60"], workDir: dir, timeout: 1)
+        let r = try await ToolProcess.run("sh", ["-c", "trap '' TERM; exec sleep 60"], workDir: dir, timeout: 1)
         XCTAssertTrue(r.timedOut, "Exit \(r.exitCode)")
         XCTAssertLessThan(Date().timeIntervalSince(start), 20)
     }
@@ -287,7 +287,7 @@ final class OCRUnitTests: XCTestCase {
     /// AK-O2-4 (Abbruch): Cancellation beendet den Fremdprozess (Worker-Shutdown, Lease-Verlust).
     func testAKO2_4_cancellationKillsProcess() async throws {
         let dir = try scratch(); defer { try? FileManager.default.removeItem(at: dir) }
-        let task = Task { try await OCRProcess.run("sh", ["-c", "sleep 60"], workDir: dir, timeout: 120) }
+        let task = Task { try await ToolProcess.run("sh", ["-c", "sleep 60"], workDir: dir, timeout: 120) }
         try await Task.sleep(for: .milliseconds(300))
         let start = Date()
         task.cancel()
@@ -300,11 +300,11 @@ final class OCRUnitTests: XCTestCase {
     func testAKO2_4_memoryLimitStopsGreedyProcess() async throws {
         #if os(Linux)
         let dir = try scratch(); defer { try? FileManager.default.removeItem(at: dir) }
-        guard (try? await OCRProcess.run("python3", ["-c", "pass"], workDir: dir, timeout: 20))?.exitCode == 0 else { throw XCTSkip("python3 fehlt") }
-        let big = try await OCRProcess.run("python3", ["-I", "-c", "x = bytearray(1 << 30)"], workDir: dir, timeout: 30, memoryBytes: 256 << 20)
+        guard (try? await ToolProcess.run("python3", ["-c", "pass"], workDir: dir, timeout: 20))?.exitCode == 0 else { throw XCTSkip("python3 fehlt") }
+        let big = try await ToolProcess.run("python3", ["-I", "-c", "x = bytearray(1 << 30)"], workDir: dir, timeout: 30, memoryBytes: 256 << 20)
         XCTAssertNotEqual(big.exitCode, 0, "1 GiB bei 256 MiB Limit")
         XCTAssertFalse(big.timedOut)
-        let small = try await OCRProcess.run("python3", ["-I", "-c", "x = bytearray(1 << 20)"], workDir: dir, timeout: 30, memoryBytes: 1 << 30)
+        let small = try await ToolProcess.run("python3", ["-I", "-c", "x = bytearray(1 << 20)"], workDir: dir, timeout: 30, memoryBytes: 1 << 30)
         XCTAssertEqual(small.exitCode, 0, small.stderr)
         #else
         throw XCTSkip("Speicherlimit (ulimit -v) wird nur unter Linux gesetzt; Prüfung im Container (scripts/ocr-container-test.sh)")

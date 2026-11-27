@@ -55,8 +55,8 @@ enum OCRTestTools {
 enum Synth {
     static let font = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 
-    static func run(_ exe: String, _ args: [String], dir: URL, timeout: TimeInterval = 120) async throws -> OCRProcessResult {
-        try await OCRProcess.run(exe, args, workDir: dir, timeout: timeout, environment: ["LC_ALL": "C.UTF-8"])
+    static func run(_ exe: String, _ args: [String], dir: URL, timeout: TimeInterval = 120) async throws -> ToolProcessResult {
+        try await ToolProcess.run(exe, args, workDir: dir, timeout: timeout, environment: ["LC_ALL": "C.UTF-8"])
     }
 
     /// Eine Seite je Eintrag in `pages` (Zeilen durch \n). A4 bei 300 dpi, schwarzer Text auf weiß. Ausgabe PNG (eine Seite) oder PDF (mehrere Seiten möglich).

@@ -1,17 +1,16 @@
 import Foundation
-import HubCore
 
-// WP-O2: Fremdprozesse (pdfinfo, pdftotext, ocrmypdf) mit hartem Zeit- und Speicherlimit. Ghostscript und Tesseract laufen ausschließlich als
-// eigene Prozesse (kein Linken, siehe docs/LIZENZEN.md). Ausgabe geht in Dateien im Arbeitsverzeichnis (tmpfs), nie in Pipes (kein Deadlock).
+// WP-O2/WP-R6b: Fremdprozesse der Worker-Werkzeuge mit hartem Zeit- und Speicherlimit. Sie laufen ausschließlich als eigene Prozesse
+// (kein Linken, siehe docs/LIZENZEN.md). Ausgabe geht in Dateien im Arbeitsverzeichnis (tmpfs), nie in Pipes (kein Deadlock).
 
-struct OCRProcessResult: Sendable {
-    let exitCode: Int32
-    let stdout: String
-    let stderr: String
-    let timedOut: Bool
+package struct ToolProcessResult: Sendable {
+    package let exitCode: Int32
+    package let stdout: String
+    package let stderr: String
+    package let timedOut: Bool
 }
 
-enum OCRProcessError: Error, Equatable {
+package enum ToolProcessError: Error, Equatable {
     case launchFailed(String)
 }
 
@@ -52,15 +51,16 @@ private final class TimeoutFlag: @unchecked Sendable {
     var value: Bool { lock.lock(); defer { lock.unlock() }; return v }
 }
 
-enum OCRProcess {
+package enum ToolProcess {
     /// Startet `executable` (Suche über PATH). `memoryBytes`: Adressraumlimit (`ulimit -v`, nur Linux). `timeout`: Sekunden; danach wird die ganze Prozessgruppe beendet
     /// (Linux: `timeout(1)` mit TERM, nach 5 s KILL, Exit 124 oder Signal 9; Swift-Zeitgeber als Rückfall nach timeout + 10 s).
-    static func run(_ executable: String, _ arguments: [String], workDir: URL, timeout: TimeInterval, memoryBytes: Int64? = nil,
-                    environment: [String: String] = [:], maxCapture: Int = 4 << 20) async throws -> OCRProcessResult {
+    /// `inheritEnvironment: false`: der Prozess sieht nur `PATH` und `environment` (keine Zugangsdaten des Hubs).
+    package static func run(_ executable: String, _ arguments: [String], workDir: URL, timeout: TimeInterval, memoryBytes: Int64? = nil,
+                    environment: [String: String] = [:], inheritEnvironment: Bool = true, maxCapture: Int = 4 << 20) async throws -> ToolProcessResult {
         let id = UUID().uuidString
         let outURL = workDir.appendingPathComponent(".out-\(id)"), errURL = workDir.appendingPathComponent(".err-\(id)")
         guard FileManager.default.createFile(atPath: outURL.path, contents: nil), FileManager.default.createFile(atPath: errURL.path, contents: nil)
-        else { throw OCRProcessError.launchFailed("workdir") }
+        else { throw ToolProcessError.launchFailed("workdir") }
         defer { try? FileManager.default.removeItem(at: outURL); try? FileManager.default.removeItem(at: errURL) }
         let outHandle = try FileHandle(forWritingTo: outURL), errHandle = try FileHandle(forWritingTo: errURL)
         defer { try? outHandle.close(); try? errHandle.close() }
@@ -82,7 +82,7 @@ enum OCRProcess {
         p.environment = env
         p.standardOutput = outHandle; p.standardError = errHandle; p.standardInput = FileHandle.nullDevice
         p.terminationHandler = { _ in running.markFinished() }
-        do { try p.run() } catch { throw OCRProcessError.launchFailed("\(error)") }
+        do { try p.run() } catch { throw ToolProcessError.launchFailed("\(error)") }
 
         let started = Date()
         let timedOut = TimeoutFlag()
@@ -109,6 +109,6 @@ enum OCRProcess {
             defer { try? h.close() }
             return String(decoding: (try? h.read(upToCount: maxCapture)) ?? Data(), as: UTF8.self)
         }
-        return OCRProcessResult(exitCode: p.terminationStatus, stdout: read(outURL), stderr: read(errURL), timedOut: timedOut.value)
+        return ToolProcessResult(exitCode: p.terminationStatus, stdout: read(outURL), stderr: read(errURL), timedOut: timedOut.value)
     }
 }

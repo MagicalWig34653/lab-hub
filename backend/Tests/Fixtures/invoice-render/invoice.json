@@ -1,0 +1,136 @@
+{
+  "id": "00000000-0000-0000-0000-0000000000aa",
+  "kind": "invoice",
+  "status": "final",
+  "number": "RE-2026-0001",
+  "issue_date": "2026-11-23",
+  "due_date": "2026-12-07",
+  "delivery_date": "2026-11-20",
+  "currency": "EUR",
+  "price_mode": "net",
+  "discount_percent": "5.0000",
+  "discount_amount": null,
+  "discount_total": "66.85",
+  "rounding_mode": "halfAwayFromZero",
+  "header_text": "Vielen Dank für Ihren Auftrag.",
+  "footer_text": "Zahlbar ohne Abzug bis zum Fälligkeitsdatum.",
+  "note": "interne Notiz, nie drucken",
+  "tax_regime": "standard",
+  "sender": {
+    "sender_name": "Beispiel Werkstatt GmbH",
+    "street": "Musterweg 1",
+    "postal_code": "00000",
+    "city": "Musterstadt",
+    "country": "DE",
+    "tax_number": "000/000/00000",
+    "vat_id": "DE000000000",
+    "email": "kontakt@example.org",
+    "phone": "+49 000 0000000",
+    "website": "www.example.org",
+    "bank_name": "Musterbank",
+    "iban": "DE00 0000 0000 0000 0000 00",
+    "bic": "XXXXDEXXXXX"
+  },
+  "recipient": {
+    "contact_id": "00000000-0000-0000-0000-000000000001",
+    "kind": "organization",
+    "display_name": "Kunde Beispiel AG",
+    "first_name": null,
+    "last_name": null,
+    "company_name": "Kunde Beispiel AG",
+    "vat_id": null,
+    "address": {
+      "street": "Beispielstraße 7",
+      "postal_code": "11111",
+      "city": "Beispielhausen",
+      "country": "DE"
+    }
+  },
+  "finalized_at": "2026-11-23T10:15:30.123456+00:00",
+  "skonto_percent": "2.0000",
+  "skonto_days": 7,
+  "charges": [
+    {
+      "id": "00000000-0000-0000-0000-0000000000c1",
+      "position": 1,
+      "description": "Versand",
+      "tax_rate": "19.0000",
+      "amount": "25.0000"
+    }
+  ],
+  "lines": [
+    {
+      "id": "00000000-0000-0000-0000-000000000001",
+      "position": 1,
+      "kind": "item",
+      "item_id": null,
+      "description": "Beratung vor Ort\nTermin nach Absprache",
+      "unit": "Std.",
+      "quantity": "3.0000",
+      "second_quantity": null,
+      "unit_price": "49.9900",
+      "tax_rate": "19.0000",
+      "discount_kind": null,
+      "discount_value": null
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000002",
+      "position": 2,
+      "kind": "item",
+      "item_id": null,
+      "description": "Material Eiche, gehobelt",
+      "unit": "m",
+      "quantity": "2.5000",
+      "second_quantity": "4.0000",
+      "unit_price": "12.5000",
+      "tax_rate": "7.0000",
+      "discount_kind": null,
+      "discount_value": null
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000003",
+      "position": 3,
+      "kind": "text",
+      "item_id": null,
+      "description": "Die folgenden Leistungen wurden pauschal vereinbart.",
+      "unit": null,
+      "quantity": null,
+      "second_quantity": null,
+      "unit_price": null,
+      "tax_rate": null,
+      "discount_kind": null,
+      "discount_value": null
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000004",
+      "position": 4,
+      "kind": "item",
+      "item_id": null,
+      "description": "Montagepauschale",
+      "unit": null,
+      "quantity": "1.0000",
+      "second_quantity": null,
+      "unit_price": "1180.0000",
+      "tax_rate": "19.0000",
+      "discount_kind": "percent",
+      "discount_value": "10.0000"
+    }
+  ],
+  "net_total": "1295.12",
+  "tax_total": "231.82",
+  "gross_total": "1526.94",
+  "tax_totals": [
+    {
+      "rate": "7.0000",
+      "net": "118.75",
+      "tax": "8.31",
+      "gross": "127.06"
+    },
+    {
+      "rate": "19.0000",
+      "net": "1176.37",
+      "tax": "223.51",
+      "gross": "1399.88"
+    }
+  ]
+}

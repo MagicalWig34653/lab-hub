@@ -1,0 +1,80 @@
+{
+  "id": "00000000-0000-0000-0000-0000000000aa",
+  "kind": "quote",
+  "status": "final",
+  "number": "AN-2026-0007",
+  "issue_date": "2026-11-23",
+  "due_date": "2026-12-23",
+  "delivery_date": null,
+  "currency": "EUR",
+  "price_mode": "gross",
+  "discount_percent": "0.0000",
+  "discount_amount": null,
+  "discount_total": "0.00",
+  "rounding_mode": "halfAwayFromZero",
+  "header_text": "Sehr geehrte Damen und Herren,\n\nwir bieten Ihnen an:",
+  "footer_text": "Wir freuen uns auf Ihre Rückmeldung.",
+  "note": "interne Notiz, nie drucken",
+  "tax_regime": "standard",
+  "sender": {
+    "sender_name": "Beispiel Werkstatt GmbH",
+    "street": "Musterweg 1",
+    "postal_code": "00000",
+    "city": "Musterstadt",
+    "country": "DE",
+    "tax_number": "000/000/00000",
+    "vat_id": "DE000000000",
+    "email": "kontakt@example.org",
+    "phone": "+49 000 0000000",
+    "website": "www.example.org",
+    "bank_name": "Musterbank",
+    "iban": "DE00 0000 0000 0000 0000 00",
+    "bic": "XXXXDEXXXXX"
+  },
+  "recipient": {
+    "contact_id": "00000000-0000-0000-0000-000000000001",
+    "kind": "organization",
+    "display_name": "Example Trading Ltd",
+    "first_name": null,
+    "last_name": null,
+    "company_name": "Example Trading Ltd",
+    "vat_id": "ATU00000000",
+    "address": {
+      "street": "Beispielstraße 7",
+      "postal_code": "11111",
+      "city": "Beispielhausen",
+      "country": "AT"
+    }
+  },
+  "finalized_at": "2026-11-23T10:15:30.123456+00:00",
+  "skonto_percent": null,
+  "skonto_days": null,
+  "charges": [],
+  "lines": [
+    {
+      "id": "00000000-0000-0000-0000-000000000001",
+      "position": 1,
+      "kind": "item",
+      "item_id": null,
+      "description": "Tischlerarbeiten laut Skizze",
+      "unit": "Stk.",
+      "quantity": "1.0000",
+      "second_quantity": null,
+      "unit_price": "2380.0000",
+      "tax_rate": "19.0000",
+      "discount_kind": null,
+      "discount_value": null
+    }
+  ],
+  "net_total": "2000.00",
+  "tax_total": "380.00",
+  "gross_total": "2380.00",
+  "tax_totals": [
+    {
+      "rate": "19.0000",
+      "net": "2000.00",
+      "tax": "380.00",
+      "gross": "2380.00"
+    }
+  ]
+}

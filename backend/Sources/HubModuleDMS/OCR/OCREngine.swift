@@ -63,11 +63,11 @@ struct OCRToolEngine: OCRExtracting {
     /// Prüft beim Worker-Start, dass alle Werkzeuge und Sprachpakete vorhanden sind (sonst würden alle Aufträge in die Quarantäne laufen).
     static func preflight(config: OCRConfig, workDir: URL) async -> String? {
         for (tool, args) in [("pdftotext", ["-v"]), ("pdfinfo", ["-v"]), ("ocrmypdf", ["--version"]), ("tesseract", ["--version"]), ("gs", ["--version"])] {
-            guard let r = try? await OCRProcess.run(tool, args, workDir: workDir, timeout: 30), r.exitCode == 0 || tool == "pdftotext" || tool == "pdfinfo" else {
+            guard let r = try? await ToolProcess.run(tool, args, workDir: workDir, timeout: 30), r.exitCode == 0 || tool == "pdftotext" || tool == "pdfinfo" else {
                 return "Werkzeug fehlt oder startet nicht: \(tool)"
             }
         }
-        guard let langs = try? await OCRProcess.run("tesseract", ["--list-langs"], workDir: workDir, timeout: 30) else { return "tesseract --list-langs fehlgeschlagen" }
+        guard let langs = try? await ToolProcess.run("tesseract", ["--list-langs"], workDir: workDir, timeout: 30) else { return "tesseract --list-langs fehlgeschlagen" }
         let have = Set((langs.stdout + "\n" + langs.stderr).split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespaces) })
         for l in config.languages.split(separator: "+") where !have.contains(String(l)) { return "Tesseract-Sprachpaket fehlt: \(l)" }
         return nil
@@ -91,7 +91,7 @@ struct OCRToolEngine: OCRExtracting {
     }
 
     private func pageCount(_ pdf: URL, workDir: URL, env: [String: String]) async throws -> Int? {
-        let r = try await OCRProcess.run("pdfinfo", [pdf.path], workDir: workDir, timeout: TimeInterval(config.toolTimeoutSeconds), memoryBytes: memoryBytes, environment: env)
+        let r = try await ToolProcess.run("pdfinfo", [pdf.path], workDir: workDir, timeout: TimeInterval(config.toolTimeoutSeconds), memoryBytes: memoryBytes, environment: env)
         if r.timedOut { throw OCRFailure(code: "ocr_timeout", permanent: false) }
         guard r.exitCode == 0 else {   // nicht lesbar: verschlüsselt oder defekt, beides ohne Wiederholungsaussicht
             throw OCRFailure(code: r.stderr.localizedCaseInsensitiveContains("password") ? "pdf_encrypted" : "input_invalid", permanent: true)
@@ -116,7 +116,7 @@ struct OCRToolEngine: OCRExtracting {
     private func pdfText(_ pdf: URL, workDir: URL, env: [String: String], failQuietly: Bool = false) async throws -> String? {
         let out = workDir.appendingPathComponent("text-\(UUID().uuidString).txt")
         defer { try? FileManager.default.removeItem(at: out) }
-        let r = try await OCRProcess.run("pdftotext", ["-enc", "UTF-8", "-layout", pdf.path, out.path], workDir: workDir,
+        let r = try await ToolProcess.run("pdftotext", ["-enc", "UTF-8", "-layout", pdf.path, out.path], workDir: workDir,
                                          timeout: TimeInterval(config.toolTimeoutSeconds), memoryBytes: memoryBytes, environment: env)
         if r.timedOut { throw OCRFailure(code: "ocr_timeout", permanent: false) }
         guard r.exitCode == 0, let data = FileManager.default.contents(atPath: out.path) else {
@@ -135,11 +135,11 @@ struct OCRToolEngine: OCRExtracting {
             return a + [input.path, output.path]
         }
         var pdfa = true
-        var r = try await OCRProcess.run("ocrmypdf", args("pdfa-2"), workDir: workDir, timeout: TimeInterval(config.timeoutSeconds), memoryBytes: memoryBytes, environment: env)
+        var r = try await ToolProcess.run("ocrmypdf", args("pdfa-2"), workDir: workDir, timeout: TimeInterval(config.timeoutSeconds), memoryBytes: memoryBytes, environment: env)
         if !r.timedOut, r.exitCode == 4 || r.exitCode == 10 {   // PDF/A-Erzeugung nicht möglich: durchsuchbares PDF ohne PDF/A-Anspruch
             try? FileManager.default.removeItem(at: output)
             pdfa = false
-            r = try await OCRProcess.run("ocrmypdf", args("pdf"), workDir: workDir, timeout: TimeInterval(config.timeoutSeconds), memoryBytes: memoryBytes, environment: env)
+            r = try await ToolProcess.run("ocrmypdf", args("pdf"), workDir: workDir, timeout: TimeInterval(config.timeoutSeconds), memoryBytes: memoryBytes, environment: env)
         }
         if r.timedOut { throw OCRFailure(code: "ocr_timeout", permanent: false) }
         switch r.exitCode {

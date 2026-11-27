@@ -1,0 +1,116 @@
+{
+  "id": "00000000-0000-0000-0000-0000000000aa",
+  "kind": "delivery_note",
+  "status": "final",
+  "number": "LS-2026-0013",
+  "issue_date": "2026-11-23",
+  "due_date": null,
+  "delivery_date": "2026-11-24",
+  "currency": "EUR",
+  "price_mode": "net",
+  "discount_percent": "0.0000",
+  "discount_amount": null,
+  "discount_total": "0.00",
+  "rounding_mode": "halfAwayFromZero",
+  "header_text": null,
+  "footer_text": null,
+  "note": "interne Notiz, nie drucken",
+  "tax_regime": "standard",
+  "sender": {
+    "sender_name": "Beispiel Werkstatt GmbH",
+    "street": "Musterweg 1",
+    "postal_code": "00000",
+    "city": "Musterstadt",
+    "country": "DE",
+    "tax_number": "000/000/00000",
+    "vat_id": "DE000000000",
+    "email": "kontakt@example.org",
+    "phone": "+49 000 0000000",
+    "website": "www.example.org",
+    "bank_name": "Musterbank",
+    "iban": "DE00 0000 0000 0000 0000 00",
+    "bic": "XXXXDEXXXXX"
+  },
+  "recipient": {
+    "contact_id": "00000000-0000-0000-0000-000000000001",
+    "kind": "organization",
+    "display_name": "Kunde Beispiel AG",
+    "first_name": null,
+    "last_name": null,
+    "company_name": "Kunde Beispiel AG",
+    "vat_id": null,
+    "address": {
+      "street": "Beispielstraße 7",
+      "postal_code": "11111",
+      "city": "Beispielhausen",
+      "country": "DE"
+    }
+  },
+  "finalized_at": "2026-11-23T10:15:30.123456+00:00",
+  "skonto_percent": "3.0000",
+  "skonto_days": 10,
+  "charges": [
+    {
+      "id": "00000000-0000-0000-0000-0000000000c2",
+      "position": 1,
+      "description": "Anlieferung",
+      "tax_rate": "19.0000",
+      "amount": "9.9900"
+    }
+  ],
+  "lines": [
+    {
+      "id": "00000000-0000-0000-0000-000000000001",
+      "position": 1,
+      "kind": "item",
+      "item_id": null,
+      "description": "Regalbretter",
+      "unit": "Stk.",
+      "quantity": "12.0000",
+      "second_quantity": null,
+      "unit_price": "17.7700",
+      "tax_rate": "19.0000",
+      "discount_kind": null,
+      "discount_value": null
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000002",
+      "position": 2,
+      "kind": "item",
+      "item_id": null,
+      "description": "Beschläge",
+      "unit": "Set",
+      "quantity": "3.0000",
+      "second_quantity": null,
+      "unit_price": "8.8800",
+      "tax_rate": "19.0000",
+      "discount_kind": "amount",
+      "discount_value": "1.1100"
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000003",
+      "position": 3,
+      "kind": "text",
+      "item_id": null,
+      "description": "Bitte Ware bei Annahme prüfen.",
+      "unit": null,
+      "quantity": null,
+      "second_quantity": null,
+      "unit_price": null,
+      "tax_rate": null,
+      "discount_kind": null,
+      "discount_value": null
+    }
+  ],
+  "net_total": "238.77",
+  "tax_total": "45.37",
+  "gross_total": "284.14",
+  "tax_totals": [
+    {
+      "rate": "19.0000",
+      "net": "238.77",
+      "tax": "45.37",
+      "gross": "284.14"
+    }
+  ]
+}

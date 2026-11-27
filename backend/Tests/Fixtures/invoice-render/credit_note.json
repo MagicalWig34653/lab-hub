@@ -1,0 +1,80 @@
+{
+  "id": "00000000-0000-0000-0000-0000000000aa",
+  "kind": "credit_note",
+  "status": "final",
+  "number": "GS-2026-0002",
+  "issue_date": "2026-11-23",
+  "due_date": null,
+  "delivery_date": null,
+  "currency": "EUR",
+  "price_mode": "net",
+  "discount_percent": "0.0000",
+  "discount_amount": null,
+  "discount_total": "0.00",
+  "rounding_mode": "halfAwayFromZero",
+  "header_text": null,
+  "footer_text": "Der Betrag wird auf Ihr Konto überwiesen.",
+  "note": "interne Notiz, nie drucken",
+  "tax_regime": "small_business",
+  "sender": {
+    "sender_name": "Beispiel Werkstatt GmbH",
+    "street": "Musterweg 1",
+    "postal_code": "00000",
+    "city": "Musterstadt",
+    "country": "DE",
+    "tax_number": "000/000/00000",
+    "vat_id": null,
+    "email": "kontakt@example.org",
+    "phone": "+49 000 0000000",
+    "website": "www.example.org",
+    "bank_name": "Musterbank",
+    "iban": "DE00 0000 0000 0000 0000 00",
+    "bic": "XXXXDEXXXXX"
+  },
+  "recipient": {
+    "contact_id": "00000000-0000-0000-0000-000000000001",
+    "kind": "organization",
+    "display_name": "Kunde Beispiel AG",
+    "first_name": null,
+    "last_name": null,
+    "company_name": "Kunde Beispiel AG",
+    "vat_id": null,
+    "address": {
+      "street": "Beispielstraße 7",
+      "postal_code": "11111",
+      "city": "Beispielhausen",
+      "country": "DE"
+    }
+  },
+  "finalized_at": "2026-11-23T10:15:30.123456+00:00",
+  "skonto_percent": null,
+  "skonto_days": null,
+  "charges": [],
+  "lines": [
+    {
+      "id": "00000000-0000-0000-0000-000000000001",
+      "position": 1,
+      "kind": "item",
+      "item_id": null,
+      "description": "Rückgabe Beratung",
+      "unit": "Std.",
+      "quantity": "-1.0000",
+      "second_quantity": null,
+      "unit_price": "1234.5000",
+      "tax_rate": "0.0000",
+      "discount_kind": null,
+      "discount_value": null
+    }
+  ],
+  "net_total": "-1234.50",
+  "tax_total": "0.00",
+  "gross_total": "-1234.50",
+  "tax_totals": [
+    {
+      "rate": "0.0000",
+      "net": "-1234.50",
+      "tax": "0.00",
+      "gross": "-1234.50"
+    }
+  ]
+}
