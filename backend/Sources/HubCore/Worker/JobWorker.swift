@@ -7,6 +7,9 @@ import SQLKit
 
 public typealias JobHandler = @Sendable (ClaimedJob, any SQLDatabase) async throws -> Void
 
+/// WP-PA1R: Aufräumschritt eines Moduls zu einer Job-Art. Der Worker ruft ihn zwischen zwei Jobs auf; er muss idempotent und mit mehreren Workern sicher sein.
+public typealias JobSweep = @Sendable (any SQLDatabase) async throws -> Void
+
 /// Ein Handler wirft das, wenn Wiederholen sinnlos ist (z. B. nicht unterstützte Eingabe): der Job geht ohne weitere Versuche in Quarantäne.
 public struct PermanentJobError: Error, Sendable {
     public let code: String
@@ -18,6 +21,7 @@ public final class JobWorker: @unchecked Sendable {
     package let db: any SQLDatabase
     package let kinds: [String]
     let handlers: [String: JobHandler]
+    let sweeps: [JobSweep]
     let leaseSeconds: Int
     let pollInterval: Duration
     let retryBackoffSeconds: Int
@@ -27,11 +31,11 @@ public final class JobWorker: @unchecked Sendable {
     private var shuttingDown = false
 
     public init(db: any SQLDatabase, kinds: [String], handlers: [String: JobHandler], leaseSeconds: Int = 60, pollInterval: Duration = .seconds(1),
-                retryBackoffSeconds: Int = 5, logger: Logger, owner: String = JobWorker.makeOwner(), maxAttempts: Int = 3) {
+                retryBackoffSeconds: Int = 5, logger: Logger, owner: String = JobWorker.makeOwner(), maxAttempts: Int = 3, sweeps: [JobSweep] = []) {
         precondition(leaseSeconds >= 1)
         self.db = db; self.jobs = JobService(db, maxAttempts: maxAttempts); self.kinds = kinds; self.handlers = handlers
         self.leaseSeconds = leaseSeconds; self.pollInterval = pollInterval; self.retryBackoffSeconds = retryBackoffSeconds
-        self.logger = logger; self.owner = owner
+        self.logger = logger; self.owner = owner; self.sweeps = sweeps
     }
 
     /// Eindeutig je Prozess und Lauf (Prozess-ID plus Zufall), enthält keinen Hostnamen.

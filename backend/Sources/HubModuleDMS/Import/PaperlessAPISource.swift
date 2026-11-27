@@ -77,13 +77,18 @@ struct PaperlessAPISource: PaperlessSource {
 
     /// `pinnedIP`: Ergebnis von `PaperlessEndpoint.vetTarget`; der Connect geht an genau diese IP, der TLS-Servername bleibt der Host (kein zweiter DNS-Lookup).
     static func makeClient(host: String? = nil, pinnedIP: String? = nil) -> HTTPClient {
+        HTTPClient(eventLoopGroupProvider: .singleton, configuration: clientConfiguration(host: host, pinnedIP: pinnedIP))
+    }
+
+    /// Einstellungen des Clients (getrennt, damit ein Test genau diese Einstellungen mit einer eigenen Test-Zertifizierungsstelle prüfen kann; im Betrieb gibt es keine).
+    static func clientConfiguration(host: String?, pinnedIP: String?) -> HTTPClient.Configuration {
         var tls = TLSConfiguration.makeClientConfiguration()
         tls.minimumTLSVersion = .tlsv12
         tls.certificateVerification = .fullVerification
         var config = HTTPClient.Configuration(tlsConfiguration: tls, redirectConfiguration: .disallow)
         config.timeout = .init(connect: .seconds(15), read: .seconds(60))
         if let host, let pinnedIP { config.dnsOverride = [host: pinnedIP] }
-        return HTTPClient(eventLoopGroupProvider: .singleton, configuration: config)
+        return config
     }
 
     static let maxJSONBytes = 32 * 1024 * 1024

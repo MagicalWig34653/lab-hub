@@ -719,7 +719,7 @@ final class TLSMock: @unchecked Sendable {
         app.http.server.configuration.port = 0
         app.http.server.configuration.tlsConfiguration = .makeServerConfiguration(
             certificateChain: try NIOSSLCertificate.fromPEMFile(dir.appendingPathComponent("c.pem").path).map { .certificate($0) },
-            privateKey: .file(dir.appendingPathComponent("k.pem").path))
+            privateKey: .privateKey(try NIOSSLPrivateKey(file: dir.appendingPathComponent("k.pem").path, format: .pem)))   // WP-PA1R: `.file` lud den Schlüssel von openssl 4 nicht (der Server brach den Handshake ab, der Test bestand ohne Zertifikatsprüfung)
         let mock = TLSMock(app: app, dir: dir)
         app.get("api", "**") { req async throws -> Response in
             mock.hit()

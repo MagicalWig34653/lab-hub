@@ -71,8 +71,10 @@ public struct WorkerCommand: AsyncCommand {
         if let problem = await WorkerHandlers.preflight(kinds: Set(kinds), modules: modules) { fail(problem) }
         guard await schemaIsCurrent(app) else { fail("Schema nicht aktuell (zuerst `migrate`)") }
 
+        let environment = ProcessInfo.processInfo.environment
+        let sweeps = modules.flatMap { $0.jobSweeps(environment: environment).filter { kinds.contains($0.key) }.values }
         let worker = JobWorker(db: try sql(app.db(.psql)), kinds: kinds, handlers: registry.filter { kinds.contains($0.key) }, leaseSeconds: lease,
-                               pollInterval: .milliseconds(poll), retryBackoffSeconds: backoff, logger: app.logger)
+                               pollInterval: .milliseconds(poll), retryBackoffSeconds: backoff, logger: app.logger, sweeps: sweeps)
         signal(SIGTERM, SIG_IGN); signal(SIGINT, SIG_IGN)
         let sources = [SIGTERM, SIGINT].map { sig -> any DispatchSourceSignal in
             let s = DispatchSource.makeSignalSource(signal: sig, queue: .global())

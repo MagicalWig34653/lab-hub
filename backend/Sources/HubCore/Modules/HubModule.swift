@@ -42,6 +42,8 @@ public protocol HubModule: Sendable {
     func onActivate(tenant: UUID, on db: any SQLDatabase) async throws
     /// WP-ST2 (AK-ST2-1): Job-Handler des Moduls für den Befehl `worker`. Arten `<key>.<name>`; fremde oder doppelte Arten sind ein Startfehler.
     func jobHandlers(environment: [String: String]) -> [String: JobHandler]
+    /// WP-PA1R: Aufräumschritte je eigener Job-Art, z. B. für Abläufe, deren Job ohne Abschluss durch den Handler endgültig scheiterte (Absturzschleife).
+    func jobSweeps(environment: [String: String]) -> [String: JobSweep]
     /// Prüfung vor dem Worker-Start für die gewählten eigenen Arten (z. B. externe Werkzeuge). Eine Meldung bricht den Start ab.
     func workerPreflight(kinds: Set<String>, environment: [String: String]) async -> String?
     /// WP-ST2 (AK-ST2-2): API-Token-Scopes des Moduls, `<key>.<name>` (WP-BR1: auch `<key>.<bereich>.<name>`). Nur deklarierte Scopes lassen sich vergeben und an Token-Routen binden.
@@ -63,6 +65,7 @@ public extension HubModule {
     func registerRoutes(_ routes: ModuleRoutes) throws {}
     func onActivate(tenant: UUID, on db: any SQLDatabase) async throws {}
     func jobHandlers(environment: [String: String]) -> [String: JobHandler] { [:] }
+    func jobSweeps(environment: [String: String]) -> [String: JobSweep] { [:] }
     func workerPreflight(kinds: Set<String>, environment: [String: String]) async -> String? { nil }
     var tokenScopes: [String] { [] }
     func linkVisibility(tenant: UUID, permissions: Set<String>, on db: any SQLDatabase) async throws -> LinkVisibility { .visible }
