@@ -542,9 +542,9 @@ final class DMSTests: DMSTestBase {
         }
         // Sollzuordnung (unabhängig vom Code, MODUL-DMS.md Abschnitt 3)
         let granted: [Role: Set<String>] = [
-            .owner: ["read", "create", "update", "trash", "download_original", "tag.manage", "master.manage", "purge", "retention", "integrity.run", "export.run", "rule.read", "rule.manage", "suggestion.read", "suggestion.decide", "source.read", "source.manage", "import.read", "import.manage"],
-            .accountant: ["read", "create", "update", "trash", "download_original", "tag.manage", "master.manage", "retention", "integrity.run", "export.run", "rule.read", "rule.manage", "suggestion.read", "suggestion.decide", "source.read", "source.manage", "import.read", "import.manage"],
-            .member: ["read", "create", "update", "download_original", "rule.read", "suggestion.read", "suggestion.decide"],
+            .owner: ["read", "create", "update", "trash", "download_original", "tag.manage", "master.manage", "purge", "retention", "integrity.run", "export.run", "rule.read", "rule.manage", "suggestion.read", "suggestion.decide", "source.read", "source.manage", "import.read", "import.manage", "scan.use"],
+            .accountant: ["read", "create", "update", "trash", "download_original", "tag.manage", "master.manage", "retention", "integrity.run", "export.run", "rule.read", "rule.manage", "suggestion.read", "suggestion.decide", "source.read", "source.manage", "import.read", "import.manage", "scan.use"],
+            .member: ["read", "create", "update", "download_original", "rule.read", "suggestion.read", "suggestion.decide", "scan.use"],
             .taxAdvisor: ["read", "download_original", "export.run", "suggestion.read"],
             .customerViewer: []]
         for (role, perms) in granted {
@@ -573,6 +573,9 @@ final class DMSTests: DMSTestBase {
             "POST sources/{source}/run": .accepted, "POST sources/{source}/test": .conflict,
             // WP-D6: Import-Laeufe (Probe-Lauf `queued`, ohne Bericht -> Bericht 404) und Notizen
             "POST imports": .accepted, "GET imports": .ok, "GET imports/{import}": .ok, "GET imports/{import}/report": .notFound, "POST imports/{import}/cancel": .ok,
+            // WP-BR1: Scan-Aufträge; Probe-Auftrag wartet auf die nächste Seite, für das Anlegen gibt es keinen (Gerät frei)
+            "GET scan/devices": .ok, "POST scan/jobs": .created, "GET scan/jobs/{job}": .ok, "POST scan/jobs/{job}/next-page": .ok, "POST scan/jobs/{job}/finish": .ok,
+            "POST scan/jobs/{job}/cancel": .ok,
             "GET documents/{document}/notes": .ok,
             // WP-D7: Probe-Dokument ohne Text -> Extraktion lesen 404, Neu-Lauf 409 (kein Text)
             "GET documents/{document}/extraction": .notFound, "POST documents/{document}/extraction/run": .conflict]
@@ -593,11 +596,24 @@ final class DMSTests: DMSTestBase {
                   (SELECT count(*) FROM dms_integrity_runs), (SELECT count(*) FROM dms_exports), (SELECT count(*) FROM dms_deletion_log),
                   (SELECT count(*) FROM dms_rules), (SELECT count(*) FROM dms_suggestions WHERE state <> 'open'), (SELECT count(*) FROM dms_duplicates WHERE state <> 'open'),
                   (SELECT count(*) FROM dms_sources), (SELECT coalesce(sum(runs), 0) FROM dms_sources), (SELECT count(*) FROM api_tokens),
-                  (SELECT count(*) FROM dms_imports), (SELECT count(*) FROM dms_imports WHERE state <> 'queued' OR cancel_requested)) AS v
+                  (SELECT count(*) FROM dms_imports), (SELECT count(*) FROM dms_imports WHERE state <> 'queued' OR cancel_requested),
+                  (SELECT coalesce(string_agg(state || coalesce(command, ''), ','), '') FROM dms_scan_jobs)) AS v
                 """, as: String.self)
         }
         let tenant = UUID(uuidString: w.tenantA)!
         var cells = 0, ok = 0, denied = 0
+        // WP-BR1: Bridge und Gerät für die Scan-Proben (Zeile im Token-Verzeichnis, nur Testdaten)
+        let scanBridge = UUID(), scanDevice = UUID()
+        try await db.raw("""
+            INSERT INTO api_tokens (id, user_id, tenant_id, name, token_hash, scopes, expires_at)
+            VALUES (\(bind: scanBridge), \(bind: UUID(uuidString: w.alice.userID)!), \(bind: tenant), 'Probe', \(bind: hex(Data("probe-token".utf8))), ARRAY['dms.scan.bridge'], now() + interval '1 day')
+            """).run()
+        try await db.raw("INSERT INTO dms_scan_bridges (id, tenant_id, token_id, name, version) VALUES (\(bind: scanBridge), \(bind: tenant), \(bind: scanBridge), 'Probe-Bridge', '1')").run()
+        try await db.raw("""
+            INSERT INTO dms_scan_devices (id, tenant_id, bridge_id, device_key, name, capabilities)
+            VALUES (\(bind: scanDevice), \(bind: tenant), \(bind: scanBridge), \(bind: hex(Data("probe-device".utf8))), 'Probe-Scanner',
+                    '{"sources":["flatbed"],"resolutions":[300],"color_modes":["color"],"formats":["a4"]}'::jsonb)
+            """).run()
         for route in routes {
             let key = "\(route.method) \(route.path.replacingOccurrences(of: prefix, with: ""))"
             for role in Role.allCases {
@@ -639,12 +655,22 @@ final class DMSTests: DMSTestBase {
                     INSERT INTO dms_imports (id, tenant_id, source_kind, source_key, config, mode, requested_by)
                     VALUES (\(bind: importID), \(bind: tenant), 'export', \(bind: "export:probe\(cells)"), '{"path":"probe"}'::jsonb, 'dry_run', \(bind: UUID(uuidString: w.alice.userID)!))
                     """).run()
+                let scanJob = UUID()
+                try await db.raw("UPDATE dms_scan_bridges SET last_seen_at = now()").run()
+                try await db.raw("DELETE FROM dms_scan_jobs").run()
+                if key != "POST scan/jobs" {
+                    try await db.raw("""
+                        INSERT INTO dms_scan_jobs (id, tenant_id, device_id, params, state, lease_until, pages, created_by)
+                        VALUES (\(bind: scanJob), \(bind: tenant), \(bind: scanDevice), '{}'::jsonb, 'waiting_for_page', now() + interval '60 seconds', 1, \(bind: UUID(uuidString: w.alice.userID)!))
+                        """).run()
+                }
                 let isTrash = route.path.hasSuffix("/restore")
                 let target = route.path.hasSuffix("/documents/{document}/file") ? fileDoc : (isTrash ? trashedID : docID).uuidString
                 var path = String(route.path.dropFirst()).replacingOccurrences(of: "{tenant}", with: w.tenantA).replacingOccurrences(of: "{document}", with: target)
                     .replacingOccurrences(of: "{id}", with: typeID.uuidString).replacingOccurrences(of: "{run}", with: runID.uuidString).replacingOccurrences(of: "{export}", with: exportID.uuidString)
                     .replacingOccurrences(of: "{rule}", with: ruleID.uuidString).replacingOccurrences(of: "{source}", with: sourceID.uuidString).replacingOccurrences(of: "{import}", with: importID.uuidString)
                     .replacingOccurrences(of: "{suggestion}", with: suggestionID.uuidString).replacingOccurrences(of: "{duplicate}", with: duplicateID.uuidString)
+                    .replacingOccurrences(of: "{job}", with: scanJob.uuidString)
                 var body: Data?
                 var headers: [String: String] = [:]
                 switch key {
@@ -659,6 +685,7 @@ final class DMSTests: DMSTestBase {
                 case "POST imports": body = Data(#"{"mode":"dry_run","source":{"kind":"export","path":"neu\#(cells)"}}"#.utf8); headers["Content-Type"] = "application/json"
                 case "PATCH sources/{source}": body = Data(#"{"enabled":false}"#.utf8); headers["Content-Type"] = "application/json"
                 case "POST duplicates/{duplicate}/resolve": body = Data(#"{"state":"dismissed"}"#.utf8); headers["Content-Type"] = "application/json"
+                case "POST scan/jobs": body = Data(#"{"device_id":"\#(scanDevice.uuidString)"}"#.utf8); headers["Content-Type"] = "application/json"
                 case "POST types": body = Data(#"{"name":"Neu \#(cells)"}"#.utf8); headers["Content-Type"] = "application/json"
                 case "POST tag-groups": body = Data(#"{"name":"Neu \#(cells)"}"#.utf8); headers["Content-Type"] = "application/json"
                 case "POST tags": body = Data(#"{"name":"Neu \#(cells)"}"#.utf8); headers["Content-Type"] = "application/json"
