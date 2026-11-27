@@ -260,7 +260,7 @@ Grundlage: `docs/ARCHITEKTUR-ABGLEICH-TIMETRACK.md` (25.11.2026). Timetrack ist 
 
 Grundlage: `docs/SCAN-BRIDGE.md`.
 
-**WP-BR1 Hub-Seite (M).** Akzeptanz: AK-BR1-1 Tabellen und Routen laut Abschnitt 3 im Vertrag; BR1-2 zwei Verbindungen übernehmen einen Auftrag genau einmal, Lease über `now()`, Ablauf ⇒ `failed` ohne Wiederholung, spätes Ergebnis derselben Bridge möglich; BR1-3 Mandantentrennung, Rechte, falscher Scope; BR1-4 Upload mit `Idempotency-Key: scan-<job>` erzeugt ein Dokument.
+**WP-BR1 Hub-Seite (M).** Akzeptanz: AK-BR1-1 Tabellen und Routen laut Abschnitt 3 im Vertrag; BR1-2 zwei Verbindungen übernehmen einen Auftrag genau einmal, Lease über `now()`, Ablauf ⇒ `failed` ohne Wiederholung, spätes Ergebnis derselben Bridge möglich; BR1-3 Mandantentrennung, Rechte, falscher Scope; BR1-4 Upload mit `Idempotency-Key: scan-<job>` erzeugt ein Dokument. *Status 27.11.2026: umgesetzt, Belege je Kriterium in `docs/handoff/WP-BR1.md`.*
 
 **WP-BR2 Bridge-Dienst (L).** Akzeptanz: AK-BR2-1 Verfügbarkeit von SANE-`test`-Backend und sane-airscan im gewählten Basis-Image belegt, Versionen und Lizenzen in `docs/LIZENZEN.md`; BR2-2 E2E Hub + Bridge-Container + `test`-Gerät: mehrseitiger Scan wird Dokument; BR2-3 eSCL-Attrappe über festen Eintrag; BR2-4 Parameter nur aus Positivliste, kein Shell-Aufruf; BR2-5 Upload-Abbruch und Neustart ohne Verlust und ohne Doppel; BR2-6 Image amd64 und arm64 lokal gebaut (kein Push ohne vom Nutzer festgelegtes Ziel).
 
