@@ -8,7 +8,7 @@ Geplante Module: **Rechnung** (Nachfolge einer bestehenden Rechnungs-App) und **
 
 - **Vorhanden (Code):** Swift/Vapor-Gerüst in `backend/` mit `migrate` (Advisory Lock), Nummernzähler, Idempotency, Jobs mit Lease, `/health`, `/ready`, Konfiguration über Env/`_FILE`; Deploy-Skripte (Compose real getestet, Swarm ungetestet).
 - **Vorhanden (Planung):** Architektur, Modulentwürfe, Roadmap mit Arbeitspaketen, offene Fragen, ADRs. **Noch kein Feature-Code**, `pwa/` ist leer.
-- Entscheidungen: ADR 0001–0003 entschieden; 0004–0008 vorgeschlagen.
+- Entscheidungen: ADR 0001–0003 und 0008 entschieden; 0004–0007 vorgeschlagen.
 - Namen (Nutzer 25.11.2026): PWA „LAB hub“, Module „docs“, „invoice“ usw.; je Modul eine eigene native App, die an den Hub angebunden werden kann. Marken-, Domain- und Bundle-ID-Prüfung offen.
 - Lizenz AGPL-3.0-only, öffentliches Repository. Stand zur gebündelten BoringSSL-Kopie: `docs/LIZENZEN.md`, `docs/OFFENE-FRAGEN.md` F-03 (keine Rechtsberatung).
 

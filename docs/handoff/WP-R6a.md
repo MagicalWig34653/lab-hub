@@ -1,6 +1,6 @@
 # Handoff WP-R6a – Spike Server-Renderer
 
-Stand 27.11.2026. Status: Spike abgeschlossen, Entscheidung F-08 beim Nutzer. Bericht `docs/spikes/WP-R6a/BERICHT.md`, Vorschlag ADR 0008.
+Stand 27.11.2026. Status: Spike abgeschlossen, F-08 entschieden (Nutzer, 27.11.2026: Typst). Bericht `docs/spikes/WP-R6a/BERICHT.md`, ADR 0008.
 
 ## Ergebnis
 - Verglichen: Typst 0.15.1, WeasyPrint 70.0, Chromium 156 (+ Ghostscript 10.05.1 für PDF/A), je im Container mit read-only Root.
@@ -18,4 +18,4 @@ Stand 27.11.2026. Status: Spike abgeschlossen, Entscheidung F-08 beim Nutzer. Be
 - Prototyp, Container und Images entfernt; kein Produktivcode.
 
 ## Nächster Schritt
-- Nutzer entscheidet F-08. Danach ADR 0008 auf „entschieden“, WP-R6 mit dem gewählten Renderer.
+- WP-R6b nach `docs/handoff/WP-R6-PLAN.md`.

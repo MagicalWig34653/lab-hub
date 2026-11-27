@@ -1,6 +1,6 @@
 # Spike WP-R6a – Server-Renderer für Belege (Entscheidungsgrundlage F-08)
 
-Stand 27.11.2026. Wegwerf-Prototyp außerhalb des Repos (Container, Vorlagen, Messskripte sind entfernt). Im Repo liegen nur dieser Bericht und drei erzeugte Beispiel-PDFs. Vorschlag als ADR 0008 (`docs/decisions/0008-server-renderer.md`, vorgeschlagen); entschieden wird F-08 vom Nutzer.
+Stand 27.11.2026. Wegwerf-Prototyp außerhalb des Repos (Container, Vorlagen, Messskripte sind entfernt). Im Repo liegen nur dieser Bericht und drei erzeugte Beispiel-PDFs. ADR 0008 (`docs/decisions/0008-server-renderer.md`). **Nachtrag:** F-08 ist am 27.11.2026 entschieden (Typst + Factur-X-Metadatenschritt); der Bericht gibt den Stand des Spikes wieder.
 
 ## 1. Kurzfassung
 
@@ -66,7 +66,7 @@ Die Factur-X-Profilprüfung des XML (Schematron, Mustang/KoSIT) war nicht Teil d
 
 ### 3.3 Laufzeit und Speicher
 
-Gemessen im Container (`docker run --read-only --tmpfs /tmp`), Mittel aus 10 Läufen nach einem Aufwärmlauf, je ein Prozess pro Beleg (wie ein Worker-Job, der das Werkzeug aufruft). Umgebung: Colima-VM, 2 vCPU, 4 GB RAM, arm64. Zwei Messreihen; Spannweite angegeben. Speicher: `memory.peak` der Container-cgroup.
+Gemessen im Container (`docker run --read-only --tmpfs /tmp`), Mittel aus 10 Läufen (17 Seiten: 5, Wiederholung Chromium: 10) nach einem Aufwärmlauf, je ein Prozess pro Beleg (wie ein Worker-Job, der das Werkzeug aufruft). Umgebung: Colima-VM, 2 vCPU, 4 GB RAM, arm64. Wo zwei Messreihen vorliegen (3 Seiten; Chromium auch 17 Seiten), ist die Spannweite angegeben. Speicher: `memory.peak` der Container-cgroup.
 
 | Kandidat | 3 Seiten (48 Pos.) | 17 Seiten (480 Pos.) | Speicher 3 / 17 S. |
 | --- | --- | --- | --- |
@@ -87,8 +87,8 @@ Je zwei Läufe, SHA-256 der PDFs verglichen:
 
 ### 3.5 Betrieb im Container
 
-- Alle drei laufen mit read-only Root und `tmpfs /tmp`, also nach ADR 0003; keiner braucht Netz.
-- Typst ist ein statisches Binary (49 MB) und kann in das bestehende Worker-Image (`Dockerfile.worker`) kopiert werden; kein eigener Container nötig. Offizielles Image für amd64 und arm64 vorhanden.
+- Alle drei laufen mit read-only Root und `tmpfs /tmp`, also nach ADR 0003. Ohne Netz (`--network none`) ist nur Typst geprüft (Nachtrag 27.11.2026).
+- Typst ist ein statisches Binary (49 MB) und kann in das bestehende Worker-Image (`Dockerfile.worker`) kopiert werden; kein eigener Container nötig (Nachtrag 27.11.2026: in `ubuntu:24.04` als Nicht-Root auf arm64 geprüft). Offizielles Image für amd64 und arm64 vorhanden.
 - WeasyPrint braucht Python, Pango und Schriften: eigener Worker-Container oder Python im Worker-Image (+≈ 76 MB komprimiert).
 - Chromium braucht `--no-sandbox` (als root im Container) oder ein Seccomp-Profil, ≈ 200–300 MiB RAM je Lauf und das größte Image; Browser-Sicherheitsupdates werden zur Betriebspflicht.
 - Schriften liegen im Image (oder als versionierte Mandantendaten); keine Systemschrift-Abhängigkeit, sonst ändert ein Basis-Image-Update die PDFs.

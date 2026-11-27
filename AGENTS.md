@@ -7,7 +7,7 @@ Das Repository ist das Projektgedächtnis. Sessions sind wegwerfbar: Stand, Ents
 1. `README.md` (Status, Dokumentenindex)
 2. `docs/ROADMAP.md` (Arbeitspakete WP, Abhängigkeiten) – daraus das nächste offene WP wählen
 3. `docs/ARCHITEKTUR.md`, dann das Moduldokument des WP (`docs/MODUL-DMS.md`, `docs/MODUL-RECHNUNG.md`, `docs/FRONTEND.md`)
-4. `docs/decisions/` (ADR 0001–0003 entschieden, 0004–0008 vorgeschlagen)
+4. `docs/decisions/` (ADR 0001–0003 und 0008 entschieden, 0004–0007 vorgeschlagen)
 5. `docs/OFFENE-FRAGEN.md` – nicht entschiedene Punkte nie still entscheiden; Annahme kennzeichnen und im WP vermerken
 6. `docs/PLATTFORM-VISION.md` nur als Hintergrund (Teile veraltet, siehe Kopfzeile dort)
 7. `deploy/README.md` bei Betriebs-/Image-Themen

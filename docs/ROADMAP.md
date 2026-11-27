@@ -47,8 +47,12 @@ Ausgangsstand (vorhanden, getestet laut `deploy/README.md`/Tests): `migrate`, `s
 | | R3 | Zahlungen, Gutschrift, Umwandlung | R2 | M | | fertig (2938d2c; Übergabe `docs/handoff/WP-R3.md`) |
 | | R4 | Import/Export der bisherigen App | R2 | M | P R3 | offen |
 | | R5 | E-Rechnung Erzeugung (Server) | R2 | M | P R3, R4 | offen |
-| | R6a | Spike Renderer: Optionen (a)/(b)/(c) gegen Referenz-PDFs | R0 | M | P R1, R2 | fertig, Entscheidung F-08 offen (Bericht `docs/spikes/WP-R6a/BERICHT.md`; Übergabe `docs/handoff/WP-R6a.md`) |
-| | R6 | Server-Renderer und Layout-Engine (Pflicht, Linux) | R6a, R2 | L | | offen |
+| | R6a | Spike Renderer: Optionen (a)/(b)/(c) gegen Referenz-PDFs | R0 | M | P R1, R2 | fertig (35b8fe7), F-08 entschieden: Typst (Bericht `docs/spikes/WP-R6a/BERICHT.md`; Übergabe `docs/handoff/WP-R6a.md`) |
+| | R6 | Server-Renderer und Layout-Engine (Pflicht, Linux), geteilt in R6b–R6e | R6a, R2 | L | | geplant (`docs/handoff/WP-R6-PLAN.md`) |
+| | R6b | Typst-Werkzeugkette, Factur-X-Metadatenschritt, Standardlayout | R6a, R2 | M | | offen, **nächster Schritt** |
+| | R6c | Render-Job `invoice.render`, Speicherung, PDF-Download | R6b | M | | offen |
+| | R6d | Layoutmodell V1, Parameter, Vorschau | R6c | M | | offen |
+| | R6e | Import vorhandener Layouts | R6d, Importformat (F-09, F-31) | M | | offen |
 | | R7 | Ausgaben, EÜR/USt-Berichte | R3 | L | | offen |
 | | F6 | Rechnungs-UI (erstellen, bearbeiten, finalisieren, PDF, Zahlungen, Berichte) | F2, R2, R6 | L | P R3.. | offen |
 | | F7 | Layout-Verwaltung und Designer in der PWA | F6, R6 | L | | offen |
@@ -214,9 +218,11 @@ Grundsatz: Hub ohne Swift-App nutzbar (`AGENTS.md`); die Rechnungsphase ist dahe
 
 **WP-R6a Spike Renderer (M).** Ziel: Entscheidungsgrundlage F-08: Optionen (a) Swift-Portierung des App-Renderers mit Swift-PDF-Bibliothek, (b) HTML/CSS + headless Chromium, (c) Typst-Pipeline. Akzeptanz: je Option dieselben 5 synthetischen Layouts (Briefkopf, Positionstabelle, mehrseitig, Summenblock, Fußzeile) → PDF; Vergleich Treue (Seitenzahl, Textpositionen ±Toleranz, extrahierter Text), Determinismus, Laufzeit, Image-Größe, Lizenz, PDF/A-3-Fähigkeit; Ergebnis als ADR 0008 (vorgeschlagen). Abh.: R0. **P**.
 
-*Status WP-R6a: Spike abgeschlossen (27.11.2026). Typst, WeasyPrint und Chromium(+Ghostscript) an einer synthetischen dreiseitigen Musterrechnung verglichen, alle drei PDF/A-3b PASS (veraPDF; Chromium nur über Ghostscript). Empfehlung Typst (schnellster Lauf, kleinstes Image, byte-deterministisch über amd64/arm64; Factur-X-XMP per Nachbearbeitung), Rückfall WeasyPrint. Option (a) nur auf dem Papier, keine App-Referenz-PDFs. Bericht `docs/spikes/WP-R6a/BERICHT.md`, ADR 0008 vorgeschlagen, Übergabe `docs/handoff/WP-R6a.md`. Nächster Schritt: Nutzerentscheidung F-08, danach WP-R6.*
+*Status WP-R6a: Spike abgeschlossen (27.11.2026). Typst, WeasyPrint und Chromium(+Ghostscript) an einer synthetischen dreiseitigen Musterrechnung verglichen, alle drei PDF/A-3b PASS (veraPDF; Chromium nur über Ghostscript). Empfehlung Typst (schnellster Lauf, kleinstes Image, byte-deterministisch über amd64/arm64; Factur-X-XMP per Nachbearbeitung), Rückfall WeasyPrint. Option (a) nur auf dem Papier, keine App-Referenz-PDFs. Bericht `docs/spikes/WP-R6a/BERICHT.md`, ADR 0008 vorgeschlagen, Übergabe `docs/handoff/WP-R6a.md`. F-08 am 27.11.2026 entschieden (Typst + Factur-X-Metadatenschritt, ADR 0008). Nächster Schritt: WP-R6b.*
 
 **WP-R6 Server-Renderer und Layout-Engine (L).** Linux-tauglicher Renderer als Worker-Job (`invoice.render`, Lease wie ADR 0006), Layoutmodell (Import vorhandener Layouts), Platzhalter, Seitenumbruch, Standardlayouts. Akzeptanz: Referenz-Layoutfälle aus R6a bestehen mit festgelegter Toleranz; Finalisieren speichert PDF + Layoutversion + Inhalt-Hash (nie neu erzeugt); zwei Worker erzeugen genau ein PDF je Beleg. Abh.: R6a, R2.
+
+*Status WP-R6: geplant (27.11.2026), nichts umgesetzt. Renderer Typst (ADR 0008). Teilpakete R6b (Werkzeugkette, Standardlayout) → R6c (Job, Speicherung, Download) → R6d (Layoutmodell V1) → R6e (Layout-Import) mit Akzeptanzkriterien in `docs/handoff/WP-R6-PLAN.md`; offen F-37 (Reihenfolge zu R5).*
 
 **WP-R7 Ausgaben und Berichte (L).** EÜR/USt serverseitig, Vergleich mit Referenzwerten der bisherigen App (synthetische Fälle). Abh.: R3.
 
