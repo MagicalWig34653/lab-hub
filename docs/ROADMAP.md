@@ -82,7 +82,7 @@ Ausgangsstand (vorhanden, getestet laut `deploy/README.md`/Tests): `migrate`, `s
 |  | BR2 | Bridge-Dienst (SANE, sane-airscan), Container, E2E mit `test`-Gerät | BR1 | L |  | offen |
 |  | BR3 | PWA: Scanner wählen und Scan starten | BR2, ST4 | M | P BR4 | offen |
 |  | BR4 | Bridge-Betrieb, Lizenzhinweise, optionaler Ordner-Eingang (F-22) | BR2 | M | P BR3 | offen |
-| 9 Ablösung | PA1 | Paperless-Import gegen echte Instanz (lokal, erfundene Daten) und Sicherheitsprüfung | D6 | M | P ST4 | fertig (Übergabe `docs/handoff/WP-PA1.md`; echter E2E gegen paperless-ngx 3.5.1 mit erfundenen Daten, Commit siehe Git-Log `WP-PA1`) |
+| 9 Ablösung | PA1 | Paperless-Import gegen echte Instanz (lokal, erfundene Daten) und Sicherheitsprüfung | D6 | M | P ST4 | fertig (bac77a2; Übergabe `docs/handoff/WP-PA1.md`; echter E2E gegen paperless-ngx 3.5.1 mit erfundenen Daten) |
 |  | PA2 | PWA: Import anlegen, Trockenlauf, Bericht, Notizen | PA1, F2 | M |  | offen |
 |  | PA3 | Probelauf mit API-Lese-Token gegen die echte Instanz und Inventur der Eingangswege (Nutzer) | PA1, PA2, PA7 (Teil 1) | S |  | offen |
 |  | PA4 | Miniaturen (Worker, Route, Liste) | O2 | M | P PA2 | offen |

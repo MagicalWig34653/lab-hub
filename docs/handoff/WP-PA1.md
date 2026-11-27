@@ -35,7 +35,7 @@ Bestätigt ohne Änderung: Original-Download (`?original=true`) liefert die neue
 | Antwortgrößen | JSON höchstens 32 MiB, Datei höchstens `maxUploadBytes` (Content-Length und gezähltes Lesen), Manifest 128 MiB | Code; bestehende Tests `file_too_large` |
 
 ## Ausgeführt
-- `DMSImportPA1Tests` rot (32 Fehler) vor, grün nach der Umsetzung; Import-Tests gesamt 23 grün; `scripts/e2e-paperless-import.sh` grün (65 Prüfungen); volle Suite `scripts/ci.sh`: siehe Commit-Nachricht und CI-Lauf.
+- `DMSImportPA1Tests` rot (32 Fehler) vor, grün nach der Umsetzung; Import-Tests gesamt 23 grün; `scripts/e2e-paperless-import.sh` grün (65 Prüfungen); volle Suite `scripts/ci.sh` auf dem Stand von bac77a2: Exit 0, 499 Tests, 0 Fehler, 22 übersprungen (14 bekannte und 8 Mail-Tests, weil GreenMail unter Last nicht bereit wurde; diese 8 einzeln nachgeholt, grün). Zwei Läufe davor scheiterten bei Systemlast über 100 an je anderen zeitabhängigen Tests (`testAKD1_1_concurrentTwoInstances`, `testAKD9_apiImportMatchesExportImport` mit `connectionRequestTimeout`, `testLeaseRenewalKeepsLongJobFromSecondWorker`), alle einzeln grün.
 - Paperless-Container laufen nur während des E2E-Skripts (Name `labhub-pa1-e2e-<pid>`), das Skript entfernt Container, Netz und Datenbank.
 
 ## Offen / Annahmen
