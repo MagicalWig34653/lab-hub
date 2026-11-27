@@ -71,7 +71,7 @@ Anforderung: Der Hub rendert selbst, Linux-tauglich, ohne App. Der Renderer der 
 | b HTML/CSS + headless Chromium | Layoutmodell → HTML/CSS → PDF im Worker-Container | etabliert, gute Typografie | große Images, Abweichungen zur App, Determinismus/Seitenumbruch schwer |
 | c Typst-Pipeline | Layoutmodell → Typst → PDF per Binary im Worker | schnell, deterministisch, kleines Image | zweite Layoutsprache, Layouttreue nur über Übersetzer; Lizenz/PDF-A-Unterstützung zu verifizieren |
 
-Entscheidung per Spike WP-R6a (`ROADMAP.md`), Ergebnis als ADR 0008. Tendenz [Annahme]: a, falls der Linux-Build gelingt, sonst b. Regeln unabhängig von der Option: Rendering als Worker-Job mit Lease; das PDF eines finalen Belegs ist das zum Finalisierungszeitpunkt erzeugte Artefakt (`invoice_render_states`: Layoutversion, Inhalt-Hash, `file_id`) und wird nie neu erzeugt; Layouts sind versionierte Mandantendaten (`invoice_layouts`); Import vorhandener Layouts über ein dokumentiertes Importformat (nur synthetische Fixtures in Tests). Die App behält ihren eigenen Renderer für Offline-Betrieb; Abweichungen zwischen App- und Hub-PDF sind erwartbar und werden im Konformitätstest quantifiziert. Layout-Designer in der PWA: `FRONTEND.md` Abschnitt 13.
+Entscheidung per Spike WP-R6a (`ROADMAP.md`), Ergebnis als ADR 0008 (vorgeschlagen). Spike-Ergebnis 27.11.2026 (`docs/spikes/WP-R6a/BERICHT.md`): Empfehlung Typst, Rückfall WeasyPrint; Entscheidung F-08 offen. Tendenz [Annahme]: a, falls der Linux-Build gelingt, sonst b. Regeln unabhängig von der Option: Rendering als Worker-Job mit Lease; das PDF eines finalen Belegs ist das zum Finalisierungszeitpunkt erzeugte Artefakt (`invoice_render_states`: Layoutversion, Inhalt-Hash, `file_id`) und wird nie neu erzeugt; Layouts sind versionierte Mandantendaten (`invoice_layouts`); Import vorhandener Layouts über ein dokumentiertes Importformat (nur synthetische Fixtures in Tests). Die App behält ihren eigenen Renderer für Offline-Betrieb; Abweichungen zwischen App- und Hub-PDF sind erwartbar und werden im Konformitätstest quantifiziert. Layout-Designer in der PWA: `FRONTEND.md` Abschnitt 13.
 
 ## 6. E-Rechnung
 
@@ -127,7 +127,7 @@ Geprüft wurde, ob der Rechenkern der bisherigen App unter Linux nutzbar ist. En
 
 **Testvektoren:** `backend/Tests/Fixtures/invoice-vectors/` (`rounding.json` 14, `document-totals.json` 16, `number-format.json` 15, `balances.json` 5 = 50 Vektoren). Eingaben synthetisch, alle Beträge, Mengen und Sätze als Dezimal-Strings. Sie decken Rundung nur je Steuersatz auf Dokumentebene, Netto-/Brutto-Modus, Positions-/Dokumentrabatt, Zusatzkosten, Gutschrift, Rundungsmodi, Nummernformat-Token und Fehlerfälle sowie Salden ab. Erwartungswerte ohne Nachkomma-Nullen (`"291.9"`): Tests vergleichen numerisch, nicht als Text.
 
-**Offen:** Skonto-Quelle (F-32), Renderer (WP-R6a, F-08).
+**Offen:** Skonto-Quelle (F-32), Renderer-Entscheidung (F-08; Spike WP-R6a abgeschlossen, ADR 0008 vorgeschlagen).
 
 ## 13. R1 – Stammdaten (WP-R1, 17.11.2026)
 
