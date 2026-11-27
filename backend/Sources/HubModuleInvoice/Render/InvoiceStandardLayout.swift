@@ -8,8 +8,13 @@ enum InvoiceStandardLayout {
 
     static let template = #"""
     #let d = json("data.json")
+    // WP-R6d: Layoutparameter (fehlen sie, gilt das Standardlayout unverändert; leere Argumentlisten ändern nichts)
+    #let L = d.at("layout", default: none)
+    #let ink = if L != none { (fill: rgb(L.text)) } else { (:) }
+    #let accent = if L != none { (fill: rgb(L.accent)) } else { (:) }
+    #let preview = d.at("preview", default: none) == true
     #set document(title: d.title + " " + d.number, author: d.senderName, date: auto)
-    #set text(font: "Inter", size: 9pt, lang: "de", hyphenate: false, ligatures: false, features: (calt: 0))
+    #set text(font: if L != none { L.font } else { "Inter" }, size: 9pt, lang: "de", hyphenate: false, ligatures: false, features: (calt: 0), ..ink)
     #set par(leading: 0.55em)
 
     #let footer = context {
@@ -22,16 +27,22 @@ enum InvoiceStandardLayout {
       paper: "a4",
       margin: (left: 22mm, right: 18mm, top: 22mm, bottom: 36mm),
       footer: footer,
-      header: context if counter(page).get().first() > 1 { align(right, text(size: 8pt, fill: luma(80))[#d.title #d.number]) },
+      header: context if preview { align(center, text(size: 10pt, weight: "bold", fill: rgb("#B00020"))[ENTWURF – Vorschau, kein gültiger Beleg]) } else if counter(page).get().first() > 1 { align(right, text(size: 8pt, fill: luma(80))[#d.title #d.number]) },
     )
 
     #if d.attach {
       pdf.attach("factur-x.xml", relationship: "alternative", mime-type: "text/xml", description: "Factur-X E-Rechnung")
     }
 
+    // Logo (Dateiname kommt aus dem Code, nie vom Nutzer)
+    #if L != none and L.at("logo", default: none) != none {
+      align(if L.logo.align == "left" { left } else { right }, image(L.logo.file, width: L.logo.width * 1mm))
+      v(3mm)
+    }
+
     // Briefkopf
     #align(right)[
-      #text(size: 14pt, weight: "bold")[#d.senderName] \
+      #text(size: 14pt, weight: "bold", ..accent)[#d.senderName] \
       #text(size: 8pt, fill: luma(80), d.senderLines.map(entry => [#entry]).join(linebreak()))
     ]
     #v(6mm)
@@ -52,8 +63,12 @@ enum InvoiceStandardLayout {
     )
     #v(10mm)
 
-    #text(size: 13pt, weight: "bold")[#d.title #d.number]
+    #text(size: 13pt, weight: "bold", ..accent)[#d.title #d.number]
     #v(3mm)
+    #if L != none and L.at("headerText", default: none) != none [
+      #L.headerText
+      #v(3mm)
+    ]
     #if d.at("headerText", default: none) != none [
       #d.headerText
       #v(3mm)
@@ -109,6 +124,10 @@ enum InvoiceStandardLayout {
     #if d.at("footerText", default: none) != none [
       #v(4mm)
       #d.footerText
+    ]
+    #if L != none and L.at("footerText", default: none) != none [
+      #v(4mm)
+      #L.footerText
     ]
     """#
 }

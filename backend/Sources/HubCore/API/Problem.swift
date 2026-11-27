@@ -68,6 +68,7 @@ public enum ProblemCatalog {
         "document_final_immutable": "Der Beleg ist finalisiert und kann nicht mehr geändert, gelöscht oder erneut finalisiert werden.",
         "number_conflict": "Die Belegnummer ist in der Serie bereits vergeben. Der Vorgang wurde zurückgenommen, es wurde keine Nummer verbraucht.",
         "document_not_final": "Dafür muss der Beleg finalisiert sein.",
+        "document_not_draft": "Eine Vorschau gibt es nur für Entwürfe; finalisierte Belege haben ihr PDF.",
         "render_pending": "Das PDF wird gerade erzeugt. Bitte in einigen Sekunden erneut versuchen.",
         "render_failed": "Das PDF konnte nicht erzeugt werden. Die Erzeugung lässt sich erneut anstoßen.",
         "render_not_started": "Für diesen Beleg wurde noch kein PDF angefordert. Die Erzeugung lässt sich anstoßen.",

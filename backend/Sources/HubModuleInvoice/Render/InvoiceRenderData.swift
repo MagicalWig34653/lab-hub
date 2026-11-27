@@ -34,6 +34,13 @@ struct InvoiceRenderData: Encodable, Sendable {
     struct Total: Encodable, Sendable { let label: String; let value: String; var strong = false }
     struct Pair: Encodable, Sendable { let label: String; let value: String }
     struct Prepared: Sendable { let data: InvoiceRenderData; let createdAt: Int }
+    /// WP-R6d: Parameter des Layouts für die Vorlage (fertige Zeichenketten, Platzhalter schon ersetzt). Fehlt er, rendert das Standardlayout wie in R6b.
+    struct Layout: Encodable, Sendable {
+        struct Logo: Encodable, Sendable { let file: String; let width: Int; let align: String }
+        let font: String, accent: String, text: String
+        var logo: Logo?
+        var headerText: String?, footerText: String?
+    }
 
     var title = "", number = "", senderName = "", senderLine = ""
     var senderLines: [String] = [], recipientLines: [String] = []
@@ -46,6 +53,9 @@ struct InvoiceRenderData: Encodable, Sendable {
     var footerText: String?
     var footerColumns: [[String]] = []
     var attach = false
+    var layout: Layout?
+    /// WP-R6d: Vorschau eines Entwurfs (Hinweis auf jeder Seite, keine Nummer).
+    var preview: Bool?
 
     /// Wortlaut fachlich zu prüfen (`docs/OFFENE-FRAGEN.md` F-38).
     static let smallBusinessNote = "Gemäß § 19 UStG wird keine Umsatzsteuer berechnet (Kleinunternehmerregelung)."
@@ -92,7 +102,7 @@ struct InvoiceRenderData: Encodable, Sendable {
     private static func present(_ values: String?...) -> [String] { values.compactMap { $0 }.filter { !$0.isEmpty } }
     private static func joined(_ values: [String], _ separator: String = " ") -> String? { values.isEmpty ? nil : values.joined(separator: separator) }
 
-    static func prepare(_ documentJSON: Data, attach: Bool) throws -> Prepared {
+    static func prepare(_ documentJSON: Data, attach: Bool, layout: InvoiceRenderLayout? = nil) throws -> Prepared {
         let doc: Document
         do { doc = try JSONDecoder().decode(Document.self, from: documentJSON) } catch { throw InvoiceRenderError.invalidDocument("json") }
         guard doc.status != "draft", let number = doc.number, let finalized = doc.finalized_at, let sender = doc.sender, let recipient = doc.recipient
@@ -105,6 +115,7 @@ struct InvoiceRenderData: Encodable, Sendable {
         var data = InvoiceRenderData(title: title, number: number, attach: attach)
         data.headerText = doc.header_text
         data.footerText = doc.footer_text
+        if doc.status == "preview" { data.preview = true }
 
         // Briefkopf und Fußzeile
         data.senderName = sender.sender_name ?? ""
@@ -168,6 +179,16 @@ struct InvoiceRenderData: Encodable, Sendable {
                 cells += [money(try validated(price)), InvoiceRenderFormat.number(try validated(rate)) + " %", amount(value)]
             }
             data.rows.append(.init(kind: "item", cells: cells, detail: detail))
+        }
+
+        if let params = layout?.params {
+            let values = ["number": number, "issue_date": InvoiceRenderFormat.date(doc.issue_date), "due_date": doc.due_date.map(InvoiceRenderFormat.date) ?? "",
+                          "sender": data.senderName, "recipient": data.recipientLines.first ?? ""]
+            var l = Layout(font: params.font, accent: params.accent, text: params.text)
+            if let logo = params.logo, let file = layout?.logoFileName { l.logo = .init(file: file, width: logo.widthMM, align: logo.align) }
+            l.headerText = params.headerText.map { InvoiceLayoutParams.fill($0, values) }
+            l.footerText = params.footerText.map { InvoiceLayoutParams.fill($0, values) }
+            data.layout = l
         }
 
         guard priced else { return Prepared(data: data, createdAt: createdAt) }

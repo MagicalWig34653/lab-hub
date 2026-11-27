@@ -39,8 +39,8 @@ struct InvoiceRenderer: Sendable {
 
     var tools = InvoiceRenderTools()
 
-    func render(_ documentJSON: Data, attachment: InvoiceRenderAttachment? = nil) async throws -> Data {
-        let prepared = try InvoiceRenderData.prepare(documentJSON, attach: attachment != nil)
+    func render(_ documentJSON: Data, attachment: InvoiceRenderAttachment? = nil, layout: InvoiceRenderLayout? = nil) async throws -> Data {
+        let prepared = try InvoiceRenderData.prepare(documentJSON, attach: attachment != nil, layout: layout)
         guard Self.requiredFonts.allSatisfy({ FileManager.default.fileExists(atPath: tools.fontDirectory + "/" + $0) }) else { throw InvoiceRenderError.toolMissing("fonts") }
         let dir = URL(fileURLWithPath: tools.tempRoot, isDirectory: true).appendingPathComponent("lh-render-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
@@ -51,6 +51,8 @@ struct InvoiceRenderer: Sendable {
         try encoder.encode(prepared.data).write(to: dir.appendingPathComponent("data.json"))
         try Data(InvoiceStandardLayout.template.utf8).write(to: dir.appendingPathComponent("main.typ"))
         if let attachment { try attachment.xml.write(to: dir.appendingPathComponent(FacturXMetadata.fileName)) }
+        // WP-R6d: Logo unter festem Namen (geprüftes PNG/JPEG des Mandanten), nur wenn die Vorlage es verwendet
+        if let logo = layout?.logo, let name = layout?.logoFileName, prepared.data.layout?.logo != nil { try logo.write(to: dir.appendingPathComponent(name)) }
 
         // Paketverzeichnisse zeigen ins Leere: die Vorlage importiert nichts, und ein Paket würde auch nicht geladen
         let packages = dir.appendingPathComponent("packages").path

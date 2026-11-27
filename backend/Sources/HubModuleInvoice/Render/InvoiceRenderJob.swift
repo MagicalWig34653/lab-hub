@@ -11,11 +11,10 @@ import HubCore
 
 /// Was der Job vom Renderer braucht. Produktiv `InvoiceToolRenderer` (Typst, qpdf); die Tests setzen einen Zähler ein.
 protocol InvoiceRendering: Sendable {
-    var layoutKey: String { get }
-    var layoutVersion: Int { get }
     /// Kurze Angabe zur Werkzeugversion (z. B. `typst 0.15.1`), wird je Ergebnis gespeichert.
     func rendererVersion() async throws -> String
-    func render(_ documentJSON: Data) async throws -> Data
+    /// WP-R6d: mit dem eingefrorenen Layout des Belegs (`InvoiceRenderLayout.standard` ohne Zuordnung).
+    func render(_ documentJSON: Data, layout: InvoiceRenderLayout) async throws -> Data
 }
 
 /// Einstellungen des Renderers aus der Worker-Umgebung (`RENDER_*`, siehe `deploy/README.md`).
@@ -36,8 +35,6 @@ struct InvoiceRenderConfig: Sendable {
 
 struct InvoiceToolRenderer: InvoiceRendering {
     let tools: InvoiceRenderTools
-    var layoutKey: String { InvoiceStandardLayout.key }
-    var layoutVersion: Int { InvoiceStandardLayout.version }
 
     init(_ config: InvoiceRenderConfig = .fromEnvironment()) { self.tools = config.tools }
 
@@ -52,7 +49,9 @@ struct InvoiceToolRenderer: InvoiceRendering {
         return clean.isEmpty ? "typst" : clean
     }
 
-    func render(_ documentJSON: Data) async throws -> Data { try await InvoiceRenderer(tools: tools).render(documentJSON) }
+    func render(_ documentJSON: Data, layout: InvoiceRenderLayout) async throws -> Data {
+        try await InvoiceRenderer(tools: tools).render(documentJSON, layout: layout.params == nil ? nil : layout)
+    }
 
     /// Vorabprüfung beim Start des Workers: Typst, qpdf und die gepinnten Schriften müssen vorhanden sein, sonst liefe jeder Auftrag in die Quarantäne.
     static func preflight(_ config: InvoiceRenderConfig) async -> String? {
@@ -116,26 +115,17 @@ enum InvoiceRenderJob {
         guard let frozen = try? JSONDecoder().decode(Frozen.self, from: Data(json.utf8)), frozen.status == "final", let inputHash = frozen.content_hash
         else { throw PermanentJobError(code: "document_not_final") }
 
+        // WP-R6d: Layoutversion, die beim Finalisieren eingefroren wurde (Versionen sind unveränderlich); ohne Zuordnung das Standardlayout
+        let store = try storeFactory(s)
+        let layout = try await InvoiceLayouts.frozenLayout(document: document, tenant: tenant, store: store, on: s)
         let version = String(try await renderer.rendererVersion().prefix(128))
         try Task.checkCancellation()
-        let pdf: Data
-        do { pdf = try await renderer.render(Data(json.utf8)) }
-        catch is CancellationError { throw CancellationError() }
-        catch let e as InvoiceRenderError {
-            switch e {
-            case .notFinal, .invalidDocument: throw PermanentJobError(code: "render_invalid_document")
-            // gleiche Eingabe, gleicher Fehler: Wiederholen hilft nicht (der Fehlertext kann Belegtext enthalten und wird nicht protokolliert)
-            case .failed: throw PermanentJobError(code: "render_failed")
-            // Zeitlimit und fehlende Werkzeuge können vorübergehend sein: normale Wiederholung (3 Versuche)
-            case .timeout, .toolMissing: throw e
-            }
-        }
+        let pdf = try await renderMapped(renderer, Data(json.utf8), layout: layout)
         try Task.checkCancellation()
 
-        let store = try storeFactory(s)
         let stored = try await store.put(tenant: tenant, stream: byteStream(pdf), expectedSHA256: nil)
         guard let database = s as? any Database else { throw PermanentJobError(code: "database_unavailable") }
-        let layoutKey = renderer.layoutKey, layoutVersion = renderer.layoutVersion
+        let layoutKey = layout.key, layoutVersion = layout.version
         _ = try await invoiceTransaction(database) { tx -> Bool in
             // Nur als Lease-Besitzer: dieser Abholversuch ist noch der aktuelle und die Lease nach Datenbankuhr gültig. Sonst schreibt der Handler nichts.
             guard try await tx.raw("""
@@ -164,8 +154,23 @@ enum InvoiceRenderJob {
         }
     }
 
+    /// Rendern mit der Fehlerzuordnung der Jobs (auch für `invoice.preview`).
+    static func renderMapped(_ renderer: any InvoiceRendering, _ json: Data, layout: InvoiceRenderLayout) async throws -> Data {
+        do { return try await renderer.render(json, layout: layout) }
+        catch is CancellationError { throw CancellationError() }
+        catch let e as InvoiceRenderError {
+            switch e {
+            case .notFinal, .invalidDocument: throw PermanentJobError(code: "render_invalid_document")
+            // gleiche Eingabe, gleicher Fehler: Wiederholen hilft nicht (der Fehlertext kann Belegtext enthalten und wird nicht protokolliert)
+            case .failed: throw PermanentJobError(code: "render_failed")
+            // Zeitlimit und fehlende Werkzeuge können vorübergehend sein: normale Wiederholung (3 Versuche)
+            case .timeout, .toolMissing: throw e
+            }
+        }
+    }
+
     /// PDF-Bytes als Strom für den Objektspeicher (in Blöcken der Speichergröße).
-    private static func byteStream(_ data: Data) -> ByteStream {
+    static func byteStream(_ data: Data) -> ByteStream {
         let offset = UnsafeSendableBox<Int>(0)
         return ByteStream(unfolding: {
             guard offset.value < data.count else { return nil }

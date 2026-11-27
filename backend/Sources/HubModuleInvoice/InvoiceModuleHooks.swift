@@ -7,12 +7,14 @@ import HubCore
 extension InvoiceModule {
     public func jobHandlers(environment: [String: String]) -> [String: JobHandler] {
         let renderer = InvoiceToolRenderer(InvoiceRenderConfig.fromEnvironment(environment))
-        return [InvoiceRenderJob.kind: InvoiceRenderJob.handler(renderer: renderer) { s in try ObjectStoreConfig.fromEnvironment(environment).makeStore(db: s) }]
+        let store: @Sendable (any SQLDatabase) throws -> any ObjectStore = { s in try ObjectStoreConfig.fromEnvironment(environment).makeStore(db: s) }
+        return [InvoiceRenderJob.kind: InvoiceRenderJob.handler(renderer: renderer, storeFactory: store),
+                InvoicePreviewJob.kind: InvoicePreviewJob.handler(renderer: renderer, storeFactory: store)]
     }
 
     /// Typst, qpdf, Schriften und Arbeitsverzeichnis prüfen, bevor ein Worker `invoice.render` übernimmt (sonst liefen alle Aufträge in die Quarantäne).
     public func workerPreflight(kinds: Set<String>, environment: [String: String]) async -> String? {
-        guard kinds.contains(InvoiceRenderJob.kind) else { return nil }
+        guard kinds.contains(InvoiceRenderJob.kind) || kinds.contains(InvoicePreviewJob.kind) else { return nil }
         return await InvoiceToolRenderer.preflight(InvoiceRenderConfig.fromEnvironment(environment))
     }
 }

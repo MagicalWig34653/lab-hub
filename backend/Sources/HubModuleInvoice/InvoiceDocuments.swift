@@ -338,6 +338,35 @@ enum InvoiceDocuments {
 
     // MARK: Finalisieren
 
+    /// Absenderdaten aus den Einstellungen (wie beim Finalisieren eingefroren) und das Kürzel für die Nummer; nil ohne Einstellungen.
+    static func senderJSON(tenant: UUID, on s: any SQLDatabase) async throws -> (abbreviation: String?, json: String)? {
+        guard let settings = try await s.raw("""
+            SELECT abbreviation, jsonb_build_object('sender_name', sender_name, 'street', street, 'postal_code', postal_code, 'city', city, 'country', country, 'tax_number', tax_number,
+              'vat_id', vat_id, 'email', email, 'phone', phone, 'website', website, 'bank_name', bank_name, 'iban', iban, 'bic', bic)::text AS j
+            FROM invoice_settings WHERE tenant_id = \(bind: tenant)
+            """).first() else { return nil }
+        return (try settings.decode(column: "abbreviation", as: String?.self), try settings.decode(column: "j", as: String.self))
+    }
+
+    /// Empfängerdaten eines Kontakts (erste Anschrift); nil für unbekannte, gelöschte oder zusammengeführte Kontakte.
+    static func recipientJSON(contact: UUID, tenant: UUID, on s: any SQLDatabase) async throws -> String? {
+        try await s.raw("""
+            SELECT jsonb_build_object('contact_id', upper(c.id::text), 'kind', c.kind, 'display_name', c.display_name, 'first_name', c.first_name, 'last_name', c.last_name,
+              'company_name', c.company_name, 'vat_id', c.vat_id,
+              'address', (SELECT jsonb_build_object('street', a.street, 'postal_code', a.postal_code, 'city', a.city, 'country', a.country)
+                          FROM contact_addresses a WHERE a.contact_id = c.id AND a.tenant_id = c.tenant_id ORDER BY a.position, a.id LIMIT 1))::text AS j
+            FROM contacts c WHERE c.tenant_id = \(bind: tenant) AND c.id = \(bind: contact) AND c.deleted_at IS NULL AND c.merged_into IS NULL
+            """).first()?.decode(column: "j", as: String.self)
+    }
+
+    /// Steuerregime am Belegdatum (Steuerzeiträume), sonst `standard`.
+    static func taxRegime(issueDate: String, tenant: UUID, on s: any SQLDatabase) async throws -> String {
+        try await s.raw("""
+            SELECT regime FROM invoice_tax_periods WHERE tenant_id = \(bind: tenant) AND daterange(valid_from, valid_to, '[]') @> \(bind: issueDate)::text::date
+            ORDER BY valid_from DESC LIMIT 1
+            """).first().map { try $0.decode(column: "regime", as: String.self) } ?? "standard"
+    }
+
     /// Finalisiert einen Entwurf: Vorbedingungen prüfen, Nummer aus dem Hub-Zähler, Absender/Empfänger einfrieren, Hash, Status. Alles in einer Transaktion
     /// (mit `Idempotency-Key` zusätzlich atomar mit dem Schlüssel). Jeder Fehler rollt auch den Zähler zurück.
     static func finalize(_ req: Request) async throws -> Response {
@@ -355,19 +384,9 @@ enum InvoiceDocuments {
             guard let seriesID = try doc.decode(column: "series_id", as: UUID?.self) ?? doc.decode(column: "default_series", as: UUID?.self) else { throw InvoiceError.invalid("series_id", "required") }
             guard let series = try await s.raw("SELECT number_format, active FROM invoice_series WHERE tenant_id = \(bind: tenant) AND id = \(bind: seriesID)").first() else { throw InvoiceError.invalid("series_id", "not_found") }
             guard try series.decode(column: "active", as: Bool.self) else { throw InvoiceError.invalid("series_id", "inactive") }
-            guard let settings = try await s.raw("""
-                SELECT abbreviation, jsonb_build_object('sender_name', sender_name, 'street', street, 'postal_code', postal_code, 'city', city, 'country', country, 'tax_number', tax_number,
-                  'vat_id', vat_id, 'email', email, 'phone', phone, 'website', website, 'bank_name', bank_name, 'iban', iban, 'bic', bic)::text AS j
-                FROM invoice_settings WHERE tenant_id = \(bind: tenant)
-                """).first() else { throw InvoiceError.invalid("settings", "required") }
-            guard let recipient = try await s.raw("""
-                SELECT jsonb_build_object('contact_id', upper(c.id::text), 'kind', c.kind, 'display_name', c.display_name, 'first_name', c.first_name, 'last_name', c.last_name,
-                  'company_name', c.company_name, 'vat_id', c.vat_id,
-                  'address', (SELECT jsonb_build_object('street', a.street, 'postal_code', a.postal_code, 'city', a.city, 'country', a.country)
-                              FROM contact_addresses a WHERE a.contact_id = c.id AND a.tenant_id = c.tenant_id ORDER BY a.position, a.id LIMIT 1))::text AS j
-                FROM contacts c WHERE c.tenant_id = \(bind: tenant) AND c.id = \(bind: contact) AND c.deleted_at IS NULL AND c.merged_into IS NULL
-                """).first() else { throw InvoiceError.invalid("contact_id", "not_found") }
-            let senderJSON = try settings.decode(column: "j", as: String.self), recipientJSON = try recipient.decode(column: "j", as: String.self)
+            guard let settings = try await senderJSON(tenant: tenant, on: s) else { throw InvoiceError.invalid("settings", "required") }
+            guard let recipientJSON = try await recipientJSON(contact: contact, tenant: tenant, on: s) else { throw InvoiceError.invalid("contact_id", "not_found") }
+            let senderJSON = settings.json
 
             // WP-R3: verknüpfte Gutschrift gegen die Rechnung prüfen, bevor eine Nummer vergeben wird
             if try doc.decode(column: "kind", as: String.self) == "credit_note" { try await InvoiceLinks.checkCreditNote(id, tenant: tenant, on: s) }
@@ -378,22 +397,21 @@ enum InvoiceDocuments {
             let year = try doc.decode(column: "y", as: Int.self), month = try doc.decode(column: "m", as: Int.self)
             let counter = try await CounterService(s).next(tenant: tenant, key: InvoiceNumbering.counterKey(series: seriesID, scope: parsed.scope, year: year, month: month), on: s)
             let number: String
-            do { number = try parsed.format(counter: counter, year: year, month: month, abbreviation: try settings.decode(column: "abbreviation", as: String?.self), clientNumber: nil, projectCode: nil) }
+            do { number = try parsed.format(counter: counter, year: year, month: month, abbreviation: settings.abbreviation, clientNumber: nil, projectCode: nil) }
             catch let e as InvoiceNumberFormat.Failure { throw InvoiceError.invalid("series_id", e.fieldCode) }
 
-            let regime = try await s.raw("""
-                SELECT regime FROM invoice_tax_periods WHERE tenant_id = \(bind: tenant) AND daterange(valid_from, valid_to, '[]') @> \(bind: try doc.decode(column: "issue", as: String.self))::text::date
-                ORDER BY valid_from DESC LIMIT 1
-                """).first().map { try $0.decode(column: "regime", as: String.self) } ?? "standard"
+            let regime = try await taxRegime(issueDate: try doc.decode(column: "issue", as: String.self), tenant: tenant, on: s)
             guard let content = try await s.raw("SELECT \(unsafeRaw: contentJSON)::text AS j FROM invoice_documents r WHERE r.tenant_id = \(bind: tenant) AND r.id = \(bind: id)").first() else { throw InvoiceError.notFound }
             let hash = InvoiceValidation.sha256([try content.decode(column: "j", as: String.self), number, String(counter), seriesID.uuidString.lowercased(), regime, senderJSON, recipientJSON]
                 .flatMap { [Data($0.utf8), Data([10])] })
 
+            // WP-R6d: Layoutversion nach Zuordnung (Belegart, Serie) einfrieren; ohne Zuordnung bleibt das Standardlayout (NULL)
+            let layoutVersion = try await InvoiceLayouts.resolve(kind: try doc.decode(column: "kind", as: String.self), series: seriesID, tenant: tenant, on: s)
             do {
                 try await s.raw("""
                     UPDATE invoice_documents SET status = 'final', series_id = \(bind: seriesID), number = \(bind: number), counter_value = \(bind: counter), tax_regime = \(bind: regime),
                       sender = \(bind: senderJSON)::text::jsonb, recipient = \(bind: recipientJSON)::text::jsonb, content_hash = \(bind: hash),
-                      finalized_at = now(), finalized_by = \(bind: actor), rev = rev + 1, updated_at = now()
+                      finalized_at = now(), finalized_by = \(bind: actor), rev = rev + 1, updated_at = now(), layout_version_id = \(bind: layoutVersion)
                     WHERE tenant_id = \(bind: tenant) AND id = \(bind: id)
                     """).run()
             } catch let e as any DatabaseError where e.isConstraintFailure { throw HubError(.conflict, "number_conflict") }

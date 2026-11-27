@@ -16,37 +16,45 @@ final class FakeRenderer: InvoiceRendering, @unchecked Sendable {
     private let lock = NSLock()
     private var calls = 0
     private var failuresLeft: Int
+    private var used: [InvoiceRenderLayout] = []
     let delay: Duration
-    let layoutKey: String
-    let layoutVersion: Int
     let version: String
     /// Ändert die Bytes (zweite „Rendererversion“): ein fertiges PDF darf dadurch nie ersetzt werden.
     let variant: String
 
-    init(delay: Duration = .zero, failFirst: Int = 0, layoutVersion: Int = 1, version: String = "fake 1.0", variant: String = "") {
-        self.delay = delay; self.failuresLeft = failFirst; self.layoutKey = "standard"; self.layoutVersion = layoutVersion; self.version = version; self.variant = variant
+    init(delay: Duration = .zero, failFirst: Int = 0, version: String = "fake 1.0", variant: String = "") {
+        self.delay = delay; self.failuresLeft = failFirst; self.version = version; self.variant = variant
     }
 
     var callCount: Int { lock.lock(); defer { lock.unlock() }; return calls }
+    /// WP-R6d: Layouts, mit denen gerendert wurde (Reihenfolge der Aufrufe).
+    var layouts: [InvoiceRenderLayout] { lock.lock(); defer { lock.unlock() }; return used }
     func failNext(_ n: Int) { lock.lock(); failuresLeft = n; lock.unlock() }
 
     func rendererVersion() async throws -> String { version }
 
     /// Zählt den Aufruf; `true`, wenn er scheitern soll (synchron, wegen der Sperre).
-    private func register() -> Bool {
+    private func register(_ layout: InvoiceRenderLayout) -> Bool {
         lock.lock(); defer { lock.unlock() }
         calls += 1
+        used.append(layout)
         guard failuresLeft > 0 else { return false }
         failuresLeft -= 1
         return true
     }
 
-    func render(_ documentJSON: Data) async throws -> Data {
-        let fail = register()
+    /// Bytes nennen Beleg, Layout, Parameter und Logo (WP-R6d): so prüfen die Tests, womit gerendert wurde.
+    func render(_ documentJSON: Data, layout: InvoiceRenderLayout) async throws -> Data {
+        let fail = register(layout)
         if delay > .zero { try await Task.sleep(for: delay) }
         if fail { throw InvoiceRenderError.failed(tool: "typst", exitCode: 1, diagnostics: "geheimer Belegtext") }
-        let number = ((try? JSONSerialization.jsonObject(with: documentJSON)) as? [String: Any])?["number"] as? String ?? "?"
-        return Data("%PDF-1.4\n% synthetic render \(variant) of \(number)\n1 0 obj\n<< /Type /Catalog >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF\n".utf8)
+        let doc = (try? JSONSerialization.jsonObject(with: documentJSON)) as? [String: Any]
+        let number = doc?["number"] as? String ?? "?", preview = doc?["status"] as? String == "preview"
+        let logo = layout.logo.map { SHA256.hash(data: $0).map { String(format: "%02x", $0) }.joined() } ?? "-"
+        return Data("""
+            %PDF-1.4\n% synthetic render \(variant) of \(number) preview \(preview)\n% layout \(layout.key) v\(layout.version) logo \(logo) params \(layout.params?.canonicalJSON ?? "-")
+            1 0 obj\n<< /Type /Catalog >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF\n
+            """.utf8)
     }
 }
 
@@ -322,7 +330,7 @@ final class InvoiceRenderJobTests: InvoiceRenderTestBase {
 
         // weiterer Job für denselben Beleg, andere Worker-Instanz mit neuer Version: keine Neuerzeugung
         _ = try await InvoiceRenderJob.enqueue(document: UUID(uuidString: id)!, tenant: UUID(uuidString: s.w.tenantA)!, on: db)
-        let newer = FakeRenderer(layoutVersion: 2, version: "fake 2.0", variant: "v2")
+        let newer = FakeRenderer(version: "fake 2.0", variant: "v2")
         try await withWorkers([makeWorker(app2, newer)]) { try await jobsDone() == 2 }
         XCTAssertEqual(newer.callCount, 0, "fertiges PDF wird nicht erneut gerendert")
         XCTAssertEqual(renderer.callCount, 1)
@@ -534,7 +542,7 @@ final class InvoiceRenderFileSafetyTests: InvoiceRenderTestBase {
         let tenant = UUID(uuidString: s.w.tenantA)!
         // Bytes des künftigen PDF: der Fake leitet sie aus der Belegnummer ab, also vorab dieselben Bytes bauen
         let number = try await value("SELECT number AS v FROM invoice_documents WHERE id = '\(id)'", as: String.self)
-        let bytes = try await renderer.render(Data(#"{"number":"\#(number)"}"#.utf8))
+        let bytes = try await renderer.render(Data(#"{"number":"\#(number)"}"#.utf8), layout: .standard)
         var dmsDoc: String? = nil
         if !pdfFirst { dmsDoc = try await trashedOldDMSDocument(s.w, bytes: bytes) }
         try await withWorkers([makeWorker(app1, FakeRenderer())]) { try await jobsDone() == 1 }
@@ -725,5 +733,66 @@ final class InvoiceRenderWorkerE2ETests: InvoiceRenderTestBase {
             XCTAssertEqual(again.status, .ok); XCTAssertEqual(again.json["status"] as? String, "ready")
         }
         try await aEq(try await count("jobs", where: "kind = 'invoice.render'"), 3, "kein weiterer Job, kein zweites PDF")
+    }
+    /// AK-R6d-6: E2E über die API mit zwei echten `App worker`-Prozessen: Logo hochladen, Layout anlegen, der Belegart zuordnen, Vorschau des Entwurfs
+    /// laden (Entwurfshinweis, Layouttext), finalisieren, finales PDF laden (Layouttext, Logo, Schrift, ohne Entwurfshinweis, Layoutversion in der Zustandszeile).
+    func testAKR6d_6_e2eLayoutAssignPreviewAndFinalPDF() async throws {
+        try await RenderFixtures.requireTools(qpdf: true)
+        let s = try await setup()
+        let base = "api/v1/tenants/\(s.w.tenantA)/invoice"
+        var headers = HTTPHeaders()
+        headers.bearerAuthorization = BearerAuthorization(token: s.w.alice.token)
+        headers.replaceOrAdd(name: .contentType, value: "image/png")
+        let png = TestImages.png(width: 40, height: 20)
+        let box = UnsafeSendableBox<RenderResp?>(nil)
+        try await app1.test(.POST, base + "/layouts/logos", headers: headers, body: ByteBuffer(data: png)) { res async throws in
+            box.value = RenderResp(status: res.status, headers: res.headers, body: Data(buffer: res.body))
+        }
+        XCTAssertEqual(box.value?.status, .created)
+        let logo = try XCTUnwrap(box.value?.json["sha256"] as? String)
+        let params = InvoiceLayoutParamsFixture.full(logo: logo)
+        let layout = try await call(app1, .POST, base + "/layouts", json: ["name": "E2E-Layout", "params": params], token: s.w.alice.token)
+        XCTAssertEqual(layout.status, .created, "\(layout.json)")
+        let layoutID = try XCTUnwrap(layout.json["id"] as? String)
+        let assigned = try await call(app2, .PUT, base + "/layout-assignments", json: ["items": [["document_kind": "invoice", "layout_id": layoutID]]], token: s.w.alice.token)
+        XCTAssertEqual(assigned.status, .ok, "\(assigned.json)")
+        let doc = try await draft(s)
+
+        let a = try startWorker(kinds: "invoice.render,invoice.preview"), b = try startWorker(kinds: "invoice.render,invoice.preview")
+        defer { for p in [a, b] where p.isRunning { kill(p.processIdentifier, SIGKILL) } }
+
+        let requested = try await call(app2, .POST, s.docs + "/\(doc)/preview", json: [String: Any](), token: s.w.alice.token)
+        XCTAssertEqual(requested.status, .accepted, "\(requested.json)")
+        let previewID = try XCTUnwrap(requested.json["id"] as? String)
+        var preview = try await raw(app1, .GET, base + "/previews/\(previewID)", token: s.w.alice.token)
+        let end = Date().addingTimeInterval(120)
+        while preview.status == .conflict, preview.problemCode == "render_pending", Date() < end {
+            try await Task.sleep(for: .milliseconds(200))
+            preview = try await raw(app1, .GET, base + "/previews/\(previewID)", token: s.w.alice.token)
+        }
+        XCTAssertEqual(preview.status, .ok, String(decoding: preview.body.prefix(300), as: UTF8.self))
+        XCTAssertEqual(String(decoding: preview.body.prefix(5), as: UTF8.self), "%PDF-")
+        let previewText = try await RenderFixtures.extract(preview.body)
+        XCTAssertTrue(previewText.contains("ENTWURF – Vorschau, kein gültiger Beleg"), previewText)
+        XCTAssertTrue(previewText.contains("Kopftext ENTWURF"), previewText)
+        XCTAssertTrue(previewText.contains("Beratung"), previewText)
+
+        let fin = try await finalize(s, doc, via: app2)
+        XCTAssertEqual(fin.status, .ok, "\(fin.json)")
+        let number = try XCTUnwrap(fin.json["number"] as? String)
+        try await waitFor("finales PDF", timeout: 120) { try await count("invoice_render_states") == 1 }
+        let final = try await pdf(s, doc, via: app1)
+        XCTAssertEqual(final.status, .ok)
+        let text = try await RenderFixtures.extract(final.body)
+        XCTAssertTrue(text.contains("Rechnung \(number)"), text)
+        XCTAssertTrue(text.contains("Kopftext \(number)"), text)
+        XCTAssertTrue(text.contains("#read(\"/etc/hosts\") Muster GmbH"), text)
+        XCTAssertFalse(text.contains("ENTWURF"), text)
+        let rawPDF = String(decoding: final.body, as: UTF8.self)
+        XCTAssertTrue(rawPDF.contains("LibertinusSerif")); XCTAssertTrue(rawPDF.contains("/Image"))
+        let rows = try await states(doc)
+        let state = try XCTUnwrap(rows.first)
+        XCTAssertEqual(state.layoutKey, layoutID.lowercased()); XCTAssertEqual(state.layoutVersion, 1); XCTAssertEqual(state.pdfSHA, sha(final.body))
+        XCTAssertTrue(a.isRunning && b.isRunning)
     }
 }
