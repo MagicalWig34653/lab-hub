@@ -57,10 +57,12 @@ public struct DMSModule: HubModule {
          PermissionDefinition("dms.source.manage", roles: [.accountant]),
          // WP-D6: Paperless-Import (legt Kontakte, Stammdaten und Dokumente an): Buchhaltung und Owner
          PermissionDefinition("dms.import.read", roles: [.accountant]),
-         PermissionDefinition("dms.import.manage", roles: [.accountant])] + Self.rulePermissions   // WP-D3: dms.rule.*, dms.suggestion.*
+         PermissionDefinition("dms.import.manage", roles: [.accountant]),
+         // WP-BR1: Scannen über eine Scan-Bridge (Gerät wählen, Auftrag starten, nächste Seite, fertig, abbrechen); die Bridge selbst braucht `dms.source.manage`
+         PermissionDefinition("dms.scan.use", roles: [.accountant, .member])] + Self.rulePermissions   // WP-D3: dms.rule.*, dms.suggestion.*
     }
 
-    public var migrations: [any Migration] { [CreateDMSCore(), CreateDMSIngest(), CreateDMSSearch(), CreateDMSOCR(), CreateDMSRules(), CreateDMSRevision(), CreateDMSSources(), CreateDMSImport(), CreateDMSExtraction(), CreateDMSDocumentSource(), CreateDMSOCRQuarantineSync()] }
+    public var migrations: [any Migration] { [CreateDMSCore(), CreateDMSIngest(), CreateDMSSearch(), CreateDMSOCR(), CreateDMSRules(), CreateDMSRevision(), CreateDMSSources(), CreateDMSImport(), CreateDMSExtraction(), CreateDMSDocumentSource(), CreateDMSOCRQuarantineSync(), CreateDMSScanBridge()] }
     /// WP-H12 (Codex-Befund 10): Ein abgeschaltetes DMS beendet die Job-Kette jeder Quelle (die Läufe enden ohne Folgejob). Beim Wiedereinschalten wird die
     /// Kette für jede aktive Quelle neu angestoßen; `DMSSources.schedule` legt nur dann einen Job an, wenn kein queued/running Job existiert (idempotent).
     public func onActivate(tenant: UUID, on db: any SQLDatabase) async throws {
@@ -193,6 +195,9 @@ public struct DMSModule: HubModule {
 
         // Paperless-Import (WP-D6) und Notizen
         registerImportRoutes(routes, module: module)
+
+        // Scan-Bridge (WP-BR1): Geräte, Aufträge, Bridge-Routen
+        registerScanRoutes(routes)
 
         // Revisionssicherheit (WP-D5): Aufbewahrung, Löschsperre, endgültiges Löschen, Prüfläufe, Export
         let years = defaultRetentionYears

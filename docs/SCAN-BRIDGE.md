@@ -1,6 +1,6 @@
 # Scan-Bridge: Netzwerkscanner über SANE (eSCL/WSD)
 
-Status: Planung, Stand 25.11.2026. Noch kein Code. Arbeitspakete BR1–BR4 in `ROADMAP.md`, Phase 8.
+Status, Stand 27.11.2026: **Hub-Seite (WP-BR1) umgesetzt** (Abschnitt 3 ist jetzt Teil von `contracts/openapi.yaml`, Belege `docs/handoff/WP-BR1.md`); Bridge-Dienst, PWA und Betrieb (BR2–BR4) sind Planung, noch kein Code. Arbeitspakete in `ROADMAP.md`, Phase 8.
 
 ## 1. Ziel und Abgrenzung
 
@@ -25,11 +25,11 @@ PWA / DMS-App ──HTTPS──▶ Hub (Repliken) ──▶ PostgreSQL
 
 Abfrage: kurzes Polling (Vorschlag 3 s, bei Leerlauf bis 15 s). Kein Long-Polling in V1, kein Zustand in einer Hub-Instanz.
 
-## 3. Schnittstelle (Vorschlag, wird in BR1 Teil von `contracts/openapi.yaml`)
+## 3. Schnittstelle (umgesetzt in WP-BR1, maßgeblich ist `contracts/openapi.yaml`)
 
 Alle Pfade unter `/api/v1/tenants/{tenant}/dms/scan`.
 
-**Bridge (ein an den Mandanten gebundenes API-Token mit dem neuen Scope `dms.scan.bridge` für diese Routen und `dms.upload` für das Ergebnis):**
+**Bridge (ein an den Mandanten gebundenes API-Token mit dem Scope `dms.scan.bridge` für diese Routen und `dms.upload` für das Ergebnis; die Rolle des Token-Inhabers braucht `dms.source.manage`, also Owner oder Buchhaltung, geprüft bei jedem Aufruf):**
 
 | Route | Zweck |
 | --- | --- |
@@ -39,7 +39,21 @@ Alle Pfade unter `/api/v1/tenants/{tenant}/dms/scan`.
 
 **Ergebnis:** über die **vorhandene Scan-API** `POST /api/v1/tenants/{tenant}/dms/share` (Scope `dms.upload`, Roh-Body, Query `filename`, `title`, `doc_date`, `document_type_id`, `archive`) mit `Idempotency-Key: scan-<job-id>`. Die Route bleibt unverändert; Wiederholungen erzeugen kein zweites Dokument. Die Antwort enthält das Dokument, dessen ID die Bridge am Auftrag meldet.
 
-**Nutzer (Sitzung oder App-Token; neue Berechtigung `dms.scan.use`, Verwaltung der Bridges `dms.source.manage`):** `GET devices`, `POST jobs`, `GET jobs/{job}`, `POST jobs/{job}/next-page`, `…/finish`, `…/cancel`.
+**Nutzer (Sitzung; Berechtigung `dms.scan.use` für Owner, Buchhaltung und Mitglied; ein App-Token für diese Routen kommt mit WP-AB1):** `GET devices`, `POST jobs`, `GET jobs/{job}`, `POST jobs/{job}/next-page`, `…/finish`, `…/cancel`.
+
+### Festlegungen der Umsetzung (WP-BR1)
+
+- **Eine Bridge je Token** (`dms_scan_bridges.token_id` eindeutig). `PUT bridge` legt sie beim ersten Aufruf an und ersetzt die Geräteliste; fehlende Geräte werden inaktiv (`active = false`), ihre ID bleibt gültig, wiederkehrende behalten sie. `key` ist ein SHA-256-Hash (64 Hex-Zeichen), nie eine IP oder URL; die Datenbank prüft das ebenfalls. Höchstens 16 Geräte, je Fähigkeitsliste 1 bis 8 Einträge.
+- **Positivlisten:** Quelle `flatbed`, `adf`, `adf_duplex`; Farbe `color`, `gray`, `bw`; Format `a4`, `letter`; Auflösung 50 bis 1200 dpi. Ein Auftrag darf nur Werte verlangen, die das Gerät meldet; fehlende Werte kommen aus den Fähigkeiten (flatbed, 300 dpi, color, a4, sonst der erste Wert). Optional `title`, `document_type_id`, `archive` für das Dokument.
+- **Online:** Eine Bridge gilt als online, wenn ihr letzter Aufruf höchstens 60 s her ist (Datenbankzeit); für eine offline Bridge wird kein Auftrag angelegt (`409 scan_bridge_offline`), damit kein Scan überraschend später startet.
+- **Lease** 60 s ab Datenbank-`now()`; jeder Aufruf der Bridge und der Nutzerrouten beendet abgelaufene Leases (`failed`/`bridge_lost`, mit Abbruchwunsch `cancelled`) und nicht abgeholte Aufträge nach 300 s (`failed`/`expired`). Übernehmen: `FOR UPDATE SKIP LOCKED`, genau ein Aufrufer gewinnt. Eine verlorene Antwort des Übernehmens wird nicht wiederholt, sondern endet über die Lease.
+- **Befehle des Nutzers** (`next_page`, `finish`, `cancel`) stehen am Auftrag, bis die Bridge den Zustand wechselt (`next_page` bis `scanning`, `finish` bis `uploading`, `cancel` bis `cancelled`); die Antwort der Bridge nennt sie in `commands`. Abbrechen: nicht abgeholt sofort `cancelled`, ab `uploading` nicht mehr möglich.
+- **Ergebnis:** Die Bridge lädt über `POST dms/share` mit `Idempotency-Key: scan-<job>` hoch und meldet die Dokument-ID; der Hub nimmt nur ein Dokument an, das der Upload dieses Tokens mit genau diesem Schlüssel war (gespeicherte Antwort des Schlüssels im selben Mandanten, Eingangsvorgang `share_ext` mit dem Token als Herkunft, nicht im Papierkorb). Ein vorab über die Oberfläche unter diesem Schlüssel angelegtes Dokument wird abgewiesen; wer den Schlüssel vorab belegt, kann den Scan nur verhindern (der Auftrag endet dann über Abbruch oder Fehler), nicht umlenken. Ein spätes Ergebnis nach `bridge_lost` setzt denselben Auftrag derselben Bridge auf `done`.
+- **Befehle und Abbruch:** Liegt ein Abbruchwunsch vor, darf die Bridge nur noch `cancelled` oder `failed` melden. `done`, `cancelled` und `failed` (gleicher Code) sind wiederholbar.
+- **Vertrauensgrenze:** Die Bridge handelt mit der Rolle ihres Token-Inhabers (Owner oder Buchhaltung); Titel, Typ und Archivierung des Dokuments setzt sie nach den Parametern des Auftrags, der Hub vergleicht sie nicht. Jeder Nutzer mit `dms.scan.use` darf alle Aufträge des Mandanten sehen und steuern (gemeinsame Scanner; Entscheidung dieser Umsetzung, protokolliert in `docs/handoff/WP-BR1.md`). Pro Token läuft eine Bridge-Instanz; zwei Prozesse mit demselben Token überschreiben einander die Geräteliste.
+- **Audit:** zusätzlich `dms.scan.job.command` (Befehl des Nutzers).
+- **Audit:** `dms.scan.bridge.registered`, `dms.scan.job.created`, `.done`, `.failed`, `.cancelled` (nur IDs und Fehlercodes, keine Namen oder Adressen).
+- **Offen für BR2/BR3:** Aufräumen alter Aufträge (heute bleiben sie als Verlauf), Listenroute für Aufträge, Verwaltung (Löschen) einer Bridge.
 
 ### Datenmodell
 
@@ -127,7 +141,7 @@ Quellen am 25.11.2026 gelesen: `LICENSE` von sane-backends (gitlab.com/sane-proj
 
 | WP | Inhalt | Abh. |
 | --- | --- | --- |
-| BR1 | Hub: Tabellen, Routen, Scope `dms.scan.bridge`, Berechtigung `dms.scan.use`, Vertrag | ST2 |
+| BR1 | Hub: Tabellen, Routen, Scope `dms.scan.bridge`, Berechtigung `dms.scan.use`, Vertrag (**fertig 27.11.2026**) | ST2 |
 | BR2 | Bridge-Dienst mit SANE, Container, E2E mit `test`-Backend, Lizenzeintrag | BR1 |
 | BR3 | PWA: Scanner wählen, Scan starten, nächste Seite/Fertig/Abbrechen, Status; hell und dunkel | BR2, ST4 |
 | BR4 | Betrieb: Anleitung, `airscan.conf`, SBOM/Hinweise, optionaler Ordner-Eingang (F-22) | BR2 |

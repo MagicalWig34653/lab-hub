@@ -428,7 +428,10 @@ final class ApiTokenTests: DMSSourceTestBase {
 
     /// AK-D4-4: Route ist in der Routentabelle für Token-Routen, nicht in der Sitzungsmatrix; Rechte kommen aus dem Modul.
     func testShareRouteRegistered() throws {
-        XCTAssertEqual(app1.moduleTokenRoutes.map { "\($0.method) \($0.path) \($0.permission)" }, ["POST /api/v1/tenants/{tenant}/dms/share dms.document.create"])
+        let prefix = "/api/v1/tenants/{tenant}/dms"
+        XCTAssertEqual(Set(app1.moduleTokenRoutes.map { "\($0.method) \($0.path) \($0.permission)" }),
+                       ["POST \(prefix)/share dms.document.create", "PUT \(prefix)/scan/bridge dms.source.manage", "POST \(prefix)/scan/bridge/claim dms.source.manage",
+                        "PUT \(prefix)/scan/bridge/jobs/{job} dms.source.manage"])   // WP-BR1: Bridge-Routen
         XCTAssertFalse(app1.moduleRoutes.contains { $0.path.hasSuffix("/share") })
     }
 }
@@ -592,6 +595,7 @@ final class DMSSourceAdminTests: DMSSourceTestBase {
         _ = try await world(enable: false)
         let before = try await count("information_schema.tables", where: "table_name IN ('dms_sources', 'dms_source_items', 'dms_folder_observations', 'api_tokens')")
         XCTAssertEqual(before, 4)
+        try await CreateDMSScanBridge().revert(on: app1.db(.psql))   // WP-BR1: die Bridge verweist auf `api_tokens`
         try await CreateDMSSources().revert(on: app1.db(.psql))
         try await CreateApiTokenTenant().revert(on: app1.db(.psql))
         try await CreateApiTokens().revert(on: app1.db(.psql))
@@ -599,6 +603,7 @@ final class DMSSourceAdminTests: DMSSourceTestBase {
         try await CreateApiTokens().prepare(on: app1.db(.psql))
         try await CreateApiTokenTenant().prepare(on: app1.db(.psql))
         try await CreateDMSSources().prepare(on: app1.db(.psql))
+        try await CreateDMSScanBridge().prepare(on: app1.db(.psql))
         try await aEq(try await count("information_schema.tables", where: "table_name IN ('dms_sources', 'dms_source_items', 'dms_folder_observations', 'api_tokens')"), 4)
     }
 }

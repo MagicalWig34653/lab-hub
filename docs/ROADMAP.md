@@ -78,7 +78,7 @@ Ausgangsstand (vorhanden, getestet laut `deploy/README.md`/Tests): `migrate`, `s
 |  | ST5 | PWA Grundbausteine: Fehlertexte, Versions-/Fähigkeitsprüfung, Betreiber-Modulschalter | ST4 | M | P ST2 | offen |
 |  | ST6 | PWA-Namen: „LAB hub“, Module „docs“ und „invoice“ (F-01) | – | S | P ST1–ST3 | fertig (Übergabe `docs/handoff/WP-ST6.md`) |
 |  | ST7 | PWA-Redesign nach Vorbild TimeTrack, Akzentfarbe je Benutzer | ST4 | M |  | umgesetzt, Abnahme durch den Nutzer offen (Übergabe `docs/handoff/WP-ST7.md`) |
-| 8 Scan-Bridge | BR1 | Hub: Scan-Aufträge, Geräte, Bridge-Routen, Scope und Rechte | ST2 | M |  | offen |
+| 8 Scan-Bridge | BR1 | Hub: Scan-Aufträge, Geräte, Bridge-Routen, Scope und Rechte | ST2 | M |  | fertig (27.11.2026) |
 |  | BR2 | Bridge-Dienst (SANE, sane-airscan), Container, E2E mit `test`-Gerät | BR1 | L |  | offen |
 |  | BR3 | PWA: Scanner wählen und Scan starten | BR2, ST4 | M | P BR4 | offen |
 |  | BR4 | Bridge-Betrieb, Lizenzhinweise, optionaler Ordner-Eingang (F-22) | BR2 | M | P BR3 | offen |

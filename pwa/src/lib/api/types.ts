@@ -1495,7 +1495,7 @@ export interface paths {
          * API-Token mit Scope erstellen; der Klartext steht nur in dieser Antwort (Audit auth.api_token.created)
          * @description WP-H10b: Das Token wird an genau einen Mandanten gebunden (tenant_id); es gilt nur auf Routen dieses Mandanten (anderer Mandant 404 not_found). Ohne tenant_id gilt der einzige
          *     Mandant des Nutzers (Kompatibilitaet), bei mehreren Mitgliedschaften 422. tenant_id eines Mandanten, in dem der Nutzer nicht Mitglied ist: 404.
-         *     Minimalstand: einziger Scope ist dms.upload (Share-/Scan-API). Pflichtablauf (expires_in_days 1..730, Standard 365). Gespeichert wird nur der SHA-256-Hash.
+         *     Scopes: dms.upload (Share-/Scan-API) und dms.scan.bridge (Scan-Bridge, WP-BR1; nutzbar nur mit Recht dms.source.manage der Rolle des Inhabers). Pflichtablauf (expires_in_days 1..730, Standard 365). Gespeichert wird nur der SHA-256-Hash.
          *     Das Token (Praefix lhp_) wird ausschliesslich an Routen mit ausdruecklichem Scope akzeptiert, nie als Sitzung. Unbekannter Scope 422.
          */
         post: operations["createApiToken"];
@@ -1622,6 +1622,188 @@ export interface paths {
          *     Ordnerquellen koennen vom Backend nicht geprueft werden (der Ordner ist nur im Worker eingebunden): 409 mit detail test_not_supported; Ergebnis dort ueber last_status nach einem Lauf.
          */
         post: operations["testDmsSource"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/dms/scan/bridge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Bridge - Lebenszeichen, Version und vollstaendige Geraeteliste melden (API-Token mit Scope dms.scan.bridge; Recht dms.source.manage der Rolle des Token-Inhabers)
+         * @description WP-BR1. Je Token gibt es genau eine Bridge (beim ersten Aufruf angelegt, Audit dms.scan.bridge.registered). Die Liste ersetzt die bisherige: fehlende Geraete werden inaktiv
+         *     (ihre ID bleibt fuer vorhandene Auftraege gueltig), wieder auftauchende behalten ihre ID. `key` ist ein SHA-256-Hash (64 Hex-Zeichen, klein) des Geraets; eine IP oder URL kommt nicht in den Hub.
+         *     Positivlisten: Quellen flatbed, adf, adf_duplex; Farbmodi color, gray, bw; Formate a4, letter; Aufloesungen 50..1200; je Liste 1..8 Eintraege ohne Doppel; hoechstens 16 Geraete.
+         *     Unbekannte Schluessel 422. Alle Aufrufe der Bridge setzen das Lebenszeichen (Online-Zustand aus der Datenbankzeit, 60 s).
+         *     Das Token braucht zusaetzlich den Scope dms.upload, damit die Bridge das Ergebnis ueber dmsShare hochladen kann. Namen und Titel: Codepunkte (nicht Grapheme), keine Steuer-, Format- oder Trennzeichen.
+         *     Token ohne Scope, Sitzung oder widerrufenes Token 401; Token an anderen Mandanten gebunden 404; Rolle ohne dms.source.manage 403; Modul aus 404 module_disabled.
+         */
+        put: operations["registerDmsScanBridge"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/dms/scan/bridge/claim": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bridge - naechsten Auftrag der eigenen Geraete mit Lease uebernehmen (204, wenn keiner da ist)
+         * @description WP-BR1. Genau ein Aufrufer uebernimmt einen Auftrag (auch ueber mehrere Instanzen); die Lease laeuft ab der Datenbankzeit (lease_seconds). Laeuft sie ab, wird der Auftrag
+         *     failed mit bridge_lost und nie automatisch wiederholt. Nicht abgeholte Auftraege verfallen nach 5 Minuten (failed, expired). Vorher muss die Bridge registriert sein (sonst 409).
+         */
+        post: operations["claimDmsScanJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/dms/scan/bridge/jobs/{job}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Bridge - Zustand, Seitenzahl, Fehlercode oder Ergebnis melden, Lease verlaengern; die Antwort nennt die Nutzerbefehle
+         * @description WP-BR1. Ohne state ist es ein Lebenszeichen (Lease ab Datenbank-now() verlaengern, pages nachtragen). Erlaubte Wechsel: claimed zu scanning oder failed;
+         *     scanning zu scanning, waiting_for_page, uploading oder failed; waiting_for_page zu waiting_for_page, scanning, uploading oder failed; uploading zu uploading, done oder failed;
+         *     cancelled nur, wenn der Nutzer abbrechen wollte (commands enthaelt cancel); solange cancel ansteht, sind nur cancelled und failed erlaubt. Sonst 409 scan_transition_invalid. error_code (^[a-z0-9_]{1,64}$) ist bei failed Pflicht und sonst verboten;
+         *     document_id ist bei done Pflicht und sonst verboten und muss das Dokument aus dem Upload dieses Tokens ueber dmsShare mit Idempotency-Key scan-<job> sein, nicht im Papierkorb (sonst 422). pages 0..500.
+         *     Spaetes Ergebnis: Ein durch Lease-Ablauf beendeter Auftrag (failed, bridge_lost) darf von derselben Bridge noch auf done gesetzt werden; dieselbe done-, cancelled- und failed-Meldung (gleicher error_code) ist wiederholbar.
+         *     Ein Befehl des Nutzers bleibt in commands, bis die Bridge den Zustand wechselt (next_page bis scanning, finish bis uploading, cancel bis cancelled).
+         *     Auftrag eines anderen Mandanten oder einer anderen Bridge: 404.
+         */
+        put: operations["reportDmsScanJob"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/dms/scan/devices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Scanner des Mandanten (Berechtigung dms.scan.use) mit Faehigkeiten, Online- und Belegt-Zustand
+         * @description Nur aktive Geraete; online = Bridge hat sich in den letzten 60 s gemeldet (Datenbankzeit); busy = es gibt einen offenen Auftrag. Die Geraetekennung bleibt bei der Bridge.
+         */
+        get: operations["listDmsScanDevices"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/dms/scan/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Scan-Auftrag anlegen (Berechtigung dms.scan.use); Audit dms.scan.job.created
+         * @description WP-BR1. Parameter nur aus der Positivliste und nur, was das Geraet kann (sonst 422, Code not_supported); fehlende Werte kommen aus den Faehigkeiten (Quelle flatbed, 300 dpi, color, a4, sonst der erste Wert).
+         *     Je Geraet hoechstens ein offener Auftrag (409 scan_device_busy, auch bei gleichzeitigen Anlagen ueber mehrere Instanzen); Bridge laenger als 60 s still: 409 scan_bridge_offline.
+         *     Unbekanntes oder fremdes Geraet 404. Ein nicht abgeholter Auftrag verfaellt nach 5 Minuten.
+         */
+        post: operations["createDmsScanJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/dms/scan/jobs/{job}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Scan-Auftrag lesen (Berechtigung dms.scan.use); Zustand, Seitenzahl, Fehlercode, Dokument */
+        get: operations["getDmsScanJob"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/dms/scan/jobs/{job}/next-page": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Naechste Seite scannen (Berechtigung dms.scan.use); nur im Zustand waiting_for_page, sonst 409 scan_command_invalid */
+        post: operations["nextDmsScanPage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/dms/scan/jobs/{job}/finish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Scan beenden und die Seiten zu einem Dokument zusammenfuegen (Berechtigung dms.scan.use); im Zustand scanning oder waiting_for_page */
+        post: operations["finishDmsScanJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenants/{tenant}/dms/scan/jobs/{job}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Scan abbrechen (Berechtigung dms.scan.use); nicht abgeholt sofort cancelled, laufend per Befehl cancel an die Bridge, ab uploading und nach dem Ende 409 */
+        post: operations["cancelDmsScanJob"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2344,7 +2526,7 @@ export interface components {
              * @description Stabiler maschinenlesbarer Code
              * @enum {string}
              */
-            code: "api_token_unbound" | "bad_request" | "conflict" | "contact_merged" | "csrf_invalid" | "document_final_immutable" | "document_link_locked" | "document_linked" | "document_not_final" | "document_not_trashed" | "document_trashed" | "forbidden" | "handle_taken" | "idempotency_in_progress" | "idempotency_key_required" | "idempotency_key_reused" | "ingest_not_failed" | "internal_error" | "invalid_cursor" | "invalid_limit" | "invitation_invalid" | "last_owner" | "last_passkey" | "legal_hold" | "login_failed" | "method_not_allowed" | "module_disabled" | "module_required_by" | "module_requires" | "module_unavailable" | "not_found" | "number_conflict" | "passkey_invalid" | "payload_too_large" | "payment_allocated" | "payment_voided" | "precondition_failed" | "recovery_session_restricted" | "retention_not_expired" | "series_in_use" | "service_unavailable" | "setup_token_invalid" | "storage_quota_exceeded" | "suggestion_decided" | "suggestion_stale" | "tax_period_overlap" | "tenant_required" | "too_many_requests" | "unauthorized" | "unsupported_media_type" | "upload_interrupted" | "validation_failed";
+            code: "api_token_unbound" | "bad_request" | "conflict" | "contact_merged" | "csrf_invalid" | "document_final_immutable" | "document_link_locked" | "document_linked" | "document_not_final" | "document_not_trashed" | "document_trashed" | "forbidden" | "handle_taken" | "idempotency_in_progress" | "idempotency_key_required" | "idempotency_key_reused" | "ingest_not_failed" | "internal_error" | "invalid_cursor" | "invalid_limit" | "invitation_invalid" | "last_owner" | "last_passkey" | "legal_hold" | "login_failed" | "method_not_allowed" | "module_disabled" | "module_required_by" | "module_requires" | "module_unavailable" | "not_found" | "number_conflict" | "passkey_invalid" | "payload_too_large" | "payment_allocated" | "payment_voided" | "precondition_failed" | "recovery_session_restricted" | "retention_not_expired" | "scan_bridge_offline" | "scan_command_invalid" | "scan_device_busy" | "scan_transition_invalid" | "series_in_use" | "service_unavailable" | "setup_token_invalid" | "storage_quota_exceeded" | "suggestion_decided" | "suggestion_stale" | "tax_period_overlap" | "tenant_required" | "too_many_requests" | "unauthorized" | "unsupported_media_type" | "upload_interrupted" | "validation_failed";
             detail?: string;
             request_id: string;
             errors?: components["schemas"]["FieldError"][];
@@ -3005,7 +3187,7 @@ export interface components {
              * @description Mandant der Bindung (WP-H10b); null: Token ohne Bindung wird abgewiesen (401 api_token_unbound) und muss neu erstellt werden
              */
             tenant_id: string | null;
-            scopes: "dms.upload"[];
+            scopes: ("dms.upload" | "dms.scan.bridge")[];
             /** Format: date-time */
             expires_at: string;
             /** Format: date-time */
@@ -3133,6 +3315,121 @@ export interface components {
             origin?: string | null;
             /** Format: date-time */
             created_at: string;
+        };
+        DmsScanCapabilities: {
+            sources: ("flatbed" | "adf" | "adf_duplex")[];
+            resolutions: number[];
+            color_modes: ("color" | "gray" | "bw")[];
+            formats: ("a4" | "letter")[];
+        };
+        DmsScanBridgeRegistration: {
+            name: string;
+            version: string;
+            devices: {
+                /** @description SHA-256-Hash der Geraetekennung, nie eine IP oder URL */
+                key: string;
+                name: string;
+                capabilities: components["schemas"]["DmsScanCapabilities"];
+            }[];
+        };
+        DmsScanBridgeRegistered: {
+            /** Format: uuid */
+            id: string;
+            /** @description Dauer der Lease eines uebernommenen Auftrags (60) */
+            lease_seconds: number;
+            devices: {
+                /** Format: uuid */
+                id: string;
+                key: string;
+            }[];
+        };
+        DmsScanDevice: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            bridge_name: string;
+            online: boolean;
+            busy: boolean;
+            capabilities: components["schemas"]["DmsScanCapabilities"];
+        };
+        DmsScanParams: {
+            /** @enum {string} */
+            source: "flatbed" | "adf" | "adf_duplex";
+            resolution: number;
+            /** @enum {string} */
+            color: "color" | "gray" | "bw";
+            /** @enum {string} */
+            format: "a4" | "letter";
+            title?: string;
+            /** Format: uuid */
+            document_type_id?: string;
+            archive: boolean;
+        };
+        DmsScanJobCreate: {
+            /** Format: uuid */
+            device_id: string;
+            /** @enum {string} */
+            source?: "flatbed" | "adf" | "adf_duplex";
+            resolution?: number;
+            /** @enum {string} */
+            color?: "color" | "gray" | "bw";
+            /** @enum {string} */
+            format?: "a4" | "letter";
+            title?: string;
+            /** Format: uuid */
+            document_type_id?: string;
+            /** @default false */
+            archive: boolean;
+        };
+        DmsScanJob: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            device_id: string;
+            /** @enum {string} */
+            state: "queued" | "claimed" | "scanning" | "waiting_for_page" | "uploading" | "done" | "failed" | "cancelled";
+            params: components["schemas"]["DmsScanParams"];
+            pages: number;
+            /**
+             * @description Befehl des Nutzers, der auf die Bridge wartet
+             * @enum {string}
+             */
+            command?: "next_page" | "finish" | "cancel";
+            /** @description bei failed, z. B. bridge_lost, expired oder der Code der Bridge */
+            error_code?: string;
+            /** Format: uuid */
+            document_id?: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: date-time */
+            finished_at?: string;
+        };
+        DmsScanClaim: {
+            /** Format: uuid */
+            id: string;
+            device_key: string;
+            /** @enum {string} */
+            state: "claimed";
+            params: components["schemas"]["DmsScanParams"];
+            lease_seconds: number;
+        };
+        DmsScanReport: {
+            /** @enum {string} */
+            state?: "claimed" | "scanning" | "waiting_for_page" | "uploading" | "done" | "failed" | "cancelled";
+            pages?: number;
+            error_code?: string;
+            /** Format: uuid */
+            document_id?: string;
+        };
+        DmsScanReportResult: {
+            /** Format: uuid */
+            id: string;
+            state: string;
+            pages: number;
+            commands: ("next_page" | "finish" | "cancel")[];
+            lease_seconds: number;
         };
         DmsSource: {
             /** Format: uuid */
@@ -3741,6 +4038,8 @@ export interface components {
         DmsSuggestion: string;
         /** @description Quelle des Mandanten. Fremd oder unbekannt liefert 404. */
         DmsSource: string;
+        /** @description Scan-Auftrag des Mandanten. Fremd oder unbekannt liefert 404. */
+        DmsScanJob: string;
         /** @description Import-Lauf des Mandanten. Fremd oder unbekannt liefert 404. */
         DmsImport: string;
         DmsDuplicate: string;
@@ -6835,7 +7134,7 @@ export interface operations {
             content: {
                 "application/json": {
                     name: string;
-                    scopes: "dms.upload"[];
+                    scopes: ("dms.upload" | "dms.scan.bridge")[];
                     /**
                      * Format: uuid
                      * @description Mandant, an den das Token gebunden wird (WP-H10b); optional nur, wenn der Nutzer genau einen Mandanten hat
@@ -7137,6 +7436,280 @@ export interface operations {
                         unseen?: number;
                         error?: string;
                     };
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+        };
+    };
+    registerDmsScanBridge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DmsScanBridgeRegistration"];
+            };
+        };
+        responses: {
+            /** @description Bridge und Geraete mit ihren IDs */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmsScanBridgeRegistered"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    claimDmsScanJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Uebernommener Auftrag */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmsScanClaim"];
+                };
+            };
+            /** @description Kein Auftrag */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+        };
+    };
+    reportDmsScanJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                /** @description Scan-Auftrag des Mandanten. Fremd oder unbekannt liefert 404. */
+                job: components["parameters"]["DmsScanJob"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["DmsScanReport"];
+            };
+        };
+        responses: {
+            /** @description Stand des Auftrags */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmsScanReportResult"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listDmsScanDevices: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Geraete */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["DmsScanDevice"][];
+                    };
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    createDmsScanJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DmsScanJobCreate"];
+            };
+        };
+        responses: {
+            /** @description Auftrag */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmsScanJob"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getDmsScanJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                /** @description Scan-Auftrag des Mandanten. Fremd oder unbekannt liefert 404. */
+                job: components["parameters"]["DmsScanJob"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Auftrag */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmsScanJob"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    nextDmsScanPage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                /** @description Scan-Auftrag des Mandanten. Fremd oder unbekannt liefert 404. */
+                job: components["parameters"]["DmsScanJob"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Auftrag mit command next_page, bis die Bridge den Zustand wechselt */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmsScanJob"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+        };
+    };
+    finishDmsScanJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                /** @description Scan-Auftrag des Mandanten. Fremd oder unbekannt liefert 404. */
+                job: components["parameters"]["DmsScanJob"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Auftrag mit command finish, bis die Bridge den Zustand wechselt */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmsScanJob"];
+                };
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+        };
+    };
+    cancelDmsScanJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mandant. Kein Mitglied, unbekannt oder ungueltig liefert 404. */
+                tenant: components["parameters"]["Tenant"];
+                /** @description Scan-Auftrag des Mandanten. Fremd oder unbekannt liefert 404. */
+                job: components["parameters"]["DmsScanJob"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Auftrag (cancelled oder mit command cancel) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DmsScanJob"];
                 };
             };
             401: components["responses"]["Problem"];

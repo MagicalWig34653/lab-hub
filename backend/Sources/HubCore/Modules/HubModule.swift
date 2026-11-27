@@ -44,7 +44,7 @@ public protocol HubModule: Sendable {
     func jobHandlers(environment: [String: String]) -> [String: JobHandler]
     /// Prüfung vor dem Worker-Start für die gewählten eigenen Arten (z. B. externe Werkzeuge). Eine Meldung bricht den Start ab.
     func workerPreflight(kinds: Set<String>, environment: [String: String]) async -> String?
-    /// WP-ST2 (AK-ST2-2): API-Token-Scopes des Moduls, `<key>.<name>`. Nur deklarierte Scopes lassen sich vergeben und an Token-Routen binden.
+    /// WP-ST2 (AK-ST2-2): API-Token-Scopes des Moduls, `<key>.<name>` (WP-BR1: auch `<key>.<bereich>.<name>`). Nur deklarierte Scopes lassen sich vergeben und an Token-Routen binden.
     var tokenScopes: [String] { get }
     /// WP-ST2 (AK-ST2-3): Sichtbarkeit von Verknüpfungen mit Objekten des Moduls (Typen `<key>.…`) über die generische Route. `permissions` sind die
     /// Modulrechte der Rolle. `hidden`: solche Seiten fehlen in Listen, eine direkte Abfrage eines `<key>.…`-Typs wirft den mitgegebenen Fehler.
@@ -93,7 +93,7 @@ public struct ModuleRegistry: Sendable {
             }
             for scope in m.tokenScopes {
                 let parts = scope.split(separator: ".", omittingEmptySubsequences: false)
-                guard parts.count == 2, parts[0] == m.key, AuditValue.isSafeToken(scope) else {
+                guard parts.count >= 2, parts.count <= 3, parts.allSatisfy({ !$0.isEmpty }), parts[0] == m.key, AuditValue.isSafeToken(scope) else {
                     throw ConfigError(description: "Token-Scope \(scope) passt nicht zu Modul \(m.key)")
                 }
             }

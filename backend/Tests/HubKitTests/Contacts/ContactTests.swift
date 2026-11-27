@@ -575,6 +575,7 @@ final class ContactTests: AuthTestCase {
         let v = try await scalar("SELECT max(version)::bigint AS v FROM schema_version", as: Int64.self)
         XCTAssertEqual(v, 17)  // WP-O1 (017) liegt über 015
         let database = app1.db(.psql)
+        try await CreateDMSScanBridge().revert(on: database)  // WP-BR1: verweist auf api_tokens
         try await CreateApiTokens().revert(on: database)  // WP-D4: verweist auf users
         try await CreateJobsPriority().revert(on: database)
         try await CreateContacts().revert(on: database)
@@ -590,6 +591,7 @@ final class ContactTests: AuthTestCase {
         XCTAssertEqual(again, 15)
         try await CreateJobsPriority().prepare(on: database)
         try await CreateApiTokens().prepare(on: database)
+        try await CreateDMSScanBridge().prepare(on: database)
         // Datenbankregeln: Zusammenführen in sich selbst und ungültige Arten scheitern
         let id = try await insertContact(UUID().uuidString, name: "X")
         do { try await db.raw("UPDATE contacts SET merged_into = id, merged_at = now() WHERE id = \(bind: id)").run(); XCTFail() } catch {}

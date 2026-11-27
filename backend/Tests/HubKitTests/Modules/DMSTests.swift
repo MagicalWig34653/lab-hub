@@ -661,7 +661,7 @@ final class DMSTests: DMSTestBase {
                 if key != "POST scan/jobs" {
                     try await db.raw("""
                         INSERT INTO dms_scan_jobs (id, tenant_id, device_id, params, state, lease_until, pages, created_by)
-                        VALUES (\(bind: scanJob), \(bind: tenant), \(bind: scanDevice), '{}'::jsonb, 'waiting_for_page', now() + interval '60 seconds', 1, \(bind: UUID(uuidString: w.alice.userID)!))
+                        VALUES (\(bind: scanJob), \(bind: tenant), \(bind: scanDevice), '{"source":"flatbed","resolution":300,"color":"color","format":"a4","archive":false}'::jsonb, 'waiting_for_page', now() + interval '60 seconds', 1, \(bind: UUID(uuidString: w.alice.userID)!))
                         """).run()
                 }
                 let isTrash = route.path.hasSuffix("/restore")
@@ -701,7 +701,7 @@ final class DMSTests: DMSTestBase {
                 cells += 1
                 if allowed(role, route.permission) {
                     ok += 1
-                    XCTAssertEqual(r.status, expectedAll[key], "\(role.rawValue) \(key): \(r.json)")
+                    XCTAssertEqual(r.status, expectedAll[key], "\(role.rawValue) \(key) \(path): \(r.json)")
                 } else {
                     denied += 1
                     XCTAssertEqual(r.status, .forbidden, "\(role.rawValue) \(key)")
@@ -905,6 +905,7 @@ final class DMSTests: DMSTestBase {
         try await aEq(try await count("pg_trigger", where: "tgname IN ('dms_document_files_protect', 'dms_files_protect', 'dms_documents_protect_asn')"), 3)
 
         let migration = CreateDMSCore()
+        try await CreateDMSScanBridge().revert(on: app1.db(.psql)) // WP-BR1: Bridge, Geräte, Aufträge (verweist auf api_tokens und users)
         try await CreateDMSDocumentSource().revert(on: app1.db(.psql)) // WP-D9: Quelle, Indizes
         try await CreateDMSExtraction().revert(on: app1.db(.psql)) // WP-D7: Extraktion, Outbox, Quelle `extraction`
         try await CreateDMSImport().revert(on: app1.db(.psql))    // WP-D6: Laeufe, Idempotenz-Zuordnung, Befunde, Notizen
@@ -929,6 +930,7 @@ final class DMSTests: DMSTestBase {
         try await CreateDMSImport().prepare(on: app1.db(.psql))
         try await CreateDMSExtraction().prepare(on: app1.db(.psql))
         try await CreateDMSDocumentSource().prepare(on: app1.db(.psql))
+        try await CreateDMSScanBridge().prepare(on: app1.db(.psql))
     }
 }
 

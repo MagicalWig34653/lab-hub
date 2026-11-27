@@ -2193,7 +2193,7 @@ paths:
       description: |
         WP-H10b: Das Token wird an genau einen Mandanten gebunden (tenant_id); es gilt nur auf Routen dieses Mandanten (anderer Mandant 404 not_found). Ohne tenant_id gilt der einzige
         Mandant des Nutzers (Kompatibilitaet), bei mehreren Mitgliedschaften 422. tenant_id eines Mandanten, in dem der Nutzer nicht Mitglied ist: 404.
-        Minimalstand: einziger Scope ist dms.upload (Share-/Scan-API). Pflichtablauf (expires_in_days 1..730, Standard 365). Gespeichert wird nur der SHA-256-Hash.
+        Scopes: dms.upload (Share-/Scan-API) und dms.scan.bridge (Scan-Bridge, WP-BR1; nutzbar nur mit Recht dms.source.manage der Rolle des Inhabers). Pflichtablauf (expires_in_days 1..730, Standard 365). Gespeichert wird nur der SHA-256-Hash.
         Das Token (Praefix lhp_) wird ausschliesslich an Routen mit ausdruecklichem Scope akzeptiert, nie als Sitzung. Unbekannter Scope 422.
       security: [{ bearer: [] }, { cookie: [] }]
       requestBody:
@@ -2205,7 +2205,7 @@ paths:
               required: [name, scopes]
               properties:
                 name: { type: string, minLength: 1, maxLength: 80 }
-                scopes: { type: array, minItems: 1, items: { type: string, enum: [dms.upload] } }
+                scopes: { type: array, minItems: 1, items: { type: string, enum: [dms.upload, dms.scan.bridge] } }
                 tenant_id: { type: string, format: uuid, description: "Mandant, an den das Token gebunden wird (WP-H10b); optional nur, wenn der Nutzer genau einen Mandanten hat" }
                 expires_in_days: { type: integer, minimum: 1, maximum: 730 }
       responses:
@@ -2415,6 +2415,208 @@ paths:
                   ok: { type: boolean }
                   unseen: { type: integer, description: "Anzahl ungelesener Nachrichten, die passen (nur bei ok)" }
                   error: { type: string }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+  # --- WP-BR1: Scan-Bridge (Hub-Seite, docs/SCAN-BRIDGE.md) ---
+  /api/v1/tenants/{tenant}/dms/scan/bridge:
+    put:
+      operationId: registerDmsScanBridge
+      summary: Bridge - Lebenszeichen, Version und vollstaendige Geraeteliste melden (API-Token mit Scope dms.scan.bridge; Recht dms.source.manage der Rolle des Token-Inhabers)
+      description: |
+        WP-BR1. Je Token gibt es genau eine Bridge (beim ersten Aufruf angelegt, Audit dms.scan.bridge.registered). Die Liste ersetzt die bisherige: fehlende Geraete werden inaktiv
+        (ihre ID bleibt fuer vorhandene Auftraege gueltig), wieder auftauchende behalten ihre ID. `key` ist ein SHA-256-Hash (64 Hex-Zeichen, klein) des Geraets; eine IP oder URL kommt nicht in den Hub.
+        Positivlisten: Quellen flatbed, adf, adf_duplex; Farbmodi color, gray, bw; Formate a4, letter; Aufloesungen 50..1200; je Liste 1..8 Eintraege ohne Doppel; hoechstens 16 Geraete.
+        Unbekannte Schluessel 422. Alle Aufrufe der Bridge setzen das Lebenszeichen (Online-Zustand aus der Datenbankzeit, 60 s).
+        Das Token braucht zusaetzlich den Scope dms.upload, damit die Bridge das Ergebnis ueber dmsShare hochladen kann. Namen und Titel: Codepunkte (nicht Grapheme), keine Steuer-, Format- oder Trennzeichen.
+        Token ohne Scope, Sitzung oder widerrufenes Token 401; Token an anderen Mandanten gebunden 404; Rolle ohne dms.source.manage 403; Modul aus 404 module_disabled.
+      security: [{ apiToken: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DmsScanBridgeRegistration" }
+      responses:
+        "200":
+          description: Bridge und Geraete mit ihren IDs
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DmsScanBridgeRegistered" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/dms/scan/bridge/claim:
+    post:
+      operationId: claimDmsScanJob
+      summary: Bridge - naechsten Auftrag der eigenen Geraete mit Lease uebernehmen (204, wenn keiner da ist)
+      description: |
+        WP-BR1. Genau ein Aufrufer uebernimmt einen Auftrag (auch ueber mehrere Instanzen); die Lease laeuft ab der Datenbankzeit (lease_seconds). Laeuft sie ab, wird der Auftrag
+        failed mit bridge_lost und nie automatisch wiederholt. Nicht abgeholte Auftraege verfallen nach 5 Minuten (failed, expired). Vorher muss die Bridge registriert sein (sonst 409).
+      security: [{ apiToken: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+      responses:
+        "200":
+          description: Uebernommener Auftrag
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DmsScanClaim" }
+        "204": { description: Kein Auftrag }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/dms/scan/bridge/jobs/{job}:
+    put:
+      operationId: reportDmsScanJob
+      summary: Bridge - Zustand, Seitenzahl, Fehlercode oder Ergebnis melden, Lease verlaengern; die Antwort nennt die Nutzerbefehle
+      description: |
+        WP-BR1. Ohne state ist es ein Lebenszeichen (Lease ab Datenbank-now() verlaengern, pages nachtragen). Erlaubte Wechsel: claimed zu scanning oder failed;
+        scanning zu scanning, waiting_for_page, uploading oder failed; waiting_for_page zu waiting_for_page, scanning, uploading oder failed; uploading zu uploading, done oder failed;
+        cancelled nur, wenn der Nutzer abbrechen wollte (commands enthaelt cancel); solange cancel ansteht, sind nur cancelled und failed erlaubt. Sonst 409 scan_transition_invalid. error_code (^[a-z0-9_]{1,64}$) ist bei failed Pflicht und sonst verboten;
+        document_id ist bei done Pflicht und sonst verboten und muss das Dokument aus dem Upload dieses Tokens ueber dmsShare mit Idempotency-Key scan-<job> sein, nicht im Papierkorb (sonst 422). pages 0..500.
+        Spaetes Ergebnis: Ein durch Lease-Ablauf beendeter Auftrag (failed, bridge_lost) darf von derselben Bridge noch auf done gesetzt werden; dieselbe done-, cancelled- und failed-Meldung (gleicher error_code) ist wiederholbar.
+        Ein Befehl des Nutzers bleibt in commands, bis die Bridge den Zustand wechselt (next_page bis scanning, finish bis uploading, cancel bis cancelled).
+        Auftrag eines anderen Mandanten oder einer anderen Bridge: 404.
+      security: [{ apiToken: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/DmsScanJob" }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DmsScanReport" }
+      responses:
+        "200":
+          description: Stand des Auftrags
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DmsScanReportResult" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/dms/scan/devices:
+    get:
+      operationId: listDmsScanDevices
+      summary: Scanner des Mandanten (Berechtigung dms.scan.use) mit Faehigkeiten, Online- und Belegt-Zustand
+      description: Nur aktive Geraete; online = Bridge hat sich in den letzten 60 s gemeldet (Datenbankzeit); busy = es gibt einen offenen Auftrag. Die Geraetekennung bleibt bei der Bridge.
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+      responses:
+        "200":
+          description: Geraete
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/DmsScanDevice" } }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/dms/scan/jobs:
+    post:
+      operationId: createDmsScanJob
+      summary: Scan-Auftrag anlegen (Berechtigung dms.scan.use); Audit dms.scan.job.created
+      description: |
+        WP-BR1. Parameter nur aus der Positivliste und nur, was das Geraet kann (sonst 422, Code not_supported); fehlende Werte kommen aus den Faehigkeiten (Quelle flatbed, 300 dpi, color, a4, sonst der erste Wert).
+        Je Geraet hoechstens ein offener Auftrag (409 scan_device_busy, auch bei gleichzeitigen Anlagen ueber mehrere Instanzen); Bridge laenger als 60 s still: 409 scan_bridge_offline.
+        Unbekanntes oder fremdes Geraet 404. Ein nicht abgeholter Auftrag verfaellt nach 5 Minuten.
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DmsScanJobCreate" }
+      responses:
+        "201":
+          description: Auftrag
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DmsScanJob" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/dms/scan/jobs/{job}:
+    get:
+      operationId: getDmsScanJob
+      summary: Scan-Auftrag lesen (Berechtigung dms.scan.use); Zustand, Seitenzahl, Fehlercode, Dokument
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/DmsScanJob" }
+      responses:
+        "200":
+          description: Auftrag
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DmsScanJob" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/dms/scan/jobs/{job}/next-page:
+    post:
+      operationId: nextDmsScanPage
+      summary: Naechste Seite scannen (Berechtigung dms.scan.use); nur im Zustand waiting_for_page, sonst 409 scan_command_invalid
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/DmsScanJob" }
+      responses:
+        "200":
+          description: Auftrag mit command next_page, bis die Bridge den Zustand wechselt
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DmsScanJob" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/dms/scan/jobs/{job}/finish:
+    post:
+      operationId: finishDmsScanJob
+      summary: Scan beenden und die Seiten zu einem Dokument zusammenfuegen (Berechtigung dms.scan.use); im Zustand scanning oder waiting_for_page
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/DmsScanJob" }
+      responses:
+        "200":
+          description: Auftrag mit command finish, bis die Bridge den Zustand wechselt
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DmsScanJob" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+  /api/v1/tenants/{tenant}/dms/scan/jobs/{job}/cancel:
+    post:
+      operationId: cancelDmsScanJob
+      summary: Scan abbrechen (Berechtigung dms.scan.use); nicht abgeholt sofort cancelled, laufend per Befehl cancel an die Bridge, ab uploading und nach dem Ende 409
+      security: [{ bearer: [] }, { cookie: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Tenant" }
+        - { $ref: "#/components/parameters/DmsScanJob" }
+      responses:
+        "200":
+          description: Auftrag (cancelled oder mit command cancel)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DmsScanJob" }
         "401": { $ref: "#/components/responses/Problem" }
         "403": { $ref: "#/components/responses/Problem" }
         "404": { $ref: "#/components/responses/Problem" }
@@ -3448,6 +3650,12 @@ components:
       required: true
       description: Quelle des Mandanten. Fremd oder unbekannt liefert 404.
       schema: { type: string, format: uuid }
+    DmsScanJob:
+      name: job
+      in: path
+      required: true
+      description: Scan-Auftrag des Mandanten. Fremd oder unbekannt liefert 404.
+      schema: { type: string, format: uuid }
     DmsImport:
       name: import
       in: path
@@ -3648,6 +3856,10 @@ components:
             - precondition_failed
             - recovery_session_restricted
             - retention_not_expired
+            - scan_bridge_offline
+            - scan_command_invalid
+            - scan_device_busy
+            - scan_transition_invalid
             - series_in_use
             - service_unavailable
             - setup_token_invalid
@@ -4216,7 +4428,7 @@ components:
         id: { type: string, format: uuid }
         name: { type: string }
         tenant_id: { type: [string, "null"], format: uuid, description: "Mandant der Bindung (WP-H10b); null: Token ohne Bindung wird abgewiesen (401 api_token_unbound) und muss neu erstellt werden" }
-        scopes: { type: array, items: { type: string, enum: [dms.upload] } }
+        scopes: { type: array, items: { type: string, enum: [dms.upload, dms.scan.bridge] } }
         expires_at: { type: string, format: date-time }
         created_at: { type: string, format: date-time }
         last_used_at: { type: [string, "null"], format: date-time }
@@ -4315,6 +4527,123 @@ components:
         noted_at: { type: [string, "null"], format: date-time }
         origin: { type: [string, "null"], description: "z. B. paperless:note:<id>" }
         created_at: { type: string, format: date-time }
+    # --- WP-BR1: Scan-Bridge ---
+    DmsScanCapabilities:
+      type: object
+      required: [sources, resolutions, color_modes, formats]
+      additionalProperties: false
+      properties:
+        sources: { type: array, minItems: 1, maxItems: 8, uniqueItems: true, items: { type: string, enum: [flatbed, adf, adf_duplex] } }
+        resolutions: { type: array, minItems: 1, maxItems: 8, uniqueItems: true, items: { type: integer, minimum: 50, maximum: 1200 } }
+        color_modes: { type: array, minItems: 1, maxItems: 8, uniqueItems: true, items: { type: string, enum: [color, gray, bw] } }
+        formats: { type: array, minItems: 1, maxItems: 8, uniqueItems: true, items: { type: string, enum: [a4, letter] } }
+    DmsScanBridgeRegistration:
+      type: object
+      required: [name, version, devices]
+      additionalProperties: false
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        version: { type: string, minLength: 1, maxLength: 40 }
+        devices:
+          type: array
+          maxItems: 16
+          items:
+            type: object
+            required: [key, name, capabilities]
+            additionalProperties: false
+            properties:
+              key: { type: string, pattern: "^[0-9a-f]{64}$", description: "SHA-256-Hash der Geraetekennung, nie eine IP oder URL" }
+              name: { type: string, minLength: 1, maxLength: 100 }
+              capabilities: { $ref: "#/components/schemas/DmsScanCapabilities" }
+    DmsScanBridgeRegistered:
+      type: object
+      required: [id, lease_seconds, devices]
+      properties:
+        id: { type: string, format: uuid }
+        lease_seconds: { type: integer, description: "Dauer der Lease eines uebernommenen Auftrags (60)" }
+        devices:
+          type: array
+          items:
+            type: object
+            required: [id, key]
+            properties:
+              id: { type: string, format: uuid }
+              key: { type: string }
+    DmsScanDevice:
+      type: object
+      required: [id, name, bridge_name, online, busy, capabilities]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        bridge_name: { type: string }
+        online: { type: boolean }
+        busy: { type: boolean }
+        capabilities: { $ref: "#/components/schemas/DmsScanCapabilities" }
+    DmsScanParams:
+      type: object
+      required: [source, resolution, color, format, archive]
+      properties:
+        source: { type: string, enum: [flatbed, adf, adf_duplex] }
+        resolution: { type: integer }
+        color: { type: string, enum: [color, gray, bw] }
+        format: { type: string, enum: [a4, letter] }
+        title: { type: string, maxLength: 300 }
+        document_type_id: { type: string, format: uuid }
+        archive: { type: boolean }
+    DmsScanJobCreate:
+      type: object
+      required: [device_id]
+      additionalProperties: false
+      properties:
+        device_id: { type: string, format: uuid }
+        source: { type: string, enum: [flatbed, adf, adf_duplex] }
+        resolution: { type: integer }
+        color: { type: string, enum: [color, gray, bw] }
+        format: { type: string, enum: [a4, letter] }
+        title: { type: string, minLength: 1, maxLength: 300 }
+        document_type_id: { type: string, format: uuid }
+        archive: { type: boolean, default: false }
+    DmsScanJob:
+      type: object
+      required: [id, device_id, state, params, pages, created_at, updated_at]
+      properties:
+        id: { type: string, format: uuid }
+        device_id: { type: string, format: uuid }
+        state: { type: string, enum: [queued, claimed, scanning, waiting_for_page, uploading, done, failed, cancelled] }
+        params: { $ref: "#/components/schemas/DmsScanParams" }
+        pages: { type: integer, minimum: 0, maximum: 500 }
+        command: { type: string, enum: [next_page, finish, cancel], description: "Befehl des Nutzers, der auf die Bridge wartet" }
+        error_code: { type: string, description: "bei failed, z. B. bridge_lost, expired oder der Code der Bridge" }
+        document_id: { type: string, format: uuid }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        finished_at: { type: string, format: date-time }
+    DmsScanClaim:
+      type: object
+      required: [id, device_key, state, params, lease_seconds]
+      properties:
+        id: { type: string, format: uuid }
+        device_key: { type: string }
+        state: { type: string, enum: [claimed] }
+        params: { $ref: "#/components/schemas/DmsScanParams" }
+        lease_seconds: { type: integer }
+    DmsScanReport:
+      type: object
+      additionalProperties: false
+      properties:
+        state: { type: string, enum: [claimed, scanning, waiting_for_page, uploading, done, failed, cancelled] }
+        pages: { type: integer, minimum: 0, maximum: 500 }
+        error_code: { type: string, pattern: "^[a-z0-9_]{1,64}$" }
+        document_id: { type: string, format: uuid }
+    DmsScanReportResult:
+      type: object
+      required: [id, state, pages, commands, lease_seconds]
+      properties:
+        id: { type: string, format: uuid }
+        state: { type: string }
+        pages: { type: integer }
+        commands: { type: array, items: { type: string, enum: [next_page, finish, cancel] } }
+        lease_seconds: { type: integer }
     DmsSource:
       type: object
       required: [id, kind, name, config, has_secret, enabled, runs, created_at, updated_at]

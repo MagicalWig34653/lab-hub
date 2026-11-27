@@ -5,7 +5,7 @@ import HubCore
 // WP-ST2: Was der Kern früher beim Namen kannte, liefert das DMS-Modul über die Haken von `HubModule`: Job-Handler (vorher `WorkerHandlers`),
 // OCR-Vorabprüfung (vorher `WorkerCommand`), den Token-Scope `dms.upload` (vorher `ApiTokens.scopes`) und den Link-Schutz (vorher `LinkService`, WP-H14).
 extension DMSModule {
-    public var tokenScopes: [String] { ["dms.upload"] }
+    public var tokenScopes: [String] { ["dms.upload", "dms.scan.bridge"] }
 
     public func jobHandlers(environment: [String: String]) -> [String: JobHandler] {
         var map: [String: JobHandler] = [:]

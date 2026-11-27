@@ -747,3 +747,175 @@ final class DMSScanResultTests: DMSScanTestBase {
         try await aEq(try await jobRow(id2, "state"), "uploading")
     }
 }
+
+// MARK: - Befunde der unabhängigen Sicherheitsdurchsicht (WP-BR1, 27.11.2026)
+
+final class DMSScanReviewTests: DMSScanTestBase {
+    /// Befund 1: Die Eingabeprüfung deckt sich mit den CHECK-Bedingungen der Datenbank. Ein angehängter Zeilenumbruch (`$` passt davor), Kombinationszeichen
+    /// (Zeichen gegen Codepunkte) und unsichtbare Format-/Trennzeichen ergeben 422, nie 500.
+    func testReview1_inputMatchesDatabaseChecks() async throws {
+        let f = try await fixture()
+        let t = f.w.tenantA
+        func register(_ patch: (inout [String: Any]) -> Void, name: String = "B", version: String = "1") async throws -> Resp {
+            var d = device(1); patch(&d)
+            return try await call(app1, .PUT, scan(t) + "/bridge", json: ["name": name, "version": version, "devices": [d]], token: f.token)
+        }
+        let combining = String(repeating: "e\u{301}", count: 51)   // 51 Zeichen, 102 Codepunkte
+        for (label, r) in [("Hash mit Zeilenumbruch", try await register({ $0["key"] = key(1) + "\n" })),
+                           ("Gerätename zu viele Codepunkte", try await register({ $0["name"] = combining })),
+                           ("Gerätename mit Nullbreiten-Zeichen", try await register({ $0["name"] = "Scan\u{200B}ner" })),
+                           ("Gerätename mit Umschalter der Schreibrichtung", try await register({ $0["name"] = "Scan\u{202E}ner" })),
+                           ("Gerätename mit Zeilentrenner", try await register({ $0["name"] = "Scan\u{2028}ner" })),
+                           ("Bridge-Name zu viele Codepunkte", try await register({ _ in }, name: combining)),
+                           ("Version zu viele Codepunkte", try await register({ _ in }, version: String(repeating: "e\u{301}", count: 21)))] {
+            XCTAssertEqual(r.status, .unprocessableEntity, "\(label): \(r.json)")
+        }
+        let id = try await claimedJob(f)
+        let bad = try await report(f.token, t, id, ["state": "failed", "error_code": "feeder_empty\n"])
+        XCTAssertEqual(bad.status, .unprocessableEntity, "\(bad.json)")
+        try await aEq(try await jobRow(id, "state"), "claimed")
+        for title in ["Strom\n2026", "Strom\u{200B}2026", "Strom\u{202E}2026", String(repeating: "e\u{301}", count: 151)] {
+            let r = try await newJob(f.w.alice, t, f.device, extra: ["title": title])
+            XCTAssertEqual(r.status, .unprocessableEntity, "\(title.unicodeScalars.count): \(r.json)")
+        }
+        let ok = try await register({ $0["name"] = "Küche, 2. Stock (Brother)" })
+        XCTAssertEqual(ok.status, .ok, "gewöhnliche Namen mit Umlauten und Satzzeichen bleiben erlaubt: \(ok.json)")
+    }
+
+    /// Befund 2: Als Ergebnis gilt nur ein Dokument, das die Bridge selbst (ihr Token) mit dem Schlüssel `scan-<dieser Auftrag>` hochgeladen hat und das nicht im Papierkorb liegt.
+    /// Ein Dokument unter anderem Schlüssel, ein vorab über die Oberfläche unter diesem Schlüssel angelegtes Dokument und ein gelöschtes Dokument werden abgewiesen.
+    func testReview2_resultMustBeTheBridgesOwnUploadForThisJob() async throws {
+        let f = try await fixture()
+        let t = f.w.tenantA
+        let id = try await claimedJob(f)
+        _ = try await report(f.token, t, id, ["state": "scanning"])
+        _ = try await report(f.token, t, id, ["state": "uploading"])
+        // Dokument der Bridge, aber unter dem Schlüssel eines anderen Auftrags
+        let otherKey = try await raw(app1, .POST, base(t) + "/share?filename=A.pdf", body: pdf("anderer-schluessel"), token: f.token,
+                                     headers: ["Content-Type": "application/octet-stream", "Idempotency-Key": "scan-\(UUID().uuidString.lowercased())"])
+        XCTAssertEqual(otherKey.status, .created)
+        let r1 = try await report(f.token, t, id, ["state": "done", "document_id": otherKey.json["id"] as? String ?? ""])
+        XCTAssertEqual(r1.status, .unprocessableEntity, "Dokument aus dem Upload eines anderen Auftrags")
+        // jemand belegt den Schlüssel vorab über die Oberfläche: das Dokument stammt nicht von der Bridge
+        let squat = try await upload(f.w.alice, t, pdf("vorab"), key: "scan-\(id)")
+        XCTAssertEqual(squat.status, .created)
+        let r2 = try await report(f.token, t, id, ["state": "done", "document_id": squat.json["id"] as? String ?? ""])
+        XCTAssertEqual(r2.status, .unprocessableEntity, "Dokument aus der Oberfläche, nicht aus dem Upload der Bridge")
+        try await aEq(try await jobRow(id, "state"), "uploading")
+        // gelöschtes Dokument
+        let id2 = try await { () async throws -> String in
+            _ = try await report(f.token, t, id, ["state": "failed", "error_code": "squatted"])
+            return try await claimedJob(f)
+        }()
+        _ = try await report(f.token, t, id2, ["state": "scanning"])
+        _ = try await report(f.token, t, id2, ["state": "uploading"])
+        let doc = try await uploadResult(f, job: id2, seed: "geloescht")
+        let trashed = try await call(app1, .POST, base(t) + "/documents/\(doc)/trash", json: ["reason": "Test"], token: f.w.alice.token)
+        XCTAssertEqual(trashed.status, .ok, "\(trashed.json)")
+        let r3 = try await report(f.token, t, id2, ["state": "done", "document_id": doc])
+        XCTAssertEqual(r3.status, .unprocessableEntity, "Dokument im Papierkorb")
+        // das eigene, unveränderte Ergebnis wird angenommen
+        _ = try await call(app1, .POST, base(t) + "/documents/\(doc)/restore", token: f.w.alice.token)
+        let r4 = try await report(f.token, t, id2, ["state": "done", "document_id": doc])
+        XCTAssertEqual(r4.status, .ok, "\(r4.json)")
+        // ein zweites Mal mit einem anderen Dokument: schon abgeschlossen
+        let r5 = try await report(f.token, t, id2, ["state": "done", "document_id": squat.json["id"] as? String ?? ""])
+        XCTAssertEqual(r5.status, .conflict)
+    }
+
+    /// Befund 5: Wiederholung einer `failed`-Meldung mit demselben Code ist unschädlich (verlorene Antwort), ein anderer Code ist ein Konflikt.
+    func testReview5_failedReportIsRepeatable() async throws {
+        let f = try await fixture()
+        let t = f.w.tenantA
+        let id = try await claimedJob(f)
+        let first = try await report(f.token, t, id, ["state": "failed", "error_code": "feeder_jam", "pages": 2])
+        XCTAssertEqual(first.status, .ok)
+        let again = try await report(f.token, t, id, ["state": "failed", "error_code": "feeder_jam"], via: app2)
+        XCTAssertEqual(again.status, .ok, "\(again.json)")
+        let other = try await report(f.token, t, id, ["state": "failed", "error_code": "other_code"])
+        XCTAssertEqual(other.status, .conflict)
+        try await aEq(try await auditCount("dms.scan.job.failed", tenant: t), 1, "nur der erste Übergang wird protokolliert")
+    }
+
+    /// Befund 6: Mit einem Abbruchwunsch am Auftrag darf die Bridge nicht weiterarbeiten (kein `uploading`, kein neuer Scan); erlaubt sind `cancelled` und `failed`.
+    /// So kann ein angenommener Abbruch nicht neben einem Upload stehen bleiben.
+    func testReview6_pendingCancelBlocksFurtherProgress() async throws {
+        let f = try await fixture()
+        let t = f.w.tenantA
+        let id = try await claimedJob(f)
+        _ = try await report(f.token, t, id, ["state": "scanning"])
+        _ = try await report(f.token, t, id, ["state": "waiting_for_page", "pages": 1])
+        let cancel = try await userAction(f.w.alice, t, id, "cancel")
+        XCTAssertEqual(cancel.status, .ok)
+        for state in ["uploading", "scanning", "waiting_for_page"] {
+            let r = try await report(f.token, t, id, ["state": state])
+            XCTAssertEqual(r.status, .conflict, state)
+            XCTAssertEqual(r.problemCode, "scan_transition_invalid")
+        }
+        let beat = try await report(f.token, t, id, [:])
+        XCTAssertEqual(beat.json["commands"] as? [String], ["cancel"])
+        let ack = try await report(f.token, t, id, ["state": "cancelled", "pages": 1])
+        XCTAssertEqual(ack.status, .ok, "\(ack.json)")
+        // dieselbe Regel, wenn die Bridge scheitert statt abzubrechen
+        let id2 = try await claimedJob(f)
+        _ = try await userAction(f.w.alice, t, id2, "cancel")
+        let failed = try await report(f.token, t, id2, ["state": "failed", "error_code": "scanner_error"])
+        XCTAssertEqual(failed.status, .ok)
+    }
+
+    /// Befund 7: Nutzerbefehle werden protokolliert (Befehl und Auftrag, keine Nutzdaten).
+    func testReview7_commandsAreAudited() async throws {
+        let f = try await fixture()
+        let t = f.w.tenantA
+        let id = try await claimedJob(f)
+        _ = try await report(f.token, t, id, ["state": "scanning"])
+        _ = try await report(f.token, t, id, ["state": "waiting_for_page", "pages": 1])
+        _ = try await userAction(f.w.alice, t, id, "next-page")
+        _ = try await userAction(f.w.alice, t, id, "finish", via: app2)   // gleichzeitiger zweiter Befehl: Konflikt, nicht protokolliert
+        try await aEq(try await auditCount("dms.scan.job.command", tenant: t), 1)
+        let meta = try await db.raw("SELECT meta::text AS v FROM audit_log WHERE action = 'dms.scan.job.command' AND tenant_id = '\(unsafeRaw: t)'").first()?.decode(column: "v", as: String.self) ?? ""
+        XCTAssertTrue(meta.contains("next_page"), meta)
+        XCTAssertFalse(meta.contains("http"), meta)
+    }
+
+    /// Befund 9: Ein Lebenszeichen nach abgelaufener Lease belebt den Auftrag nicht; entfernte (inaktive) Geräte erhalten keine Übernahme, ein laufender Auftrag darf fertig werden.
+    func testReview9_expiredHeartbeatAndInactiveDevices() async throws {
+        let f = try await fixture()
+        let t = f.w.tenantA
+        let id = try await claimedJob(f)
+        _ = try await report(f.token, t, id, ["state": "scanning"])
+        try await db.raw("UPDATE dms_scan_jobs SET lease_until = now() - interval '1 second' WHERE id = '\(id)'").run()
+        let beat = try await report(f.token, t, id, ["pages": 3])
+        XCTAssertEqual(beat.status, .ok)
+        XCTAssertEqual(beat.json["state"] as? String, "failed", "abgelaufen: kein Wiederbeleben durch ein Lebenszeichen")
+        try await aEq(try await jobRow(id, "state"), "failed")
+        try await aEq(try await jobRow(id, "lease_until"), "")
+        // Gerät fällt aus der Liste: ein wartender Auftrag wird nicht übernommen, ein laufender läuft weiter
+        let running = try await newJob(f.w.alice, t, f.device)
+        let runningID = running.json["id"] as? String ?? ""
+        let claimed = try await claim(f.token, t)
+        XCTAssertEqual(claimed.json["id"] as? String, runningID)
+        _ = try await register(f.token, t, devices: [device(2)])
+        let inactive = try await report(f.token, t, runningID, ["state": "scanning"])
+        XCTAssertEqual(inactive.status, .ok, "ein übernommener Auftrag läuft nach dem Entfernen des Geräts weiter: \(inactive.json)")
+        let again = try await newJob(f.w.alice, t, f.device)
+        XCTAssertEqual(again.status, .notFound, "ein inaktives Gerät nimmt keine neuen Aufträge")
+    }
+
+    /// Befund 10: Rolle und Mitgliedschaft des Token-Inhabers gelten bei jedem Aufruf der Bridge (Herabstufung = 403, Entfernung = 404).
+    func testReview10_roleChangeAppliesToBridgeToken() async throws {
+        let f = try await fixture()
+        let t = f.w.tenantA
+        let accountant = try await addUser("accountant", handle: "buchhalter", tenant: t, by: f.w.alice)
+        let token = try await makeToken(accountant)
+        let ok = try await register(token, t, devices: [device(5)], name: "Bridge Buchhaltung")
+        XCTAssertEqual(ok.status, .ok, "\(ok.json)")
+        try await db.raw("UPDATE memberships SET role = 'member' WHERE user_id = '\(accountant.userID)'").run()
+        for r in [try await claim(token, t, via: app2), try await register(token, t, devices: [device(5)])] {
+            XCTAssertEqual(r.status, .forbidden, "\(r.json)")
+        }
+        try await db.raw("DELETE FROM memberships WHERE user_id = '\(accountant.userID)'").run()
+        let gone = try await claim(token, t)
+        XCTAssertEqual(gone.status, .notFound)
+    }
+}
