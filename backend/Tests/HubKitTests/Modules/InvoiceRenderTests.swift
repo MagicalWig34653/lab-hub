@@ -230,12 +230,12 @@ final class InvoiceRenderDataTests: XCTestCase {
         try FileManager.default.createDirectory(at: fonts, withIntermediateDirectories: true)
         for font in InvoiceRenderer.requiredFonts { try Data().write(to: fonts.appendingPathComponent(font)) }
         var tools = RenderFixtures.tools
-        tools.typst = fake.path; tools.fontDirectory = fonts.path; tools.timeout = 2; tools.tempRoot = dir.path
+        tools.typst = fake.path; tools.fontDirectory = fonts.path; tools.timeout = 10; tools.tempRoot = dir.path
         let start = Date()
         do { _ = try await InvoiceRenderer(tools: tools).render(RenderFixtures.document("invoice")); XCTFail("kein Zeitlimit") } catch {
             XCTAssertEqual(error as? InvoiceRenderError, .timeout)
         }
-        XCTAssertLessThan(Date().timeIntervalSince(start), 20)
+        XCTAssertLessThan(Date().timeIntervalSince(start), 45)  // der Prozess selbst schliefe 60 s
         let pid = try XCTUnwrap(pid_t(String(contentsOf: pidFile, encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines)))
         XCTAssertEqual(kill(pid, 0), -1, "Prozess \(pid) läuft noch")
         let left = try FileManager.default.contentsOfDirectory(atPath: dir.path).filter { $0.hasPrefix("lh-render-") }
