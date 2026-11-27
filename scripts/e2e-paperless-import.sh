@@ -24,6 +24,8 @@ APP="${E2E_APP_BIN:-$SCRATCH/debug/App}"
 PORT_A="${E2E_BACKEND_PORT:-8096}"
 PORT_B="${E2E_BACKEND_PORT_B:-8097}"
 PORT_C="${E2E_BACKEND_PORT_C:-8098}"
+PORT_D="${E2E_BACKEND_PORT_D:-8099}"             # Abschnitt 8: Betriebsrichtlinie mit Schalter und Allowlist
+PROXY_PORT="${E2E_PROXY_PORT:-18101}"           # Abschnitt 6b: gebremste Leitung zu Paperless
 DB="labhub_e2e_pa1_$$"
 NAME="labhub-pa1-e2e-$$"
 PA="http://127.0.0.1:$PA_PORT"
@@ -37,6 +39,7 @@ psql_db() { docker exec -i "$CONTAINER" psql -U "$DB_USER" -d "$1" -Atq -v ON_ER
 echo 'SELECT 1' | psql_db postgres > /dev/null || { echo "FEHLER: Datenbank-Container $CONTAINER nicht erreichbar" >&2; exit 2; }
 
 pids=()
+dev_workers=()
 workdir="$(mktemp -d "${TMPDIR:-/tmp}/labhub-e2e-pa1.XXXXXX")"
 cleanup() {
   for p in "${pids[@]}"; do kill "$p" 2> /dev/null || true; done
@@ -137,7 +140,7 @@ start "$PORT_B" false
 start "$PORT_C" false DMS_IMPORT_INSECURE_DEV=false          # ohne Entwicklungsschalter: Richtlinie wie im Betrieb
 for n in 1 2; do
   DMS_IMPORT_INSECURE_DEV=true AUTO_MIGRATE=false "$APP" worker --kinds dms.import.paperless --poll-ms 200 > "$workdir/worker-$n.log" 2>&1 &
-  pids+=($!)
+  pids+=($!); dev_workers+=($!)
 done
 
 A="http://127.0.0.1:$PORT_A/api/v1"
@@ -168,7 +171,7 @@ psql_db "$DB" << SQL
 INSERT INTO users (id, handle, display_name) VALUES ('$USER_ID', 'e2e', 'E2E Synthetic');
 INSERT INTO sessions (user_id, token_hash, kind, expires_at) VALUES ('$USER_ID', '$SESSION_HASH', 'normal', now() + interval '1 day');
 SQL
-for t in export admin reader negative; do
+for t in export admin reader negative large; do
   printf -v "T_$t" %s "$(uuidgen | lc)"; tid="$(eval echo "\$T_$t")"
   psql_db "$DB" << SQL
 INSERT INTO tenants (id, name) VALUES ('$tid', 'E2E $t');
@@ -186,7 +189,7 @@ run() {
   request "$A" POST "/tenants/$tenant/dms/imports" "$(body_file "{\"mode\":\"$mode\",\"source\":$source}")"
   [ "$status" = 202 ] || { bad "Lauf anlegen: Status $status: $body"; RUN=""; return 1; }
   RUN="$(printf '%s' "$body" | jq -r .id)"
-  for _ in $(seq 1 240); do
+  for _ in $(seq 1 "${RUN_WAIT:-240}"); do
     request "$B" GET "/tenants/$tenant/dms/imports/$RUN"
     state="$(printf '%s' "$body" | jq -r .state)"
     [ "$state" != queued ] && [ "$state" != running ] && break
@@ -262,6 +265,30 @@ check "falsches Token: Token gelöscht" "$(has_secret "$RUN")" 0
 check "Instanz lehnt eine andere API-Version ab (406): die feste Angabe des Hub ist nötig" "$(pl_status "$ADMIN_TOKEN" /api/documents/ 'application/json; version=99')" 406
 check "Instanz akzeptiert die vom Hub gesendete Version 10" "$(pl_status "$ADMIN_TOKEN" /api/documents/ 'application/json; version=10')" 200
 
+# 6b. WP-PA3V: große Datei über eine langsame Leitung. Vermutung aus dem PA1-Review: die Anfragefrist (120 s) schneide den Download großer Dateien ab. Eine große erfundene Datei
+# liegt in der Instanz; eine Weiterleitung bremst die Antworten auf eine feste Rate, sodass der Download der Originals länger als 120 s dauert (gemessen, nicht angenommen).
+LARGE_MB="${E2E_LARGE_MB:-36}"
+if [ "$LARGE_MB" -gt 0 ]; then
+  LARGE="$(PA_ADMIN="$PA_ADMIN_USER" PA_PASS="$PA_ADMIN_PASS" PA_URL="$PA" PA_LARGE_MB="$LARGE_MB" python3 -I scripts/paperless-e2e/large.py)" || { echo "FEHLER: große Datei nicht aufgenommen" >&2; docker logs --tail 30 "$NAME-paperless" >&2; exit 3; }
+  LARGE_BYTES="$(printf '%s' "$LARGE" | jq -r .bytes)"
+  truth "$ADMIN_TOKEN" "$workdir/truth-large.tsv"
+  check "Große Datei: in der Instanz aufgenommen (Dokumente jetzt)" "$(wc -l < "$workdir/truth-large.tsv" | tr -d ' ')" "$((N_ADMIN + 1))"
+  RATE="${E2E_LARGE_RATE:-300000}"        # Bytes je Sekunde: 36 MiB brauchen so über 120 s
+  python3 -I scripts/paperless-e2e/slowproxy.py "$PROXY_PORT" "$PA_PORT" "$RATE" > "$workdir/slowproxy.log" 2>&1 &
+  pids+=($!)
+  sleep 1
+  started="$(date +%s)"
+  RUN_WAIT=1500 run "$T_large" import "$(printf '{"kind":"api","base_url":"http://127.0.0.1:%s","token":"%s"}' "$PROXY_PORT" "$ADMIN_TOKEN")"
+  elapsed="$(( $(date +%s) - started ))"
+  echo "Große Datei: $LARGE_BYTES Bytes über $RATE B/s, Lauf dauerte $elapsed s"
+  check "Große Datei: Import über die langsame Leitung beendet" "$RUN_STATE" "done"
+  check "Große Datei: Lauf dauerte länger als die Anfragefrist von 120 s" "$([ "$elapsed" -gt 120 ] && echo ja || echo nein)" ja
+  check "Große Datei: kein Dokument wegen Verbindungsabbruch übersprungen" "$(rj '.counts.documents_skipped // 0')" 0
+  verify_import "Große Datei" "$T_large" "$workdir/truth-large.tsv" "$((N_ADMIN + 1))"
+  check "Große Datei: Größe des Originals in der Datenbank" "$(echo "SELECT max(f.size_bytes) FROM dms_document_files f WHERE f.tenant_id = '$T_large' AND f.role = 'original'" | psql_db "$DB")" "$LARGE_BYTES"
+  check "Große Datei: Token nach dem Lauf gelöscht" "$(has_secret "$RUN")" 0
+fi
+
 # 7. Sicherheit am echten System
 request "$C" POST "/tenants/$T_negative/dms/imports" "$(body_file "{\"mode\":\"dry_run\",\"source\":{\"kind\":\"api\",\"base_url\":\"$PA\",\"token\":\"x\"}}")"
 check "SSRF: http ohne Entwicklungsschalter abgelehnt (422)" "$status" 422
@@ -277,5 +304,35 @@ check "Token nirgends im Klartext in der Datenbank" "$(docker exec "$CONTAINER" 
 check "Token in keinem Log (Hub, Worker)" "$(cat "$workdir"/serve-*.log "$workdir"/worker-*.log | grep -c -e "$ADMIN_TOKEN" -e "$READER_TOKEN" -e "$NOPERM_TOKEN" || true)" 0
 check "Kein Lauf behielt ein Token" "$(echo "SELECT count(*) FROM dms_imports WHERE secret_enc IS NOT NULL" | psql_db "$DB")" 0
 check "Jeder Lauf genau einmal (zwei Worker): Läufe ohne Job-Wiederholung" "$(echo "SELECT count(*) FROM jobs WHERE kind = 'dms.import.paperless' AND attempts > 1" | psql_db "$DB")" 0
+
+# 8. Interne Ziele nur mit Schalter UND Allowlist (Anleitung `docs/ANLEITUNG-PA3-PAPERLESS-PROBELAUF.md`, Abschnitt 3). Die zwei Worker mit Entwicklungsschalter werden beendet; ein Backend und
+# ein Worker mit der Betriebsrichtlinie (kein Entwicklungsschalter, Schalter an, Allowlist auf genau diesen Host mit Port) übernehmen. `localhost` ist ein interner Name; Paperless spricht hier
+# nur http, also scheitert der Lauf NACH der Zielprüfung an TLS, nicht mit `host_not_allowed`.
+for p in "${dev_workers[@]}"; do kill "$p" 2> /dev/null || true; done
+sleep 2
+POLICY_ENV=(DMS_IMPORT_INSECURE_DEV=false DMS_ALLOW_INTERNAL_TARGETS=true "DMS_IMPORT_HOST_ALLOWLIST=localhost:$PA_PORT")
+start "$PORT_D" false "${POLICY_ENV[@]}"
+env AUTO_MIGRATE=false "${POLICY_ENV[@]}" "$APP" worker --kinds dms.import.paperless --poll-ms 200 > "$workdir/worker-policy.log" 2>&1 &
+pids+=($!)
+D="http://127.0.0.1:$PORT_D/api/v1"
+src_for() { printf '{"mode":"dry_run","source":{"kind":"api","base_url":"%s","token":"platzhalter-token"}}' "$1"; }
+request "$C" POST "/tenants/$T_negative/dms/imports" "$(body_file "$(src_for "https://localhost:$PA_PORT")")"
+check "Ohne Schalter: https://localhost:$PA_PORT abgelehnt (422)" "$status" 422
+request "$D" POST "/tenants/$T_negative/dms/imports" "$(body_file "$(src_for "https://localhost:$((PA_PORT + 1))")")"
+check "Schalter an, Allowlist mit Port: anderer Port abgelehnt (422)" "$status" 422
+request "$D" POST "/tenants/$T_negative/dms/imports" "$(body_file "$(src_for "https://nas.home.arpa")")"
+check "Schalter an, Host nicht in der Allowlist: abgelehnt (422)" "$status" 422
+request "$D" POST "/tenants/$T_negative/dms/imports" "$(body_file "$(src_for "https://localhost:$PA_PORT")")"
+check "Schalter an und Host in der Allowlist: Lauf angelegt (202)" "$status" 202
+POLICY_RUN="$(printf '%s' "$body" | jq -r .id)"
+for _ in $(seq 1 60); do
+  request "$D" GET "/tenants/$T_negative/dms/imports/$POLICY_RUN"; state="$(printf '%s' "$body" | jq -r .state)"
+  [ "$state" != queued ] && [ "$state" != running ] && break
+  sleep 1
+done
+request "$D" GET "/tenants/$T_negative/dms/imports/$POLICY_RUN/report"
+check "Betriebsrichtlinie: Lauf endete als failed (Paperless spricht hier kein TLS)" "$state" failed
+if [ "$(printf '%s' "$body" | jq -r .error_code)" != host_not_allowed ] && [ -n "$(printf '%s' "$body" | jq -r '.error_code // empty')" ]; then ok "Betriebsrichtlinie: Zielprüfung bestanden, Fehler erst beim Verbinden ($(printf '%s' "$body" | jq -r .error_code))"; else bad "Betriebsrichtlinie: Lauf scheiterte an der Zielprüfung oder ohne Code ($(printf '%s' "$body" | jq -r .error_code))"; fi
+check "Betriebsrichtlinie: Platzhalter-Token nach dem Lauf gelöscht" "$(has_secret "$POLICY_RUN")" 0
 
 if [ "$fail" = 0 ]; then echo "E2E Paperless-Import: alles ok"; else echo "E2E Paperless-Import: FEHLER" >&2; exit 1; fi

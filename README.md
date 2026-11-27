@@ -22,6 +22,7 @@ Geplante Module: **Rechnung** (Nachfolge einer bestehenden Rechnungs-App) und **
 | `docs/SCAN-BRIDGE.md` | Netzwerkscanner über SANE als eigener Dienst, F-22, Lizenzen (Planung) |
 | `docs/APP-DMS.md` | Native App „docs“ (DMS-Modul) für Apple-Geräte, gemeinsame App-Grundlage, Integrationen, Meilensteine (Planung) |
 | `docs/PAPERLESS-ABLOESUNG.md` | Was zur Ablösung von paperless-ngx fehlt, Reihenfolge, Probelauf |
+| `docs/ANLEITUNG-PA3-PAPERLESS-PROBELAUF.md` | Anleitung für den Probelauf des Paperless-Imports (Benutzer, Netz, interne Ziele und Allowlist, Aufräumen) |
 | `docs/ARCHITEKTUR.md` | Schichten, Modul-System, gemeinsamer Kern, API-Stil, Sync-Entwurf, Datenschutz, Betrieb |
 | `docs/MODUL-DMS.md` | Paperless-Analyse, Problem/Lösung, Datenmodell, Ingest, OCR, Suche, Revisionssicherheit, API, Import |
 | `docs/MODUL-RECHNUNG.md` | Umfang des Rechnungsmoduls, Renderer-Frage, E-Rechnung, Übernahme aus der bisherigen App |

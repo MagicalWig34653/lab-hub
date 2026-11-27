@@ -68,7 +68,7 @@ Scan-Bridge (BR1–BR4) und App (APP-M0 ff.) sind **nicht** Voraussetzung, auße
 
 **Entschieden (Nutzer, 25.11.2026, F-34):** API-Token nur zum Lesen, **vom Nutzer selbst direkt im Hub eingetragen**. Start erst nach PA1 und PA2 (die Eingabeseite entsteht mit PA2; heute gibt es dafür nur die API-Route). Der Export mit `document_exporter` bleibt möglich, etwa zur Gegenprüfung von Prüfsummen, ist aber nicht der gewählte Weg.
 
-Ablauf (die genaue Anleitung ist Teil von PA3, geprüft in PA1):
+Ablauf (die Anleitung steht in `docs/ANLEITUNG-PA3-PAPERLESS-PROBELAUF.md`, geprüft in PA1/PA1R/PA3V; Netzvoraussetzungen, interne Ziele und Allowlist dort Abschnitt 3):
 
 1. **In Paperless:** eigenen Benutzer anlegen, nur Leserechte (Dokumente, Korrespondenten, Dokumenttypen, Tags, Speicherpfade, Zusatzfelder, Notizen). Das Token hat keine eigenen Grenzen, es darf, was der Benutzer darf. Er sieht Objekte ohne Besitzer, eigene und ausdrücklich freigegebene; Dokumente anderer Besitzer müssen für ihn zum Lesen freigegeben sein, sonst fehlen sie im Lauf. Kein Administrator-Token.
 2. **Am Hub:** `SECRET_KEY` gesetzt; die Paperless-Adresse muss `https` mit einem **öffentlich gültigen Zertifikat** sein (entschieden 27.11.2026: keine eigene Zertifizierungsstelle einstellbar; selbst ausgestellte Zertifikate scheitern mit `source_tls_failed`, siehe Anleitung PA3: Zertifikat einer öffentlichen Stelle, z. B. Let's Encrypt, oder Export mit `document_exporter`); `DMS_IMPORT_HOST_ALLOWLIST` auf diesen Host. Steht Paperless im Heimnetz, zusätzlich `DMS_ALLOW_INTERNAL_TARGETS=true` für Backend und Worker (gilt dann auch für Mail-Quellen).

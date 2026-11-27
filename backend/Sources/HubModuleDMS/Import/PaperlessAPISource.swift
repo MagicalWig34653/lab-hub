@@ -83,6 +83,10 @@ struct PaperlessAPISource: PaperlessSource {
     let token: String
     let tempRoot: URL
     let client: HTTPClient
+    /// Frist, bis die Antwort (Kopfzeilen) da ist: `execute(timeout:)` ist eine Frist für die Anfrage bis zum Antwortkopf (async-http-client bricht die Fristüberwachung ab,
+    /// sobald der Kopf eintrifft, `HTTPClient+execute.swift`, `executeCancellable`); den Datenstrom begrenzt nur die Leerlauffrist `read` der Client-Einstellungen
+    /// (WP-PA3V, `DMSImportDownloadTimeoutTests`: ein Download, der länger als diese Frist dauert, wird nicht abgeschnitten). Naht, damit ein Test sie klein setzen kann.
+    var requestTimeout: TimeAmount = .seconds(120)
     var key: String { endpoint.key }
 
     /// `pinnedIP`: Ergebnis von `PaperlessEndpoint.vetTarget`; der Connect geht an genau diese IP, der TLS-Servername bleibt der Host (kein zweiter DNS-Lookup).
@@ -116,7 +120,7 @@ struct PaperlessAPISource: PaperlessSource {
         req.headers.add(name: "Accept", value: "application/json; version=\(Self.apiVersion)")
         req.headers.add(name: "User-Agent", value: "labhub-import")
         let response: HTTPClientResponse
-        do { response = try await client.execute(req, timeout: .seconds(120)) }
+        do { response = try await client.execute(req, timeout: requestTimeout) }
         catch is CancellationError { throw CancellationError() }
         catch {
             // Linux: NIOSSL; macOS: Network.framework (NWTLSError). Beides sind Fehler der TLS-Prüfung (Zertifikat, Handshake).
