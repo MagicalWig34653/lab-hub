@@ -3441,7 +3441,7 @@ export interface components {
             progress: {
                 [key: string]: number;
             };
-            /** @description bei failed: import_root_missing, source_not_found, manifest_missing, manifest_too_large, manifest_invalid, invalid_url, scheme_not_allowed, host_not_allowed, source_auth_failed, source_permission_denied, source_api_version_unsupported, source_unreachable, source_tls_failed, source_http_error, source_response_invalid, secret_key_missing, secret_unreadable, storage_quota_exceeded, module_disabled, import_failed */
+            /** @description bei failed: import_root_missing, source_not_found, manifest_missing, manifest_too_large, manifest_invalid, invalid_url, scheme_not_allowed, host_not_allowed, source_auth_failed, source_permission_denied, source_api_version_unsupported, source_unreachable, source_tls_failed, source_http_error, source_response_invalid, secret_key_missing, secret_unreadable, storage_quota_exceeded, module_disabled, worker_lost, import_failed */
             error_code?: string | null;
             /** Format: uuid */
             requested_by: string;

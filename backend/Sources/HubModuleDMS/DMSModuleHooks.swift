@@ -28,6 +28,11 @@ extension DMSModule {
         return map
     }
 
+    /// WP-PA1R: verwaiste Importläufe (Job endgültig gescheitert, Handler nie zu Ende gelaufen) schließen und das Token löschen.
+    public func jobSweeps(environment: [String: String]) -> [String: JobSweep] {
+        [DMSImport.kind: { s in try await DMSImport.sweepOrphans(s) }]
+    }
+
     /// OCR-Werkzeuge und Arbeitsverzeichnis prüfen, bevor ein Worker `dms.ocr` übernimmt.
     public func workerPreflight(kinds: Set<String>, environment: [String: String]) async -> String? {
         guard kinds.contains(DMSOCR.kind) else { return nil }

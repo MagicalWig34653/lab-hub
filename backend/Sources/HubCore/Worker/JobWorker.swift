@@ -55,12 +55,19 @@ public final class JobWorker: @unchecked Sendable {
                     await process(job)
                     continue
                 }
+                await runSweeps()   // Leerlauf: `claim` hat soeben abgelaufene Jobs endgültig beendet, deren Abläufe räumt das Modul auf
             } catch {
                 logger.error("Abholen fehlgeschlagen, neuer Versuch", metadata: ["error": "\(type(of: error))"])
             }
             await sleepInterruptibly(pollInterval)
         }
         logger.info("Worker beendet", metadata: ["owner": "\(owner)"])
+    }
+
+    private func runSweeps() async {
+        for sweep in sweeps {
+            do { try await sweep(db) } catch { logger.warning("Aufräumschritt fehlgeschlagen", metadata: ["error": "\(type(of: error))"]) }
+        }
     }
 
     private func sleepInterruptibly(_ d: Duration) async {

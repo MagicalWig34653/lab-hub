@@ -266,7 +266,8 @@ check "Instanz akzeptiert die vom Hub gesendete Version 10" "$(pl_status "$ADMIN
 request "$C" POST "/tenants/$T_negative/dms/imports" "$(body_file "{\"mode\":\"dry_run\",\"source\":{\"kind\":\"api\",\"base_url\":\"$PA\",\"token\":\"x\"}}")"
 check "SSRF: http ohne Entwicklungsschalter abgelehnt (422)" "$status" 422
 check "SSRF: Grund scheme_not_allowed" "$(printf '%s' "$body" | grep -c scheme_not_allowed)" 1
-for url in "https://127.0.0.1:$PA_PORT" "https://localhost" "https://169.254.169.254" "https://[::1]"; do
+# WP-PA1R: Schreibweisen, bei denen Prüfung und HTTP-Client verschiedene Hosts sahen (Prozentzeichen im Host: der Client verband zu 127.0.0.1), und nicht kanonische IPv4
+for url in "https://127.0.0.1:$PA_PORT" "https://localhost" "https://169.254.169.254" "https://[::1]" "https://127.0.0.1%3A$PA_PORT%2F.import.example.org" "https://x%40127.0.0.1:$PA_PORT" "https://0127.0.0.1:$PA_PORT"; do
   request "$C" POST "/tenants/$T_negative/dms/imports" "$(body_file "{\"mode\":\"dry_run\",\"source\":{\"kind\":\"api\",\"base_url\":\"$url\",\"token\":\"x\"}}")"
   check "SSRF: internes Ziel $url abgelehnt (422)" "$status" 422
 done

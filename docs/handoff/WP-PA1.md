@@ -22,7 +22,7 @@ Stand 27.11.2026, auf `main`. Geprüft gegen **paperless-ngx 3.5.1** (Image `ghc
 Bestätigt ohne Änderung: Original-Download (`?original=true`) liefert die neueste Fassung, `?version=<id>` eine ältere; die Archivdatei der neuesten Fassung ist der Standard-Download; Export-Manifest und API stimmen bei Titel (Umlaute, ß), Tags, Feldern, Notizen, ASN, Datum überein (E2E: gleiche Originalhashes, gleiche Anzahl Tags/Felder/Feldwerte in beiden Mandanten).
 
 ## Sicherheitsprüfung D6 (AK-PA1-3)
-Durchgeführt vom umsetzenden Agenten; **ein unabhängiger Reviewer-Lauf steht weiter aus.**
+Durchgeführt vom umsetzenden Agenten. **Der unabhängige Reviewer-Lauf ist erfolgt (27.11.2026): `docs/handoff/WP-PA1R.md`; zwei Befunde (mittel) behoben, die Tabelle unten gilt mit diesen Änderungen: Adresse streng zerlegt (Host wird nicht mehr aus `URLComponents` übernommen), verwaiste Läufe werden geschlossen und das Token gelöscht, `next` hat einen Test, der TLS-Test prüft jetzt wirklich.**
 
 | Bereich | Ergebnis | Beleg |
 | --- | --- | --- |
@@ -37,7 +37,7 @@ Durchgeführt vom umsetzenden Agenten; **ein unabhängiger Reviewer-Lauf steht w
 | Antwortgrößen | JSON höchstens 32 MiB, Datei höchstens `maxUploadBytes` (Content-Length und gezähltes Lesen), Manifest 128 MiB | Code; bestehende Tests `file_too_large` |
 
 ## Ausgeführt
-- `DMSImportPA1Tests` rot (32 Fehler) vor, grün nach der Umsetzung; Import-Tests gesamt 23 grün; `scripts/e2e-paperless-import.sh` grün (65 Prüfungen); volle Suite `scripts/ci.sh` auf dem Stand von bac77a2: Exit 0, 499 Tests, 0 Fehler, 22 übersprungen (14 bekannte und 8 Mail-Tests, weil GreenMail unter Last nicht bereit wurde; diese 8 einzeln nachgeholt, grün). Zwei Läufe davor scheiterten bei Systemlast über 100 an je anderen zeitabhängigen Tests (`testAKD1_1_concurrentTwoInstances`, `testAKD9_apiImportMatchesExportImport` mit `connectionRequestTimeout`, `testLeaseRenewalKeepsLongJobFromSecondWorker`), alle einzeln grün.
+- `DMSImportPA1Tests` rot (32 Fehler) vor, grün nach der Umsetzung; Import-Tests gesamt 23 grün; `scripts/e2e-paperless-import.sh` grün (zum Zeitpunkt der Übergabe 65 gezählt; der Lauf im Review zählte 67, die Differenz sind die zwei Papierkorb-Prüfungen aus Befund 8, siehe `WP-PA1R.md`); volle Suite `scripts/ci.sh` auf dem Stand von bac77a2: Exit 0, 499 Tests, 0 Fehler, 22 übersprungen (14 bekannte und 8 Mail-Tests, weil GreenMail unter Last nicht bereit wurde; diese 8 einzeln nachgeholt, grün). Zwei Läufe davor scheiterten bei Systemlast über 100 an je anderen zeitabhängigen Tests (`testAKD1_1_concurrentTwoInstances`, `testAKD9_apiImportMatchesExportImport` mit `connectionRequestTimeout`, `testLeaseRenewalKeepsLongJobFromSecondWorker`), alle einzeln grün.
 - Paperless-Container laufen nur während des E2E-Skripts (Name `labhub-pa1-e2e-<pid>`), das Skript entfernt Container, Netz und Datenbank.
 
 - GitHub-CI zu 38ad248 (Lauf 45984255204): grün, Backend 499 Tests, 2 übersprungen, 0 Fehler, darin die 7 Tests aus `DMSImportPA1Tests`.

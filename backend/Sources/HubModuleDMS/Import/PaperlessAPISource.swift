@@ -35,19 +35,29 @@ struct PaperlessEndpoint: Sendable, Equatable {
     }
 
     /// Fehlercodes: `invalid_url`, `scheme_not_allowed`, `host_not_allowed`.
+    /// WP-PA1R (Befund 1): Die Adresse wird selbst zerlegt, nicht über `URLComponents`. Prüfung und HTTP-Client müssen denselben Host meinen; `URLComponents` dekodiert
+    /// Prozentzeichen im Host (`https://127.0.0.1%23.x.org` ist für die Prüfung ein öffentlicher Name, der Client verbindet zu 127.0.0.1). Erlaubt sind deshalb nur
+    /// ASCII-Hostnamen (Buchstaben, Ziffern, `.`, `-`, `_`), IPv6 in Klammern und IPv4 in kanonischer Schreibweise; Pfad nur aus einfachen Zeichen.
     static func parse(_ raw: String, policy: Policy) throws -> PaperlessEndpoint {
-        guard raw.count <= 300, raw.unicodeScalars.allSatisfy({ $0.value >= 33 && $0.value < 127 }),
-              let c = URLComponents(string: raw), let scheme = c.scheme?.lowercased(), let host = c.host?.lowercased(), !host.isEmpty,
-              c.user == nil, c.password == nil, c.query == nil, c.fragment == nil else { throw ImportError("invalid_url") }
-        guard scheme == "https" || (scheme == "http" && policy.insecureDev) else { throw ImportError("scheme_not_allowed") }
-        let port = c.port ?? (scheme == "https" ? 443 : 80)
-        guard (1...65535).contains(port) else { throw ImportError("invalid_url") }
-        var path = c.path
+        guard raw.count <= 300, raw.unicodeScalars.allSatisfy({ $0.value >= 33 && $0.value < 127 }), let sep = raw.range(of: "://") else { throw ImportError("invalid_url") }
+        let scheme = raw[..<sep.lowerBound].lowercased()
+        let rest = raw[sep.upperBound...]
+        let authority = String(rest.prefix { $0 != "/" })
+        var path = String(rest.dropFirst(authority.count))
+        guard let m = authority.wholeMatch(of: /(\[[0-9A-Fa-f:.]{2,45}\]|[A-Za-z0-9_.-]+)(?::([0-9]{1,5}))?/) else { throw ImportError("invalid_url") }
+        let host = String(m.1).lowercased()
+        let explicitPort = m.2.flatMap { Int($0) }
+        guard !host.hasPrefix("."), !host.contains("..") else { throw ImportError("invalid_url") }
         while path.hasSuffix("/") { path.removeLast() }
-        guard path.isEmpty || (path.hasPrefix("/") && !path.contains("..") && path.count <= 100) else { throw ImportError("invalid_url") }
+        guard path.isEmpty || (path.wholeMatch(of: /(\/[A-Za-z0-9._~-]+)+/) != nil && !path.split(separator: "/").contains { $0 == "." || $0 == ".." } && path.count <= 100) else { throw ImportError("invalid_url") }
+        guard scheme == "https" || (scheme == "http" && policy.insecureDev) else { throw ImportError("scheme_not_allowed") }
+        let port = explicitPort ?? (scheme == "https" ? 443 : 80)
+        guard (1...65535).contains(port) else { throw ImportError("invalid_url") }
         if !policy.allowInternal, isInternal(host) { throw ImportError("host_not_allowed") }
+        // IPv4 nur kanonisch (`a.b.c.d`, ohne führende Nullen): `inet_aton` liest `0127.0.0.1` oktal (87.0.0.1), andere Parser dezimal (127.0.0.1)
+        if !host.hasPrefix("["), NetworkTarget.parseLiteral(host) != nil, host.wholeMatch(of: /(0|[1-9][0-9]{0,2})(\.(0|[1-9][0-9]{0,2})){3}/) == nil { throw ImportError("invalid_url") }
         if let list = policy.allowlist, !list.contains(host), !list.contains("\(host):\(port)") { throw ImportError("host_not_allowed") }
-        return PaperlessEndpoint(base: "\(scheme)://\(host)\(c.port.map { ":\($0)" } ?? "")\(path)", host: host, port: port)
+        return PaperlessEndpoint(base: "\(scheme)://\(host)\(explicitPort.map { ":\($0)" } ?? "")\(path)", host: host, port: port)
     }
 
     /// Interner Host nach der gemeinsamen Sperrliste (`NetworkTarget`): jedes IP-Literal (auch `127.1`, Dezimal, Hex, `::ffff:127.0.0.1`) und interne Namen.

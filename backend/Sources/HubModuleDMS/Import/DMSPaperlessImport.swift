@@ -140,6 +140,28 @@ enum DMSImport {
         }
     }
 
+    // MARK: Verwaiste Läufe
+
+    /// WP-PA1R (Befund 3): Stirbt der Worker mitten im Lauf `maxAttempts`-mal (OOM, SIGKILL), setzt die Job-Verwaltung den Job auf `failed_permanent`, ohne dass der Handler noch läuft.
+    /// Ohne diesen Schritt bliebe der Lauf `running` mit dem verschlüsselten Token in `secret_enc` und sperrte jeden neuen Lauf gegen dieselbe Quelle (`import_already_open`).
+    /// Der Worker ruft ihn im Leerlauf auf; mehrere Worker gleichzeitig sind sicher (`finish` schreibt nur einmal). Abbruchwunsch: `cancelled`, sonst `failed` mit `worker_lost`.
+    static func sweepOrphans(_ s: any SQLDatabase) async throws {
+        guard let db = s as? any Database else { return }
+        let rows = try await s.raw("""
+            SELECT i.id, i.tenant_id, i.source_kind, i.source_key, i.mode, i.requested_by, i.cancel_requested, (i.options->>'ocr')::boolean AS ocr
+            FROM dms_imports i JOIN jobs j ON j.id = i.job_id
+            WHERE i.state IN ('queued', 'running') AND j.state = 'failed_permanent' ORDER BY i.created_at LIMIT 20
+            """).all()
+        for r in rows {
+            let id = try r.decode(column: "id", as: UUID.self), tenant = try r.decode(column: "tenant_id", as: UUID.self)
+            let cancelled = try r.decode(column: "cancel_requested", as: Bool.self)
+            let run = RunRow(id: id, tenant: tenant, sourceKind: try r.decode(column: "source_kind", as: String.self), sourceKey: try r.decode(column: "source_key", as: String.self), config: [:],
+                             secretEnc: nil, mode: try r.decode(column: "mode", as: String.self), ocr: try r.decode(column: "ocr", as: Bool?.self) ?? true, requestedBy: try r.decode(column: "requested_by", as: UUID.self))
+            try await s.raw("UPDATE dms_imports SET state = 'running', started_at = COALESCE(started_at, now()) WHERE tenant_id = \(bind: tenant) AND id = \(bind: id) AND state = 'queued'").run()
+            try await DMSImportRunner.finish(run, state: cancelled ? "cancelled" : "failed", code: cancelled ? nil : "worker_lost", runner: nil, db: db, s: s)
+        }
+    }
+
     // MARK: Worker
 
     static func handler(storeConfig: @escaping @Sendable () throws -> ObjectStoreConfig, box: SecretBox?, root: String?, tempRoot: String, policy: PaperlessEndpoint.Policy,
