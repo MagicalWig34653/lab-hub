@@ -71,7 +71,7 @@ Scan-Bridge (BR1–BR4) und App (APP-M0 ff.) sind **nicht** Voraussetzung, auße
 Ablauf (die genaue Anleitung ist Teil von PA3, geprüft in PA1):
 
 1. **In Paperless:** eigenen Benutzer anlegen, nur Leserechte (Dokumente, Korrespondenten, Dokumenttypen, Tags, Speicherpfade, Zusatzfelder, Notizen). Das Token hat keine eigenen Grenzen, es darf, was der Benutzer darf. Er sieht Objekte ohne Besitzer, eigene und ausdrücklich freigegebene; Dokumente anderer Besitzer müssen für ihn zum Lesen freigegeben sein, sonst fehlen sie im Lauf. Kein Administrator-Token.
-2. **Am Hub:** `SECRET_KEY` gesetzt; die Paperless-Adresse muss `https` mit einem Zertifikat sein, dem der Worker vertraut (ein eigener Aussteller ist heute nicht einstellbar, PA1 prüft das); `DMS_IMPORT_HOST_ALLOWLIST` auf diesen Host. Steht Paperless im Heimnetz, zusätzlich `DMS_ALLOW_INTERNAL_TARGETS=true` für Backend und Worker (gilt dann auch für Mail-Quellen).
+2. **Am Hub:** `SECRET_KEY` gesetzt; die Paperless-Adresse muss `https` mit einem **öffentlich gültigen Zertifikat** sein (entschieden 27.11.2026: keine eigene Zertifizierungsstelle einstellbar; selbst ausgestellte Zertifikate scheitern mit `source_tls_failed`, siehe Anleitung PA3: Zertifikat einer öffentlichen Stelle, z. B. Let's Encrypt, oder Export mit `document_exporter`); `DMS_IMPORT_HOST_ALLOWLIST` auf diesen Host. Steht Paperless im Heimnetz, zusätzlich `DMS_ALLOW_INTERNAL_TARGETS=true` für Backend und Worker (gilt dann auch für Mail-Quellen).
 3. Der Nutzer trägt Adresse und Token in der Hub-Oberfläche ein und startet `dry_run`.
 4. Der Nutzer vergleicht die Anzahl der Dokumente mit Paperless und gibt nur Zahlen und Befundcodes weiter.
 5. Token in Paperless widerrufen; für den Vollimport (PA8) ein neues erzeugen.
