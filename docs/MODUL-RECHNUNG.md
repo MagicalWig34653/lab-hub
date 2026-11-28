@@ -58,7 +58,7 @@ Invarianten (als DB-Constraints + Tests):
 - Rollback der Transaktion gibt die Nummer nicht frei: `UPDATE … RETURNING` in einer Transaktion bleibt nach Rollback lückenfrei, weil der Zählerstand mit zurückrollt. Die aktuelle `CounterService.next` ist ein einzelnes Statement (autocommit); für Finalisierung muss der Zähler innerhalb der Beleg-Transaktion laufen (WP-K6: `next(on: tx)`). Test: Fehler nach Nummernvergabe → keine Lücke.
 - Nummernformat (Jahr, Serie, Stellen, Rücksetzung); Formatierung als reine Funktion.
 - Dokumentierte Freigabe einer Lücke (Storno einer Nummer) nur mit Grund, Audit.
-- Untergrenzen beim Import/Verbinden (App hatte Nummern bis N): Zähler wird auf `max(Zähler, N)` gesetzt, Audit. **[OFFEN F-09]**
+- Untergrenzen beim Import/Verbinden (App hatte Nummern bis N): Zähler wird auf `max(Zähler, N)` gesetzt, Audit. (F-09, 28.11.2026: geschieht beim Verbinden der App mit dem Hub)
 - AK-R4: 50 parallele Finalisierungen über zwei Instanzen ergeben 50 verschiedene lückenlose Nummern; Fehlerfall ohne Lücke.
 
 ## 5. PDF-Rendering und Layouts im Hub (Entscheidung F-08 neu bewertet)
@@ -88,7 +88,7 @@ Serverseitig als Berichtsdienst `GET …/reports/euer?year=`, `…/reports/vat?p
 
 ## 8. Übernahme aus der bisherigen App
 
-- Quelle: ein Export der App; ein verschlüsseltes Backup wird nur entschlüsselt angenommen (oder mit Nutzerpasswort im Client entschlüsselt). Welches Format kanonisch ist: **[OFFEN F-09]** (Vorschlag: definierter JSON-Export `invoice-export/v1` mit Dezimal-Strings, Anhänge als Dateien + SHA-256).
+- Quelle (F-09, entschieden am 28.11.2026): **die App selbst über eine Sync-Schnittstelle**. Der Nutzer trägt in der App den Lab-Hub-Server ein, der Abgleich läuft danach automatisch; weder Export-Datei noch Backup-Import. Die folgenden Regeln gelten für die Erstübertragung; die Schnittstelle selbst ist noch zu entwerfen.
 - Ablauf: Trockenlauf mit Bericht → Import in einer Transaktion je Mandant → Zähler auf Maximum setzen → Anhänge in `files`/DMS (Rechnungs-PDFs als Dokumente Typ „Ausgangsrechnung“, optional) → Abschlussbericht. Idempotent über `origin_ref = legacy:<uuid>`.
 - Finale Belege werden **unverändert** (Nummer, Summen, Zeitstempel, Render-Artefakt) übernommen, nicht neu berechnet; Abweichung zwischen gespeicherter und neu berechneter Summe wird gemeldet (Konformitätsprüfung mit dem Rechenkern).
 - Importe aus Altsystemen bleiben Funktion der App; der Hub importiert nur ihr Exportformat.

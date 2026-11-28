@@ -45,14 +45,14 @@ Ausgangsstand (vorhanden, getestet laut `deploy/README.md`/Tests): `migrate`, `s
 | | R1 | Stammdaten Rechnung | K3, K5, R0 | M | | fertig (fe32957; Übergabe `docs/handoff/WP-R1.md`) |
 | | R2 | Belege, Berechnung, Finalisieren mit Hub-Zähler | R1, K6 | L | | fertig (b2600e8, 5a168bc; Übergabe `docs/handoff/WP-R2.md`) |
 | | R3 | Zahlungen, Gutschrift, Umwandlung | R2 | M | | fertig (2938d2c; Übergabe `docs/handoff/WP-R3.md`) |
-| | R4 | Import/Export der bisherigen App | R2 | M | P R3 | offen |
+| | R4 | Übernahme und Abgleich mit der bisherigen App (Sync-Schnittstelle, F-09) | R2 | M | P R3 | offen |
 | | R5 | E-Rechnung Erzeugung (Server) | R2 | M | P R3, R4 | offen |
 | | R6a | Spike Renderer: Optionen (a)/(b)/(c) gegen Referenz-PDFs | R0 | M | P R1, R2 | fertig (35b8fe7), F-08 entschieden: Typst (Bericht `docs/spikes/WP-R6a/BERICHT.md`; Übergabe `docs/handoff/WP-R6a.md`) |
 | | R6 | Server-Renderer und Layout-Engine (Pflicht, Linux), geteilt in R6b–R6e | R6a, R2 | L | | R6b, R6c und R6d fertig, R6e offen (`docs/handoff/WP-R6-PLAN.md`) |
 | | R6b | Typst-Werkzeugkette, Factur-X-Metadatenschritt, Standardlayout | R6a, R2 | M | | fertig (6e6c898, CI-Lauf 46029049038; Übergabe `docs/handoff/WP-R6b.md`) |
 | | R6c | Render-Job `invoice.render`, Speicherung, PDF-Download | R6b | M | | fertig (12188bb, CI-Lauf 46046345610; Übergabe `docs/handoff/WP-R6c.md`) |
 | | R6d | Layoutmodell V1, Parameter, Vorschau | R6c | M | | fertig (88dc278, CI-Lauf 46057812654; Übergabe `docs/handoff/WP-R6d.md`) |
-| | R6e | Import vorhandener Layouts | R6d, Importformat (F-09, F-31) | M | | offen |
+| | R6e | Übernahme vorhandener Layouts über die Sync-Schnittstelle | R6d, R4-Zuschnitt (F-09, F-31) | M | | offen |
 | | R7 | Ausgaben, EÜR/USt-Berichte | R3 | L | | offen |
 | | F6 | Rechnungs-UI (erstellen, bearbeiten, finalisieren, PDF, Zahlungen, Berichte) | F2, R2, R6 | L | P R3.. | offen |
 | | F7 | Layout-Verwaltung und Designer in der PWA | F6, R6 | L | | offen |
@@ -200,7 +200,7 @@ Grundsatz: Hub ohne Swift-App nutzbar (`AGENTS.md`); die Rechnungsphase ist dahe
 
 ## Phase 4 – Rechnungsmodul
 
-(Details `MODUL-RECHNUNG.md`. Vollständigkeit ohne App: Belege erstellen/bearbeiten/finalisieren, Nummern, PDF, E-Rechnung, Zahlungen, Berichte. Entscheidungen F-08/F-27/F-31 neu bewertet, F-09/F-26 offen.)
+(Details `MODUL-RECHNUNG.md`. Vollständigkeit ohne App: Belege erstellen/bearbeiten/finalisieren, Nummern, PDF, E-Rechnung, Zahlungen, Berichte. Entscheidungen F-08/F-27/F-31 neu bewertet, F-09 am 28.11.2026 entschieden (automatischer Abgleich), F-26 offen.)
 
 **WP-R0 Spike Rechenkern (S–M).** Ziel: Rechenkern der bisherigen App (mit Nummernformat, Berichten und E-Rechnung ohne Rendering) unter Linux bauen und testen; bei Erfolg Auslagerung in gemeinsames SwiftPM-Repo planen, sonst Neuimplementierung gegen Testvektoren. Akzeptanz: dokumentiertes Ergebnis (Ja/Nein, nötige Änderungen) in `MODUL-RECHNUNG.md`; gemeinsame synthetische Testvektoren (JSON). Teststrategie: Docker `swift:6.2` Build der Pakete. Abh.: K0. **P**.
 *Status WP-R0: abgeschlossen; 50 synthetische Testvektoren; siehe `MODUL-RECHNUNG.md` Abschnitt 12 und `docs/handoff/WP-R0.md`. F-27 entschieden (07.11.2026): Neuimplementierung gegen die Vektoren.*
@@ -214,7 +214,7 @@ Grundsatz: Hub ohne Swift-App nutzbar (`AGENTS.md`); die Rechnungsphase ist dahe
 **WP-R3 Zahlungen, Gutschrift, Umwandlung (M).** Skonto, Zuordnung nie still, Verknüpfungen Beleg↔Beleg. Abh.: R2.
 *Status WP-R3: umgesetzt (Zahlungen mit Skonto, Zuordnung nur nach Bestätigung, Gutschrift, Umwandlung, Verknüpfungen, Salden gegen die Testvektoren, E2E über HTTP gegen Postgres; Details `MODUL-RECHNUNG.md` Abschnitt 15 und `docs/handoff/WP-R3.md`). Skontoregeln sind Annahme (F-32). Nächste Schritte: R4, R5, R6a, danach Bankimport (R3b), R7.*
 
-**WP-R4 Import/Export der bisherigen App (M).** `MODUL-RECHNUNG.md` Abschnitt 8; Format nach F-09. Akzeptanz: Fixture-Import identisch, idempotent, Zähler gesetzt. Abh.: R2.
+**WP-R4 Übernahme und Abgleich mit der bisherigen App (M, Zuschnitt neu).** F-09, entschieden am 28.11.2026: kein Datei-Import; die App verbindet sich mit dem Hub und gleicht automatisch ab (`OFFENE-FRAGEN.md`, „Entschieden“). Die Übernahmeregeln aus `MODUL-RECHNUNG.md` Abschnitt 8 gelten für die Erstübertragung über die Schnittstelle. Akzeptanz bisher: Fixture-Übernahme identisch, idempotent, Zähler gesetzt; Teilpakete und weitere Kriterien folgen mit dem Zuschnitt (Plan auf der Board-Karte zu WP-R6). Abh.: R2, für den Abgleich AB1.
 
 **WP-R5 E-Rechnung (M).** Erzeugung CII/XRechnung aus finalem Beleg; Validierung nach F-26. Abh.: R2.
 

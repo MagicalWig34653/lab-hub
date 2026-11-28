@@ -204,7 +204,7 @@ Die Apps sind optionale Clients; der Hub ist ohne sie vollständig. Sync ist dah
 Ausgangslage: Die bisherige Rechnungs-App arbeitet lokal mit iCloud-Sync und zentralem Nummernzähler. Leitregel aus `PLATTFORM-VISION.md` 3: Wechsel der Betriebsart (lokal / iCloud / Hub) ist **Export/Import mit definierter Migration, nie stilles Umschalten**.
 
 Stufen (Vorschlag):
-1. **Stufe 0 – Import/Export (V1 des Hubs).** Der Export der bisherigen App (Format: F-09) wird im Rechnungsmodul importiert (`MODUL-RECHNUNG.md` Abschnitt 8); Gegenrichtung als Export. Kein laufender Abgleich.
+1. **Stufe 0 – Import/Export: entfällt** (F-09, 28.11.2026). Der Nutzer will keinen Datei-Austausch: In der App wird der Hub-Server eingetragen, danach wird automatisch abgeglichen. Die Erstübertragung ist der Beginn des Hub-Modus (Stufe 1); für Änderungen aus dem Hub in die App ist Stufe 2 nötig.
 2. **Stufe 1 – Hub-Modus der App.** Die App implementiert hinter ihren Speicher-, Anhang- und Zählerprotokollen eine Hub-Variante (REST). Quelle der Wahrheit ist der Hub; Offline-Betrieb mit lokaler Warteschlange, Nummern nur online finalisierbar (Nutzerentscheidung Nummernvergabe: Finalisieren nur online, zentraler atomarer Zähler).
 3. **Stufe 2 – Zwei-Wege-Sync** (nur wenn Bedarf): Änderungs-Feed `GET /changes?since=<cursor>` pro Mandant, Delta mit Tombstones.
 
@@ -214,7 +214,7 @@ Konfliktregeln (Entwurf):
 - Zähler: serverseitig; Client darf keine Nummer lokal vergeben, sobald Hub-Modus aktiv ist.
 - Löschen: Tombstone; Löschung finalisierter oder aufbewahrungspflichtiger Objekte verboten.
 
-Offene Fragen: Wer ist Quelle der Wahrheit beim ersten Hub-Verbinden (Übernahme lokaler Nummernkreise, F-09)? Ob CloudKit parallel weiterläuft (nein, empfohlen: pro Mandant exakt ein Sync-Ziel, F-10)? Auth der Apps (Passkey im System-Browser + Token oder Geräte-Token, F-05)? Format für Anhänge und Layouts (Layout-Designer-Daten gehören zur App)?
+Offene Fragen: Beim ersten Verbinden überträgt die App ihren Bestand samt Nummernkreisen; die Zähler des Hubs steigen auf das Maximum (F-09). Offen: Ob CloudKit parallel weiterläuft (nein, empfohlen: pro Mandant exakt ein Sync-Ziel, F-10)? Auth der Apps (Passkey im System-Browser + Token oder Geräte-Token, F-05)? Format für Anhänge und Layouts (Layout-Designer-Daten gehören zur App)?
 
 ## 7. Datenschutz und Sicherheit
 
