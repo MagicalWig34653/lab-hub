@@ -40,7 +40,9 @@ Rot zuerst (28.11. ca. 01:50, lokal gegen eigenen Postgres-Container, Aufräumla
 Zweite Runde beim Selbst-Gegenlesen (28.11. 02:08): die beiden letzten Tests oben rot (4 Fehlschläge; der hängende Upload speicherte tatsächlich ein unvollständiges Objekt), nach der Korrektur grün.
 
 ## Belege
-- Commit und CI-Lauf: siehe Nachtrag unten.
+- Commits auf `main`: 85a6f66 (Aufräumlauf, Migration, Vertrag, Übergabe), 36f4220 (hängender Upload, Dateisystem-Rennen).
+- GitHub-CI: Lauf 46090156150 (85a6f66) grün, Lauf 46092430280 (36f4220) grün, alle drei Jobs; Backend unter Linux mit Postgres 17: 575 Tests, 2 übersprungen, 0 Fehler, alle 7 `DMSOrphanSweepTests` bestanden.
+- Lokal (`scripts/ci.sh`, eigener Postgres-17-Container): am Stand 36f4220 575 Tests, 27 übersprungen (Werkzeuge nur im Worker-Image), 0 Fehler. Im ersten Lauf (85a6f66, Maschinenlast um 260) riss ein 2-s-Zeitlimit in `ExtractionRedosTests`; einzeln wiederholt grün.
 
 ## Offen
 - PWA-Prüfseite zeigt `report.orphans` noch nicht an (eigene Karte, mit Bildern hell/dunkel).
