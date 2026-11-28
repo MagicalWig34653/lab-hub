@@ -5,7 +5,7 @@ import SQLKit
 enum HubMigrations {
     static let all: [any Migration] = [CreateSchemaVersion(), CreateCounters(), CreateIdempotencyKeys(), CreateJobs(), CreateFiles(),
         CreateUsers(), CreatePasskeyCredentials(), CreateSessions(), CreateInvitations(), CreateRecoveryCodes(), CreateAuditLog(), CreateAuthSupport(), CreateTenants(),
-        CreateModules(), CreateContacts(), CreateJobsPriority(), HardenAuditLog(), RestoreAuditTriggerPrivilege(), CreateApiTokens(), CreateApiTokenTenant(), CreateIdempotencyLease(), CreateUserAccent()]
+        CreateModules(), CreateContacts(), CreateJobsPriority(), HardenAuditLog(), RestoreAuditTriggerPrivilege(), CreateApiTokens(), CreateApiTokenTenant(), CreateIdempotencyLease(), CreateUserAccent(), CreateObjectChunkAge()]
 }
 
 package func run(_ db: any Database, _ stmts: [String]) async throws {
@@ -85,4 +85,15 @@ struct CreateFiles: AsyncMigration {
     func revert(on db: any Database) async throws {
         try await run(db, ["DROP TABLE object_chunks", "DROP TABLE files", "UPDATE schema_version SET version = 4 WHERE version = 5"])
     }
+}
+
+/// Karte 3 (WP-D5b): Zeitpunkt des letzten Schreibens je Objektteil (DB-Zeit), damit ein Aufräumlauf verwaiste Blobs und `tmp:`-Staging-Teile erst nach
+/// einer Schonfrist löscht. Expand-only: Spalte mit Vorgabe `now()`; ältere Instanzen schreiben sie über die Vorgabe mit. Bestehende Zeilen erhalten den
+/// Migrationszeitpunkt, die Schonfrist beginnt für sie also mit der Migration. `schema_version` bleibt unverändert (wie 020-022).
+struct CreateObjectChunkAge: AsyncMigration {
+    let name = "023_object_chunk_age"
+    func prepare(on db: any Database) async throws {
+        try await run(db, ["ALTER TABLE object_chunks ADD COLUMN created_at timestamptz NOT NULL DEFAULT now()"])
+    }
+    func revert(on db: any Database) async throws { try await run(db, ["ALTER TABLE object_chunks DROP COLUMN created_at"]) }
 }

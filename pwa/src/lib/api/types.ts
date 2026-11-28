@@ -3162,6 +3162,15 @@ export interface components {
                     /** @description Hash des letzten Kettenglieds (Anker) */
                     head?: string;
                 };
+                /** @description Aufräumlauf für Objekte ohne files-Zeile nach Absturz (Schonfrist 24 h, DB-Zeit). Fehlt bei Läufen vor der Einführung. */
+                orphans?: {
+                    /** @description Gelöschte Blobs ohne files-Zeile, älter als die Schonfrist */
+                    blobs_removed: number;
+                    /** @description Gelöschte Staging-Teile abgebrochener Uploads, älter als die Schonfrist */
+                    staging_removed: number;
+                    /** @description Objekte ohne files-Zeile innerhalb der Schonfrist (z. B. laufende Uploads) */
+                    pending: number;
+                };
             } | null;
         };
         DmsExportParams: {

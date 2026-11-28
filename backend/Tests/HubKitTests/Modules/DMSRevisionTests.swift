@@ -726,3 +726,159 @@ final class DMSExportTests: DMSRevisionTestBase {
         XCTAssertEqual(try Data(contentsOf: url), try Data(contentsOf: url2))
     }
 }
+
+// MARK: Karte 3 (WP-D5b): verwaiste Blobs und Staging-Teile nach Absturz
+
+/// Nach einem Absturz zwischen `put` und Commit bleibt ein Blob ohne `files`-Zeile; nach einem Absturz mitten in `put` bleiben `tmp:`-Teile.
+/// `dms.verify` löscht beides nach der Schonfrist (24 h, DB-Zeit) unter der Blob-Sperre und zählt es im Bericht (`orphans`). Nur synthetische Bytes.
+final class DMSOrphanSweepTests: DMSRevisionTestBase {
+
+    func startRun(_ w: World, via: Application? = nil) async throws -> String {
+        let r = try await raw(via ?? app1, .POST, base(w.tenantA) + "/integrity-runs", token: w.alice.token)
+        XCTAssertEqual(r.status, .accepted, "\(r.json)")
+        return r.json["id"] as! String
+    }
+
+    func verify(_ w: World, worker app: Application) async throws -> [String: Any] {
+        let id = try await startRun(w, via: app)
+        try await withWorker(on: app, kinds: [DMSIntegrity.kind]) {
+            let st = try await scalar("SELECT state AS v FROM dms_integrity_runs WHERE id = '\(id)'", as: String.self)
+            return st != "queued" && st != "running"
+        }
+        return (try await raw(app, .GET, base(w.tenantA) + "/integrity-runs/\(id)", token: w.alice.token)).json
+    }
+
+    func orphans(_ run: [String: Any]) -> [String: Int] {
+        ((run["report"] as? [String: Any])?["orphans"] as? [String: Any] ?? [:]).compactMapValues { $0 as? Int }
+    }
+
+    func store(_ app: Application) -> PostgresObjectStore { PostgresObjectStore(app.db(.psql) as! any SQLDatabase) }
+
+    func age(_ sha: String, hours: Int) async throws {
+        try await db.raw("UPDATE object_chunks SET created_at = now() - \(bind: hours) * interval '1 hour' WHERE sha256 = \(bind: sha)").run()
+    }
+
+    func bytes(_ seed: String, size: Int = 64) -> [UInt8] { Array(String(repeating: "synthetisch-\(seed)-", count: size / 10 + 1).utf8.prefix(size)) }
+
+    /// Alter verwaister Blob und alter `tmp:`-Teil werden entfernt; referenzierter alter Blob, junger Blob und junger `tmp:`-Teil bleiben.
+    func testOrphanSweep_removesStaleOrphansKeepsReferencedAndYoung() async throws {
+        let w = try await world()
+        let tenant = UUID(uuidString: w.tenantA)!
+        let doc = try await newDoc(w.alice, w.tenantA, seed: "referenziert")["id"] as! String
+        let referenced = try await fileSHA(doc)
+        try await age(referenced, hours: 48)
+        let old = try await store(app1).put(tenant: tenant, stream: streamOf(bytes("alt")), expectedSHA256: nil)
+        try await age(old.key.sha256, hours: 48)
+        let young = try await store(app1).put(tenant: tenant, stream: streamOf(bytes("jung")), expectedSHA256: nil)
+        try await age(young.key.sha256, hours: 23)
+        for (name, hours) in [("tmp:abgestuerzt-alt", 48), ("tmp:laufend-jung", 1)] {
+            for seq in 0..<2 {
+                try await db.raw("INSERT INTO object_chunks (tenant_id, sha256, seq, data, created_at) VALUES (\(bind: tenant), \(bind: name), \(bind: seq), '\\x00'::bytea, now() - \(bind: hours) * interval '1 hour')").run()
+            }
+        }
+
+        let run = try await verify(w, worker: app2)
+        XCTAssertEqual(run["state"] as? String, "passed", "\(run)")
+        XCTAssertEqual(run["files_checked"] as? Int, 1)
+        XCTAssertEqual(orphans(run), ["blobs_removed": 1, "staging_removed": 1, "pending": 1], "\(run)")
+        try await aEq(try await objectCount(old.key.sha256), 0, "verwaister alter Blob entfernt")
+        try await aEq(try await objectCount(referenced), 1, "referenzierter Blob bleibt trotz Alter")
+        try await aEq(try await objectCount(young.key.sha256), 1, "junger Blob bleibt (Schonfrist)")
+        try await aEq(try await count("object_chunks", where: "sha256 = 'tmp:abgestuerzt-alt'"), 0)
+        try await aEq(try await count("object_chunks", where: "sha256 = 'tmp:laufend-jung'"), 2)
+        // Das Dokument ist weiter lesbar; der nächste Lauf findet nichts mehr außer dem jungen Blob
+        let dl = try await raw(app1, .GET, base(w.tenantA) + "/documents/\(doc)/file", token: w.alice.token)
+        XCTAssertEqual(dl.status, .ok)
+        let second = try await verify(w, worker: app1)
+        XCTAssertEqual(orphans(second), ["blobs_removed": 0, "staging_removed": 0, "pending": 1])
+        try await aEq(try await count("audit_log", where: "action LIKE 'dms.integrity.%' AND meta::text ILIKE '%synthetisch%'"), 0, "kein Inhalt im Audit")
+    }
+
+    /// Zwei Instanzen: Während Instanz 1 einen Upload streamt (Staging-Teil geschrieben, Commit noch offen), räumt Instanz 2 auf. Der laufende Upload bleibt
+    /// vollständig, auch nach `put` ohne `files`-Zeile; danach wird er registriert und ist unverändert lesbar. Ein alter verwaister Blob im selben Lauf wird entfernt.
+    func testOrphanSweep_twoInstancesConcurrentUploadSurvives() async throws {
+        let w = try await world()
+        let tenant = UUID(uuidString: w.tenantA)!
+        let stale = try await store(app2).put(tenant: tenant, stream: streamOf(bytes("verwaist")), expectedSHA256: nil)
+        try await age(stale.key.sha256, hours: 30)
+
+        let payload = bytes("gross", size: objectStoreChunkSize + 4096)
+        let (stream, input) = ByteStream.makeStream()
+        let upload = Task { try await self.store(self.app1).put(tenant: tenant, stream: stream, expectedSHA256: nil) }
+        var head = ByteBuffer(); head.writeBytes(payload.prefix(objectStoreChunkSize)); input.yield(head)
+        try await waitFor("Staging-Teil geschrieben") { try await self.count("object_chunks", where: "tenant_id = '\(tenant)' AND sha256 LIKE 'tmp:%'") == 1 }
+
+        var run = try await verify(w, worker: app2)
+        XCTAssertEqual(orphans(run)["blobs_removed"], 1, "\(run)"); XCTAssertEqual(orphans(run)["staging_removed"], 0, "\(run)")
+        try await aEq(try await objectCount(stale.key.sha256), 0)
+        try await aEq(try await count("object_chunks", where: "tenant_id = '\(tenant)' AND sha256 LIKE 'tmp:%'"), 1, "laufender Upload unberührt")
+
+        var tail = ByteBuffer(); tail.writeBytes(payload.dropFirst(objectStoreChunkSize)); input.yield(tail); input.finish()
+        let stored = try await upload.value
+        XCTAssertFalse(stored.deduplicated)
+        run = try await verify(w, worker: app2)   // `put` fertig, Commit noch offen: junger Blob bleibt
+        XCTAssertEqual(orphans(run), ["blobs_removed": 0, "staging_removed": 0, "pending": 1], "\(run)")
+        _ = try await FileRecordService(app1.db(.psql) as! any SQLDatabase).register(stored, backend: .db)
+        var hasher = StreamHasher()
+        for try await chunk in try await store(app2).get(stored.key) { hasher.update(chunk) }
+        XCTAssertEqual(hasher.size, Int64(payload.count)); XCTAssertEqual(hasher.finish(), stored.key.sha256)
+        let last = try await verify(w, worker: app1)
+        XCTAssertEqual(orphans(last), ["blobs_removed": 0, "staging_removed": 0, "pending": 0], "\(last)")
+    }
+
+    /// Dedup auf einen alten verwaisten Blob (zweite Instanz lädt dieselben Bytes hoch): `put` frischt die Zeit auf, der Aufräumlauf lässt den Blob stehen.
+    func testOrphanSweep_dedupOnStaleOrphanRefreshesAge() async throws {
+        let w = try await world()
+        let tenant = UUID(uuidString: w.tenantA)!
+        let first = try await store(app1).put(tenant: tenant, stream: streamOf(bytes("dedup")), expectedSHA256: nil)
+        try await age(first.key.sha256, hours: 72)
+        let again = try await store(app2).put(tenant: tenant, stream: streamOf(bytes("dedup")), expectedSHA256: nil)
+        XCTAssertTrue(again.deduplicated)
+        let run = try await verify(w, worker: app1)
+        XCTAssertEqual(orphans(run), ["blobs_removed": 0, "staging_removed": 0, "pending": 1], "\(run)")
+        try await aEq(try await objectCount(first.key.sha256), 1)
+        try await aEq(try await count("object_chunks", where: "tenant_id = '\(tenant)' AND sha256 LIKE 'tmp:%'"), 0, "Staging des Dedup-Uploads verworfen")
+    }
+
+    /// Mandantentrennung: der Lauf von Mandant A löscht keine verwaisten Objekte eines anderen Mandanten.
+    func testOrphanSweep_onlyTouchesOwnTenant() async throws {
+        let w = try await world()
+        let foreign = UUID()
+        let other = try await store(app1).put(tenant: foreign, stream: streamOf(bytes("fremd")), expectedSHA256: nil)
+        try await age(other.key.sha256, hours: 48)
+        try await db.raw("INSERT INTO object_chunks (tenant_id, sha256, seq, data, created_at) VALUES (\(bind: foreign), 'tmp:fremd', 0, '\\x00'::bytea, now() - interval '48 hours')").run()
+        let run = try await verify(w, worker: app1)
+        XCTAssertEqual(orphans(run), ["blobs_removed": 0, "staging_removed": 0, "pending": 0], "\(run)")
+        try await aEq(try await count("object_chunks", where: "tenant_id = '\(foreign)'"), 2)
+    }
+
+    /// Dateisystem-Speicher: dieselben Regeln über die Änderungszeit der Datei (gegen DB-Zeit verglichen); referenzierte und junge Dateien bleiben.
+    func testOrphanSweep_filesystemStore() async throws {
+        let w = try await world()
+        let tenant = UUID(uuidString: w.tenantA)!
+        let root = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("labhub-sweep-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let fs = FilesystemObjectStore(root: root)
+        let old = try await fs.put(tenant: tenant, stream: streamOf(bytes("fs-alt")), expectedSHA256: nil)
+        let referenced = try await fs.put(tenant: tenant, stream: streamOf(bytes("fs-ref")), expectedSHA256: nil)
+        _ = try await FileRecordService(db).register(referenced, backend: .fs)
+        let young = try await fs.put(tenant: tenant, stream: streamOf(bytes("fs-jung")), expectedSHA256: nil)
+        let dedup = try await fs.put(tenant: tenant, stream: streamOf(bytes("fs-dedup")), expectedSHA256: nil)
+        let staging = root.appendingPathComponent(".staging", isDirectory: true)
+        try FileManager.default.createDirectory(at: staging, withIntermediateDirectories: true)
+        let deadPart = staging.appendingPathComponent("abgestuerzt"), livePart = staging.appendingPathComponent("laufend")
+        FileManager.default.createFile(atPath: deadPart.path, contents: Data([0])); FileManager.default.createFile(atPath: livePart.path, contents: Data([0]))
+        let past = Date().addingTimeInterval(-48 * 3600)
+        for u in [root.appendingPathComponent(old.key.path), root.appendingPathComponent(referenced.key.path), root.appendingPathComponent(dedup.key.path), deadPart] {
+            try FileManager.default.setAttributes([.modificationDate: past], ofItemAtPath: u.path)
+        }
+        let refreshed = try await fs.put(tenant: tenant, stream: streamOf(bytes("fs-dedup")), expectedSHA256: nil)   // frischt die Zeit auf
+        XCTAssertTrue(refreshed.deduplicated)
+
+        let result = try await DMSOrphanSweep.run(tenant: tenant, store: { _ in fs }, on: app1.db(.psql))
+        XCTAssertEqual(result, .init(blobs_removed: 1, staging_removed: 1, pending: 2))
+        let exists = { (k: ObjectKey) in FileManager.default.fileExists(atPath: root.appendingPathComponent(k.path).path) }
+        XCTAssertFalse(exists(old.key)); XCTAssertTrue(exists(referenced.key)); XCTAssertTrue(exists(young.key)); XCTAssertTrue(exists(dedup.key))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: deadPart.path)); XCTAssertTrue(FileManager.default.fileExists(atPath: livePart.path))
+    }
+}

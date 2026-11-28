@@ -5,6 +5,7 @@ import SQLKit
 /// Database backend for tiny installations (docs/OFFENE-FRAGEN.md F-06: not for large volumes, bloats backups/WAL).
 /// Bytes live in `object_chunks` (1 MiB `bytea` rows, so neither writing nor reading buffers the whole object).
 /// Uploads are staged under a random `tmp:` hash and promoted by a single `UPDATE` after verification.
+/// `created_at` (DB time) is the last write or dedup hit; the orphan sweep (`OrphanSweep.swift`) uses it as grace period.
 public struct PostgresObjectStore: ObjectStore {
     public let kind = ObjectStoreKind.db
     package let db: any SQLDatabase
@@ -35,12 +36,14 @@ public struct PostgresObjectStore: ObjectStore {
             let hash = hasher.finish()
             if let expected, expected != hash { throw ObjectStoreError.hashMismatch }
             let key = try ObjectKey(tenantID: tenant, sha256: hash)
-            if try await exists(key) {
+            // Karte 3: Dedup frischt die Zeit des vorhandenen Objekts auf (Schonfrist des Aufräumlaufs). Löscht der Aufräumlauf es gerade (Zeilensperre),
+            // wartet das UPDATE, findet danach keine Zeile mehr, und dieser Upload legt die Bytes neu ab.
+            if try await db.raw("UPDATE object_chunks SET created_at = now() WHERE tenant_id = \(bind: tenant) AND sha256 = \(bind: hash) AND seq = 0 RETURNING seq").first() != nil {
                 try await discard(tenant, staging)
                 return StoredObject(key: key, size: hasher.size, deduplicated: true)
             }
             do {
-                try await db.raw("UPDATE object_chunks SET sha256 = \(bind: hash) WHERE tenant_id = \(bind: tenant) AND sha256 = \(bind: staging)").run()
+                try await db.raw("UPDATE object_chunks SET sha256 = \(bind: hash), created_at = now() WHERE tenant_id = \(bind: tenant) AND sha256 = \(bind: staging)").run()
             } catch {
                 // concurrent identical upload won the primary-key race
                 try await discard(tenant, staging)

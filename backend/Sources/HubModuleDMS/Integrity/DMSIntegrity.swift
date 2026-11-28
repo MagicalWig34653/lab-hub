@@ -16,6 +16,8 @@ struct DMSIntegrityReport: Codable, Sendable {
     let findings: [Finding]
     let truncated: Bool
     let chain: Chain
+    /// Karte 3: Aufräumlauf für verwaiste Objekte (fehlt bei Speichern ohne Aufräumfunktion und in Berichten vor der Einführung).
+    let orphans: DMSOrphanSweep.Result?
 }
 
 struct DMSIntegrityOut: Content, Sendable {
@@ -80,11 +82,12 @@ enum DMSIntegrity {
     static func handler(storeFactory: @escaping @Sendable (any SQLDatabase) throws -> any ObjectStore) -> JobHandler {
         return { job, s in
             guard let payload = try? JSONDecoder().decode(Payload.self, from: Data(job.payload.utf8)) else { throw PermanentJobError(code: "payload_invalid") }
-            try await process(job: job, payload: payload, store: try storeFactory(s), s: s)
+            try await process(job: job, payload: payload, store: try storeFactory(s), storeFactory: storeFactory, s: s)
         }
     }
 
-    private static func process(job: ClaimedJob, payload: Payload, store: any ObjectStore, s: any SQLDatabase) async throws {
+    private static func process(job: ClaimedJob, payload: Payload, store: any ObjectStore, storeFactory: @escaping @Sendable (any SQLDatabase) throws -> any ObjectStore,
+                                s: any SQLDatabase) async throws {
         let tenant = payload.tenant_id, run = payload.run_id
         guard try await s.raw("""
             UPDATE dms_integrity_runs SET state = 'running', started_at = COALESCE(started_at, now())
@@ -93,6 +96,7 @@ enum DMSIntegrity {
 
         var findings: [DMSIntegrityReport.Finding] = []
         var truncated = false, checked = 0, bad = 0
+        var orphans: DMSOrphanSweep.Result?
         func note(_ file: UUID, _ problem: String) async throws {
             bad += 1
             for r in try await s.raw("SELECT document_id, role FROM dms_document_files WHERE tenant_id = \(bind: tenant) AND file_id = \(bind: file) ORDER BY created_at, id").all() {
@@ -118,6 +122,8 @@ enum DMSIntegrity {
                     else if actual != size { try await note(id, "size_mismatch") }
                 } catch ObjectStoreError.notFound { try await note(id, "missing") }
             }
+            guard let database = s as? any Database else { throw PermanentJobError(code: "database_unavailable") }
+            orphans = try await DMSOrphanSweep.run(tenant: tenant, store: storeFactory, on: database)
         } catch is CancellationError {
             throw CancellationError()
         } catch let e as PermanentJobError {
@@ -135,11 +141,13 @@ enum DMSIntegrity {
         }
         let chain = try await DMSAuditChain.verify(tenant: tenant, on: s)
         let report = DMSIntegrityReport(findings: findings, truncated: truncated,
-                                        chain: .init(entries: chain.entries, ok: chain.ok, problem: chain.problem, broken_at_seq: chain.brokenAtSeq, head: chain.head))
+                                        chain: .init(entries: chain.entries, ok: chain.ok, problem: chain.problem, broken_at_seq: chain.brokenAtSeq, head: chain.head),
+                                        orphans: orphans)
         let json = String(decoding: try { let e = JSONEncoder(); e.outputFormatting = [.sortedKeys]; return try e.encode(report) }(), as: UTF8.self)
         let failed = bad > 0 || !chain.ok
         guard let database = s as? any Database else { throw PermanentJobError(code: "database_unavailable") }
         let (checkedCount, badCount) = (checked, bad)
+        let orphansRemoved = Int64((orphans?.blobs_removed ?? 0) + (orphans?.staging_removed ?? 0))
         _ = try await dmsTransaction(database) { _, tx in
             guard try await tx.raw("""
                 UPDATE dms_integrity_runs SET state = \(bind: failed ? "failed" : "passed"), finished_at = now(), files_checked = \(bind: checkedCount), files_bad = \(bind: badCount),
@@ -147,7 +155,8 @@ enum DMSIntegrity {
                 WHERE tenant_id = \(bind: tenant) AND id = \(bind: run) AND state = 'running' RETURNING id
                 """).first() != nil else { return false }   // ein anderer Aufruf hat bereits abgeschlossen: kein zweites Ergebnis, kein zweiter Audit-Eintrag
             try await AuditLog.record(AuditEvent(action: "dms.integrity.checked", tenant: tenant, subjectType: "dms.integrity_run", subjectID: run.uuidString,
-                                                 meta: ["files": .number(Int64(checkedCount)), "bad": .number(Int64(badCount)), "chain_ok": .number(chain.ok ? 1 : 0)]), on: tx)
+                                                 meta: ["files": .number(Int64(checkedCount)), "bad": .number(Int64(badCount)), "chain_ok": .number(chain.ok ? 1 : 0),
+                                                        "orphans_removed": .number(orphansRemoved)]), on: tx)
             if failed {
                 try await AuditLog.record(AuditEvent(action: "dms.integrity.failed", tenant: tenant, subjectType: "dms.integrity_run", subjectID: run.uuidString,
                                                      meta: ["bad": .number(Int64(badCount)), "chain_ok": .number(chain.ok ? 1 : 0)]), on: tx)

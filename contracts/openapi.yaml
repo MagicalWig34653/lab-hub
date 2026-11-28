@@ -4519,6 +4519,14 @@ components:
                 problem: { type: [string, "null"], enum: [hash_mismatch, prev_mismatch, missing_audit, sequence_gap, unchained_audit, head_mismatch, null] }
                 broken_at_seq: { type: [integer, "null"], format: int64 }
                 head: { type: string, description: "Hash des letzten Kettenglieds (Anker)" }
+            orphans:
+              type: object
+              description: "Aufräumlauf für Objekte ohne files-Zeile nach Absturz (Schonfrist 24 h, DB-Zeit). Fehlt bei Läufen vor der Einführung."
+              required: [blobs_removed, staging_removed, pending]
+              properties:
+                blobs_removed: { type: integer, description: "Gelöschte Blobs ohne files-Zeile, älter als die Schonfrist" }
+                staging_removed: { type: integer, description: "Gelöschte Staging-Teile abgebrochener Uploads, älter als die Schonfrist" }
+                pending: { type: integer, description: "Objekte ohne files-Zeile innerhalb der Schonfrist (z. B. laufende Uploads)" }
     DmsExportParams:
       type: object
       properties:

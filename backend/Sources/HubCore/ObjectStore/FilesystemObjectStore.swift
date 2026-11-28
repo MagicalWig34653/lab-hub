@@ -45,7 +45,8 @@ public struct FilesystemObjectStore: ObjectStore {
         if let expected, expected != hash { throw ObjectStoreError.hashMismatch }
         let key = try ObjectKey(tenantID: tenant, sha256: hash)
         let target = url(key)
-        if FileManager.default.fileExists(atPath: target.path) {
+        // Karte 3: Dedup frischt die Änderungszeit auf (Schonfrist des Aufräumlaufs); ist die Datei inzwischen weg, wird sie neu abgelegt.
+        if FileManager.default.fileExists(atPath: target.path), utimes(target.path, nil) == 0 {
             return StoredObject(key: key, size: hasher.size, deduplicated: true)
         }
         try mkdir(target.deletingLastPathComponent())
