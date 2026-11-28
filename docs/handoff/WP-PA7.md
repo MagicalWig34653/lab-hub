@@ -56,6 +56,7 @@ Befehl für die neuen Backend-Tests (eigene Wegwerf-Datenbank Postgres 17 auf Po
 - **Gegenprobe:** Ohne die Sperre je Mandant legen die beiden Prozesse **2** Läufe an (E2E rot), der Rennen-Test 6 statt 4 Jobs. Sperre danach unverändert wiederhergestellt.
 - **PWA:** `e2e-mock/dms-admin.spec.ts` „AK-PA7-3 expired export …“ zuerst rot (Hinweis zur Frist fehlt), dann grün; Axe ohne schwere Verstöße in hell und dunkel; Bilder beider Seiten in hell und dunkel angesehen.
 - **Gesamt lokal:** `LH_PG_CONTAINER=<postgres-container> TEST_DB_PORT=15437 scripts/ci.sh` grün (shellcheck, Gate-Tests, `check-env-docs` 49 Variablen, Backup/Restore, OpenAPI-YAML, PWA `check` und 128 Unit-Tests, Swift **588 Tests, 27 übersprungen, 0 Fehler**, Lizenzhinweise, SBOM); `npx playwright test -c playwright.mock.config.ts` 82 bestanden, 4 übersprungen.
+- **Commit und CI:** `7d677d1` auf `origin/main`; GitHub-Lauf 46126454700 grün (Backend-Tests Postgres 17 unter Linux: 588 Tests, 2 übersprungen, 0 Fehler, alle 13 neuen Tests samt Zwei-Prozess-E2E bestanden; Renderer arm64; PWA/Vertrag/Skripte).
 - **Nicht ausgeführt:** E2E der PWA gegen ein echtes Backend (`test:e2e:dms`, `test:e2e:stack`) und `scripts/pa7-restore-probe.sh` nach der kleinen Änderung (eine Umgebungsvariable).
 
 ## Grenzen
