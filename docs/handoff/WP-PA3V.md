@@ -29,7 +29,7 @@ Geprüft aus dem Code (`PaperlessEndpoint.parse`, `vetTarget`, `NetworkTargetPol
 - Der erste E2E-Versuch (00:15) brach vor Abschnitt 6b ab (57 ok bis dahin, 0 Fehler): Paperless-Worker SIGKILL beim Aufnehmen des Bildes, siehe oben.
 - Volle Suite lokal (`swift test`, eigene Datenbank im lokalen Postgres-Container), 28.11. 00:38–00:49: **568 Tests, 27 übersprungen, 0 Fehler** (wie zuvor 27 Übersprungene: OCR-, Linux- und Mail-Werkzeuge).
   - Vorläufe: Lauf 1 brach mit einer Vapor-Assertion ab („Response body stream writer deinitialized before .end or .error“). Ursache war der eigene Stillstand-Test: Sein Test-Server beendete den Strom nicht, nachdem der Client getrennt hatte. Er endet jetzt wie `DMSUpload` immer mit `.end` oder `.error`. Lauf 2: 568 Tests, 1 Fehler `DMSImportExportTests.testAKD9_hostileExportIsContained` mit `connectionRequestTimeout` (Pool der Datenbank) bei Last über 70 und parallel laufendem E2E; einzeln und zusammen mit den neuen Tests grün (13/13), in Lauf 3 ebenfalls grün.
-- GitHub-CI: _wird nach dem Push eingetragen_.
+- GitHub-CI zu 219ec95 (Tests, Skripte, Anleitung, Bericht): Lauf 46084494864, **grün** (Backend-Tests mit Postgres 17, PWA/Vertrag/Skripte, Renderer arm64). Das E2E läuft nicht in der CI (lokal, siehe oben).
 
 ## Offene Punkte
 - Karte „Unreferenzierte Blobs nach Absturz im Import“ (FCCE676C) unverändert offen.
