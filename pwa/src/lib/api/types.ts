@@ -3185,8 +3185,11 @@ export interface components {
         DmsExport: {
             /** Format: uuid */
             id: string;
-            /** @enum {string} */
-            state: "queued" | "running" | "done" | "failed";
+            /**
+             * @description expired: die ZIP-Datei wurde nach der Aufbewahrungsfrist entfernt (WP-PA7)
+             * @enum {string}
+             */
+            state: "queued" | "running" | "done" | "failed" | "expired";
             params: components["schemas"]["DmsExportParams"];
             /** Format: date-time */
             created_at: string;
@@ -3202,6 +3205,11 @@ export interface components {
             manifest_sha256?: string | null;
             /** @description integrity_failed, export_too_large, export_failed */
             error_code?: string | null;
+            /**
+             * Format: date-time
+             * @description Zeitpunkt, an dem die ZIP-Datei entfernt wurde (Zustand expired)
+             */
+            expired_at?: string | null;
         };
         DmsRuleCondition: {
             /** @enum {string} */

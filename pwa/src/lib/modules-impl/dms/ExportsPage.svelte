@@ -17,7 +17,8 @@
 		queued: 'dms.exports.state.queued',
 		running: 'dms.exports.state.running',
 		done: 'dms.exports.state.done',
-		failed: 'dms.exports.state.failed'
+		failed: 'dms.exports.state.failed',
+		expired: 'dms.exports.state.expired'
 	} as const;
 	const errorText = {
 		integrity_failed: 'dms.exports.error.integrity_failed',
@@ -116,7 +117,8 @@
 	</label>
 	<Button type="submit" disabled={starting} data-testid="export-start">{tx('dms.exports.start')}</Button>
 </form>
-<p class="text-muted-foreground mb-3 text-xs">{tx('dms.exports.trashExcluded')}</p>
+<p class="text-muted-foreground text-xs">{tx('dms.exports.trashExcluded')}</p>
+<p class="text-muted-foreground mb-3 text-xs" data-testid="export-retention-note">{tx('dms.exports.retentionNote')}</p>
 
 {#if loading}
 	<p class="text-muted-foreground text-sm">{tx('common.loading')}</p>
@@ -144,6 +146,11 @@
 				</div>
 				{#if isOpen(job)}
 					<p role="status" class="text-muted-foreground mt-2 text-sm">{tx('dms.exports.running')}</p>
+				{/if}
+				{#if job.state === 'expired'}
+					<p class="text-muted-foreground mt-2 text-sm" data-testid="export-expired">
+						{tx('dms.exports.expired', { date: formatDateTime(job.expired_at ?? '', i18n.locale) })}
+					</p>
 				{/if}
 				{#if job.state === 'failed'}
 					<p role="alert" class="text-destructive mt-2 text-sm" data-testid="export-error">

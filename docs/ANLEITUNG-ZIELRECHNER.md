@@ -102,6 +102,8 @@ curl -fsS http://127.0.0.1:18480/ready                        # 200, sobald die 
 
 Es laufen vier Dienste: `db` (Postgres 17), `migrate` (läuft einmal und endet mit Exit 0), `backend` (liefert API und PWA auf Port 8080 im Container, lokal `127.0.0.1:18480`) und `worker` (OCR, Prüflauf, Export, Mail, Konsumordner, Paperless-Import, Belege).
 
+**Pflege ohne Hand (WP-PA7):** Der Worker prüft den Bestand jedes Mandanten selbst (`dms.verify`): zum ersten Mal, sobald es Dokumente gibt und er gerade nichts anderes zu tun hat, danach spätestens alle 7 Tage. Export-ZIPs entfernt er 30 Tage nach der Fertigstellung; bei Bedarf wird der Export neu erzeugt. Einstellbar sind `DMS_VERIFY_INTERVAL_HOURS` und `DMS_EXPORT_RETENTION_DAYS` in `deploy/.env` (`deploy/README.md`; `0` schaltet ab). **Der Hub verschickt keine Meldung:** Ob die Läufe bestehen, steht unter docs → Integrität. Die **Sicherung läuft weiterhin nicht von selbst** (Abschnitt 7).
+
 **Weg A, ohne Proxy (empfohlen für den Probelauf):** Der Browser öffnet `http://localhost:18480`. Läuft der Browser nicht auf dem Zielrechner, per SSH-Tunnel: `ssh -L 18480:127.0.0.1:18480 <benutzer>@<zielrechner>` und dann am eigenen Rechner `http://localhost:18480` öffnen (Passkeys gelten auf `localhost` auch ohne HTTPS). So wurde geprüft: der Browser auf dem Mac sprach über die weitergeleitete Adresse mit dem Stack in der VM.
 
 **Weg B, mit Domain und HTTPS (für den späteren Dauerbetrieb):** `LH_DOMAIN=hub.example.org LH_HTTPS=yes` bei `setup.sh`, davor ein Reverse Proxy mit gültigem Zertifikat, der auf `127.0.0.1:<Port>` weiterreicht, z. B. mit Caddy

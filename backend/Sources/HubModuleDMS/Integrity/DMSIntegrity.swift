@@ -8,7 +8,7 @@ import HubCore
 // beide mit der Datenbank (`files`, Kopie in `dms_document_files`); danach prüft er die Audit-Hash-Kette (F-16).
 // Abweichung = Fehler: der Lauf endet mit Zustand `failed`, der Bericht nennt Dokument, Rolle und Art (nie Inhalte), und es entsteht ein Audit-Eintrag `dms.integrity.failed` (Alarm).
 // „Genau einmal“: die Lease des Jobs (ADR 0006) sperrt den Lauf; zusätzlich schließt nur der Aufruf ab, der den Zustand `running` -> Ergebnis vollzieht (Zeilen-Update mit Bedingung).
-// Handler ist idempotent: ein bereits abgeschlossener Lauf wird nicht erneut angefasst. Auslösung nur über die Route (kein Zeitplaner im Hub: periodisch per externem Aufruf, offener Punkt).
+// Handler ist idempotent: ein bereits abgeschlossener Lauf wird nicht erneut angefasst. Auslösung über die Route oder periodisch durch die Worker (`DMSVerifySchedule`, WP-PA7).
 
 struct DMSIntegrityReport: Codable, Sendable {
     struct Finding: Codable, Sendable { let document_id: UUID; let role: String; let problem: String }
@@ -46,15 +46,21 @@ enum DMSIntegrity {
     /// Legt den Lauf und den Job in einer Transaktion an (202 Accepted in der Route).
     static func enqueue(tenant: UUID, actor: UUID, requestID: String, on db: any Database) async throws -> DMSIntegrityOut {
         try await dmsTransaction(db) { _, s in
-            guard let row = try await s.raw("INSERT INTO dms_integrity_runs (tenant_id, requested_by) VALUES (\(bind: tenant), \(bind: actor)) RETURNING id").first() else { throw Abort(.internalServerError) }
-            let run = try row.decode(column: "id", as: UUID.self)
-            let payload = String(decoding: try JSONEncoder().encode(Payload(run_id: run, tenant_id: tenant)), as: UTF8.self)
-            let job = try await JobService(s).enqueue(kind: kind, payload: payload, priority: DMSOCR.priorityBulk)
-            try await s.raw("UPDATE dms_integrity_runs SET job_id = \(bind: job) WHERE tenant_id = \(bind: tenant) AND id = \(bind: run)").run()
-            try await AuditLog.record(AuditEvent(action: "dms.integrity.requested", actor: actor, tenant: tenant, subjectType: "dms.integrity_run", subjectID: run.uuidString, requestID: requestID), on: s)
+            let run = try await insertRun(tenant: tenant, actor: actor, action: "dms.integrity.requested", requestID: requestID, on: s)
             guard let out = try await load(run, tenant: tenant, on: s) else { throw Abort(.internalServerError) }
             return out
         }
+    }
+
+    /// Lauf, Job und Audit-Eintrag in der Transaktion des Aufrufers (Route oder Zeitplan, `actor == nil`).
+    static func insertRun(tenant: UUID, actor: UUID?, action: String, requestID: String?, on s: any SQLDatabase) async throws -> UUID {
+        guard let row = try await s.raw("INSERT INTO dms_integrity_runs (tenant_id, requested_by) VALUES (\(bind: tenant), \(bind: actor)) RETURNING id").first() else { throw Abort(.internalServerError) }
+        let run = try row.decode(column: "id", as: UUID.self)
+        let payload = String(decoding: try JSONEncoder().encode(Payload(run_id: run, tenant_id: tenant)), as: UTF8.self)
+        let job = try await JobService(s).enqueue(kind: kind, payload: payload, priority: DMSOCR.priorityBulk)
+        try await s.raw("UPDATE dms_integrity_runs SET job_id = \(bind: job) WHERE tenant_id = \(bind: tenant) AND id = \(bind: run)").run()
+        try await AuditLog.record(AuditEvent(action: action, actor: actor, tenant: tenant, subjectType: "dms.integrity_run", subjectID: run.uuidString, requestID: requestID), on: s)
+        return run
     }
 
     private static let columns = "id, state, created_at, started_at, finished_at, files_checked, files_bad, chain_entries, chain_ok, error_code, report::text AS report"

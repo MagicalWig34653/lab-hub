@@ -62,7 +62,7 @@ public struct DMSModule: HubModule {
          PermissionDefinition("dms.scan.use", roles: [.accountant, .member])] + Self.rulePermissions   // WP-D3: dms.rule.*, dms.suggestion.*
     }
 
-    public var migrations: [any Migration] { [CreateDMSCore(), CreateDMSIngest(), CreateDMSSearch(), CreateDMSOCR(), CreateDMSRules(), CreateDMSRevision(), CreateDMSSources(), CreateDMSImport(), CreateDMSExtraction(), CreateDMSDocumentSource(), CreateDMSOCRQuarantineSync(), CreateDMSScanBridge()] }
+    public var migrations: [any Migration] { [CreateDMSCore(), CreateDMSIngest(), CreateDMSSearch(), CreateDMSOCR(), CreateDMSRules(), CreateDMSRevision(), CreateDMSSources(), CreateDMSImport(), CreateDMSExtraction(), CreateDMSDocumentSource(), CreateDMSOCRQuarantineSync(), CreateDMSScanBridge(), CreateDMSExportExpiry()] }
     /// WP-H12 (Codex-Befund 10): Ein abgeschaltetes DMS beendet die Job-Kette jeder Quelle (die Läufe enden ohne Folgejob). Beim Wiedereinschalten wird die
     /// Kette für jede aktive Quelle neu angestoßen; `DMSSources.schedule` legt nur dann einen Job an, wenn kein queued/running Job existiert (idempotent).
     public func onActivate(tenant: UUID, on db: any SQLDatabase) async throws {

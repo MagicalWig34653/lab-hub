@@ -32,6 +32,8 @@ struct DMSExportOut: Content, Sendable {
     let sha256: String?
     let manifest_sha256: String?
     let error_code: String?
+    /// WP-PA7: Zeitpunkt, an dem die ZIP-Datei nach der Aufbewahrungsfrist entfernt wurde (Zustand `expired`).
+    let expired_at: String?
 }
 
 enum DMSExport {
@@ -68,7 +70,7 @@ enum DMSExport {
         }
     }
 
-    private static let columns = "id, state, params::text AS params, created_at, finished_at, document_count, file_count, size_bytes, sha256, manifest_sha256, error_code"
+    private static let columns = "id, state, params::text AS params, created_at, finished_at, document_count, file_count, size_bytes, sha256, manifest_sha256, error_code, expired_at"
 
     private static func out(_ r: any SQLRow) throws -> DMSExportOut {
         let params = (try? JSONDecoder().decode(DMSExportParams.self, from: Data(try r.decode(column: "params", as: String.self).utf8))) ?? DMSExportParams()
@@ -76,7 +78,8 @@ enum DMSExport {
                             created_at: iso(try r.decode(column: "created_at", as: Date.self)), finished_at: try r.decode(column: "finished_at", as: Date?.self).map(iso),
                             document_count: try r.decode(column: "document_count", as: Int32?.self).map(Int.init), file_count: try r.decode(column: "file_count", as: Int32?.self).map(Int.init),
                             size_bytes: try r.decode(column: "size_bytes", as: Int64?.self), sha256: try r.decode(column: "sha256", as: String?.self),
-                            manifest_sha256: try r.decode(column: "manifest_sha256", as: String?.self), error_code: try r.decode(column: "error_code", as: String?.self))
+                            manifest_sha256: try r.decode(column: "manifest_sha256", as: String?.self), error_code: try r.decode(column: "error_code", as: String?.self),
+                            expired_at: try r.decode(column: "expired_at", as: Date?.self).map(iso))
     }
 
     static func load(_ id: UUID, tenant: UUID, on s: any SQLDatabase) async throws -> DMSExportOut? {

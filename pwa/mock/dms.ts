@@ -680,9 +680,11 @@ export function createDmsMock() {
 	function seed(
 		tenantId: string,
 		count: number,
-		options: { trashed?: boolean; doc_date?: string; title?: string; tamper?: boolean; extraction?: SeedExtraction; suggest?: boolean; mail?: boolean; type_name?: string; source?: string; suggestions?: number; created_days_ago?: number; notes?: Omit<MockNote, 'id' | 'created_at'>[] } = {}
+		options: { expire_exports?: boolean; trashed?: boolean; doc_date?: string; title?: string; tamper?: boolean; extraction?: SeedExtraction; suggest?: boolean; mail?: boolean; type_name?: string; source?: string; suggestions?: number; created_days_ago?: number; notes?: Omit<MockNote, 'id' | 'created_at'>[] } = {}
 	) {
 		const d = tenantData(tenantId);
+		// WP-PA7: the retention period of the finished exports has passed (the hub removed the ZIP).
+		if (options.expire_exports) for (const job of d.admin.exports) job.expiredAt = new Date().toISOString();
 		const base = (i: number, title: string, extra: Partial<MockDoc> = {}): MockDoc => {
 			const at = new Date(Date.now() - i * 1000 - (options.created_days_ago ?? 0) * 86400000).toISOString();
 			const ex = options.extraction;

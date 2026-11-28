@@ -79,6 +79,7 @@ interface ExportJob {
 	created_at: string;
 	readyAt: number;
 	failedCode: string | null;
+	expiredAt?: string;
 	docs: MockDoc[];
 	zip: Buffer;
 }
@@ -668,7 +669,7 @@ export function handleAdmin(d: TenantData, ctx: DmsContext, host: Host): boolean
 	// ----- exports
 	const exportOut = (job: ExportJob) => {
 		const ready = Date.now() >= job.readyAt;
-		const state = !ready ? 'running' : job.failedCode ? 'failed' : 'done';
+		const state = !ready ? 'running' : job.failedCode ? 'failed' : job.expiredAt ? 'expired' : 'done';
 		return {
 			id: job.id,
 			state,
@@ -680,6 +681,7 @@ export function handleAdmin(d: TenantData, ctx: DmsContext, host: Host): boolean
 			size_bytes: state === 'done' ? job.zip.length : null,
 			sha256: state === 'done' ? createHash('sha256').update(job.zip).digest('hex') : null,
 			manifest_sha256: state === 'done' ? createHash('sha256').update('manifest' + job.id).digest('hex') : null,
+			expired_at: job.expiredAt ?? null,
 			error_code: job.failedCode
 		};
 	};

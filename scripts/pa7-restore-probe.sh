@@ -165,7 +165,7 @@ IMAGE="${LABHUB_IMAGE:?LABHUB_IMAGE fehlt in $ENV_FILE}"; WIMAGE="${LABHUB_WORKE
 NET="$(docker inspect -f '{{range $k, $v := .NetworkSettings.Networks}}{{$k}}{{end}}' "$DB_CONTAINER")"
 RPORT=$((PORT + 1))
 renv=(-e DB_HOST=db -e DB_PORT=5432 -e "DB_NAME=$RESTORED" -e "DB_USER=$DB_USER" -e DB_PASSWORD_FILE=/run/secrets/lh_db_password -e DB_TLS=disable
-  -e AUTO_MIGRATE=false -e DMS_OCR_ENABLED=false -e SECRET_KEY_FILE=/run/secrets/lh_secret_key -e "PUBLIC_URL=${PUBLIC_URL:-http://localhost}"
+  -e AUTO_MIGRATE=false -e DMS_OCR_ENABLED=false -e DMS_VERIFY_INTERVAL_HOURS=0 -e SECRET_KEY_FILE=/run/secrets/lh_secret_key -e "PUBLIC_URL=${PUBLIC_URL:-http://localhost}"
   -e "WEBAUTHN_RP_ID=${WEBAUTHN_RP_ID:-localhost}")
 # Secrets einzeln einhängen wie Compose (das Verzeichnis ist 0700, der Container-Nutzer UID 10001 dürfte es nicht betreten)
 rrun=(--network "$NET" -v "$PWD/deploy/compose/secrets/lh_db_password:/run/secrets/lh_db_password:ro" -v "$PWD/deploy/compose/secrets/lh_secret_key:/run/secrets/lh_secret_key:ro" --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true)

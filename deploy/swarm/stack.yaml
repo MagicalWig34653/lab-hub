@@ -92,6 +92,9 @@ services:
       DMS_MAIL_PORT_ALLOWLIST: ${DMS_MAIL_PORT_ALLOWLIST:-}
       DMS_TENANT_QUOTA_BYTES: ${DMS_TENANT_QUOTA_BYTES:-}
       DMS_DEFAULT_RETENTION_YEARS: ${DMS_DEFAULT_RETENTION_YEARS:-}
+      # WP-PA7: Prüflauf je Mandant alle N Stunden (Standard 168, 0 = aus); fertige Export-ZIPs nach N Tagen entfernen (Standard 30, 0 = nie)
+      DMS_VERIFY_INTERVAL_HOURS: ${DMS_VERIFY_INTERVAL_HOURS:-}
+      DMS_EXPORT_RETENTION_DAYS: ${DMS_EXPORT_RETENTION_DAYS:-}
       DB_HOST: ${DB_HOST:?DB_HOST setzen}
       DB_PORT: ${DB_PORT:-5432}
       DB_NAME: ${DB_NAME:-labhub}

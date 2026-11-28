@@ -92,7 +92,7 @@ Ausgangsstand (vorhanden, getestet laut `deploy/README.md`/Tests): `migrate`, `s
 |  | PA4 | Miniaturen (Worker, Route, Liste) | O2 | M | P PA2 | offen |
 |  | PA5 | Gespeicherte Ansichten, Mehrfachauswahl, Massenbearbeitung | F4c, S1 | L | P PA4 | offen |
 |  | PA6 | Lücken aus dem Probelauf (Dateitypen, signierte PDFs, Import-Abbildung) | PA3 | M–L |  | offen |
-|  | PA7 | Betriebsreife: Zielrechner, Restore, Zeitplan Prüflauf, Aufräumen Exporte | H2, H9 | M |  | Teil 1 fertig (PA7-1, PA7-2; Übergabe `docs/handoff/WP-PA7.md`), PA7-3 offen |
+|  | PA7 | Betriebsreife: Zielrechner, Restore, Zeitplan Prüflauf, Aufräumen Exporte | H2, H9 | M |  | fertig 28.11.2026 (PA7-1 bis PA7-3; Übergabe `docs/handoff/WP-PA7.md`) |
 |  | PA8 | Vollimport, Parallelbetrieb, Umschalten (Nutzer) | PA3–PA7 | M |  | offen |
 | 10 Modul-Apps | AB1 | Geräteanmeldung für Apps (Token mit Scopes, Widerruf) | ST2 | M |  | offen |
 |  | AB2 | Änderungs-Feed für Zwischenstände | D2 | M | P AB1 | offen |
@@ -298,7 +298,7 @@ Grundlage und Reihenfolge: `docs/PAPERLESS-ABLOESUNG.md`. Private Bestandsdaten 
 
 **WP-PA6 Lücken aus dem Probelauf (M–L).** Umfang erst nach PA3; je Lücke eigenes Akzeptanzkriterium.
 
-**WP-PA7 Betriebsreife (M).** Teil 1 (für den Probelauf PA3) erledigt am 28.11.2026: AK-PA7-1 `docs/ANLEITUNG-ZIELRECHNER.md`, jeder Schritt in einer frischen Ubuntu-24.04-VM ausgeführt; AK-PA7-2 Messung in Abschnitt 8 der Anleitung, Werkzeug `scripts/pa7-restore-probe.sh`. Akzeptanz: AK-PA7-1 Anleitung Zielrechner inkl. Platzbedarf; PA7-2 Restore mit großem synthetischem Bestand gemessen; PA7-3 Prüflauf periodisch ohne Hand (zustandslos), alte Export-ZIPs nach Frist entfernt; Zwei-Instanzen-Test.
+**WP-PA7 Betriebsreife (M).** Teil 1 (für den Probelauf PA3) erledigt am 28.11.2026: AK-PA7-1 `docs/ANLEITUNG-ZIELRECHNER.md`, jeder Schritt in einer frischen Ubuntu-24.04-VM ausgeführt; AK-PA7-2 Messung in Abschnitt 8 der Anleitung, Werkzeug `scripts/pa7-restore-probe.sh`. Teil 3 erledigt am 28.11.2026: AK-PA7-3 als Aufräumschritte der Worker (`DMSMaintenance.swift`): Prüflauf je Mandant spätestens alle 7 Tage, Export-ZIPs nach 30 Tagen entfernt (Zustand `expired`, Migration `dms_032_export_expiry`), Zwei-Prozess-E2E. Akzeptanz: AK-PA7-1 Anleitung Zielrechner inkl. Platzbedarf; PA7-2 Restore mit großem synthetischem Bestand gemessen; PA7-3 Prüflauf periodisch ohne Hand (zustandslos), alte Export-ZIPs nach Frist entfernt; Zwei-Instanzen-Test.
 
 **WP-PA8 Umschalten (M, Nutzer).** Akzeptanz: Abschnitt 6 der Ablösungsplanung.
 

@@ -29,8 +29,12 @@ extension DMSModule {
     }
 
     /// WP-PA1R: verwaiste Importläufe (Job endgültig gescheitert, Handler nie zu Ende gelaufen) schließen und das Token löschen.
+    /// WP-PA7: Prüflauf periodisch einplanen und abgelaufene Export-ZIPs entfernen (`DMSMaintenance.swift`).
     public func jobSweeps(environment: [String: String]) -> [String: JobSweep] {
-        [DMSImport.kind: { s in try await DMSImport.sweepOrphans(s) }]
+        let verifyHours = DMSVerifySchedule.intervalHours(environment), exportDays = DMSExportExpiry.retentionDays(environment)
+        return [DMSImport.kind: { s in try await DMSImport.sweepOrphans(s) },
+                DMSIntegrity.kind: { s in try await DMSVerifySchedule.run(intervalHours: verifyHours, on: s) },
+                DMSExport.kind: { s in try await DMSExportExpiry.run(retentionDays: exportDays, config: { try ObjectStoreConfig.fromEnvironment(environment) }, on: s) }]
     }
 
     /// OCR-Werkzeuge und Arbeitsverzeichnis prüfen, bevor ein Worker `dms.ocr` übernimmt.

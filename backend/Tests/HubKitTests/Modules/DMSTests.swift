@@ -905,6 +905,7 @@ final class DMSTests: DMSTestBase {
         try await aEq(try await count("pg_trigger", where: "tgname IN ('dms_document_files_protect', 'dms_files_protect', 'dms_documents_protect_asn')"), 3)
 
         let migration = CreateDMSCore()
+        try await CreateDMSExportExpiry().revert(on: app1.db(.psql)) // WP-PA7: Zustand `expired` an dms_exports
         try await CreateDMSScanBridge().revert(on: app1.db(.psql)) // WP-BR1: Bridge, Geräte, Aufträge (verweist auf api_tokens und users)
         try await CreateDMSDocumentSource().revert(on: app1.db(.psql)) // WP-D9: Quelle, Indizes
         try await CreateDMSExtraction().revert(on: app1.db(.psql)) // WP-D7: Extraktion, Outbox, Quelle `extraction`
@@ -931,6 +932,7 @@ final class DMSTests: DMSTestBase {
         try await CreateDMSExtraction().prepare(on: app1.db(.psql))
         try await CreateDMSDocumentSource().prepare(on: app1.db(.psql))
         try await CreateDMSScanBridge().prepare(on: app1.db(.psql))
+        try await CreateDMSExportExpiry().prepare(on: app1.db(.psql))
     }
 }
 

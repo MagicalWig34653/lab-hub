@@ -304,6 +304,36 @@ test('AK-F5-4 export: start, status, download', async ({ page, context }) => {
 	await expect(page.getByTestId('error-banner')).toContainText('liegt nach');
 });
 
+test('AK-PA7-3 expired export: the page says the ZIP is gone and offers no download; both pages explain the schedule', async ({ page, context }) => {
+	await bootstrap(page, context);
+	await uploadAndWait(page, pdf('eins.pdf', 'Beleg eins'));
+	await page.getByTestId('dms-nav-exports').click();
+	await expect(page.getByTestId('export-retention-note')).toContainText('nach 30 Tagen');
+	await page.getByTestId('export-start').click();
+	const row = page.getByTestId('export-row').first();
+	await expect(row).toHaveAttribute('data-state', 'done', { timeout: 10_000 });
+	await seed(page, { count: 0, expire_exports: true });
+	await page.reload();
+	await expect(row).toHaveAttribute('data-state', 'expired');
+	await expect(row.getByTestId('export-state')).toHaveText('Abgelaufen');
+	await expect(row.getByTestId('export-expired')).toContainText('ZIP-Datei wurde');
+	await expect(row.getByTestId('export-download')).toHaveCount(0);
+	const dir = process.env.SCREENSHOT_DIR;
+	for (const scheme of ['light', 'dark'] as const) {
+		await page.emulateMedia({ colorScheme: scheme });
+		await expectNoSeriousA11y(page);
+		if (dir) await page.screenshot({ path: `${dir}/pa7-export-abgelaufen-${scheme}.png`, fullPage: true });
+	}
+	await page.getByTestId('dms-nav-integrity').click();
+	await expect(page.getByTestId('integrity-title')).toBeVisible();
+	await expect(page.getByText('alle 7 Tage')).toBeVisible();
+	for (const scheme of ['light', 'dark'] as const) {
+		await page.emulateMedia({ colorScheme: scheme });
+		await expectNoSeriousA11y(page);
+		if (dir) await page.screenshot({ path: `${dir}/pa7-pruefung-zeitplan-${scheme}.png`, fullPage: true });
+	}
+});
+
 test('AK-F5-5 integrity check: run, report, head hash; a tampered file fails the run and the export', async ({ page, context }) => {
 	await bootstrap(page, context);
 	await page.getByTestId('dms-nav-integrity').click();

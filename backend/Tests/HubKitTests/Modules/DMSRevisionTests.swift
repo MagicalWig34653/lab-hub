@@ -274,10 +274,12 @@ final class DMSPurgeTests: DMSRevisionTestBase {
         _ = try await world(enable: false)
         try await aEq(try await count("_fluent_migrations", where: "name = 'dms_021_revision'"), 1)
         let m = CreateDMSRevision()
+        try await CreateDMSExportExpiry().revert(on: app1.db(.psql))   // WP-PA7: Spalte an dms_exports
         try await m.revert(on: app1.db(.psql))
         try await aEq(try await count("information_schema.tables", where: "table_name IN ('dms_deletion_log', 'dms_audit_chain', 'dms_audit_heads', 'dms_integrity_runs', 'dms_exports')"), 0)
         try await aEq(try await count("information_schema.columns", where: "table_name = 'dms_documents' AND column_name IN ('legal_hold', 'retention_until')"), 0)
         try await m.prepare(on: app1.db(.psql))
+        try await CreateDMSExportExpiry().prepare(on: app1.db(.psql))
         try await aEq(try await count("information_schema.tables", where: "table_name IN ('dms_deletion_log', 'dms_audit_chain', 'dms_audit_heads', 'dms_integrity_runs', 'dms_exports')"), 5)
     }
 }

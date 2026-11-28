@@ -4539,7 +4539,7 @@ components:
       required: [id, state, params, created_at]
       properties:
         id: { type: string, format: uuid }
-        state: { type: string, enum: [queued, running, done, failed] }
+        state: { type: string, enum: [queued, running, done, failed, expired], description: "expired: die ZIP-Datei wurde nach der Aufbewahrungsfrist entfernt (WP-PA7)" }
         params: { $ref: "#/components/schemas/DmsExportParams" }
         created_at: { type: string, format: date-time }
         finished_at: { type: [string, "null"], format: date-time }
@@ -4549,6 +4549,7 @@ components:
         sha256: { type: [string, "null"], description: "SHA-256 des ZIP" }
         manifest_sha256: { type: [string, "null"], description: "SHA-256 der manifest.json im ZIP" }
         error_code: { type: [string, "null"], description: "integrity_failed, export_too_large, export_failed" }
+        expired_at: { type: [string, "null"], format: date-time, description: "Zeitpunkt, an dem die ZIP-Datei entfernt wurde (Zustand expired)" }
     # --- WP-D3 ---
     DmsRuleCondition:
       type: object

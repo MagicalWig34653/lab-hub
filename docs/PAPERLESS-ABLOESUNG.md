@@ -42,7 +42,7 @@ Einstufung: **B** blockiert die Ablösung, **P** hängt vom Probelauf ab, **S** 
 | Keine gespeicherten Ansichten, keine Massenbearbeitung/Mehrfachauswahl | Code, Handoff F4 | B (Alltag, Annahme) | PA5 |
 | Mail: nur ungelesene Mails, nur App-Passwörter (kein OAuth2) | Handoff D4/F5b | P | PA3 Inventur |
 | Scanner, die per SMB/FTP liefern (F-22) | OFFENE-FRAGEN | P | BR4 |
-| Prüflauf ohne Zeitplaner; alte Export-ZIPs bleiben und zählen zur Quota | Handoff D5 | B (Betrieb) | PA7 |
+| ~~Prüflauf ohne Zeitplaner; alte Export-ZIPs bleiben und zählen zur Quota~~ (erledigt 28.11.2026, WP-PA7 Teil 3) | Handoff D5 | B (Betrieb) | PA7 |
 | Betrieb: echter Swarm ungetestet (H4, nur falls Swarm), TLS-Proxy/HSTS ungeprüft, getrennte Migrationsrolle nur dokumentiert | Handoff H9 | B (Betrieb) | PA7, H4 |
 | PWA nicht installierbar (WP-F3), nie dunkel | Struktur-Abgleich | B (Alltag, Annahme) | F3, ST4 |
 | S3-Backend fehlt (F-06) | Handoff D1 | S | – |
@@ -59,7 +59,7 @@ Einstufung: **B** blockiert die Ablösung, **P** hängt vom Probelauf ab, **S** 
 | 3 | PA7 Betrieb (Teil Probelauf: Zielrechner, Backup, Speicherbedarf) | Agent bereitet vor (**Anleitung und Messung erledigt 28.11.2026**: `docs/ANLEITUNG-ZIELRECHNER.md`, `docs/handoff/WP-PA7.md`), **Nutzer setzt auf** | Hub läuft beim Nutzer, Restore erprobt |
 | 4 | **PA3 Probelauf** (Trockenlauf gegen die echte Instanz per API-Lese-Token, erst nach PA1 und PA2) + Inventur der Eingangswege | **Nutzer** | Bericht mit Anzahlen liegt vor; Lückenliste bewertet |
 | 5 | PA4, PA5, PA6, F3, ST4 | Agent | Lücken der Stufe B/P geschlossen |
-| 6 | PA7 Rest | Agent/Nutzer | Zeitplan für Prüflauf, Aufräumen, Aktualisierung erprobt |
+| 6 | PA7 Rest | Agent/Nutzer | Zeitplan für Prüflauf, Aufräumen (**erledigt 28.11.2026**), Aktualisierung erprobt |
 | 7 | **PA8** Vollimport, Parallelbetrieb, Umschalten | **Nutzer** | Abnahme unten erfüllt |
 
 Scan-Bridge (BR1–BR4) und App (APP-M0 ff.) sind **nicht** Voraussetzung, außer die Inventur zeigt, dass ein Eingangsweg ohne sie wegfällt.

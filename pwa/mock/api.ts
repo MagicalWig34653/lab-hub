@@ -594,7 +594,7 @@ export function createMockApi(): MockApi {
 			if (path === '/api/__mock/dms/seed' && req.method === 'POST') {
 				// Test helper: `count` synthetic documents in the first tenant (pagination tests).
 				const raw = await readRaw(req);
-				const { count, ...options } = JSON.parse(raw.toString('utf8') || '{}') as { count?: number; trashed?: boolean; doc_date?: string; title?: string; tamper?: boolean; extraction?: SeedExtraction; suggest?: boolean; mail?: boolean; type_name?: string };
+				const { count, ...options } = JSON.parse(raw.toString('utf8') || '{}') as { count?: number; expire_exports?: boolean; trashed?: boolean; doc_date?: string; title?: string; tamper?: boolean; extraction?: SeedExtraction; suggest?: boolean; mail?: boolean; type_name?: string };
 				dms.seed(tenants[0].id, count ?? 0, options);
 				send(res, 204);
 				return true;
