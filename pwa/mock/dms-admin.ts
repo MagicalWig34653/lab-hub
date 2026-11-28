@@ -636,7 +636,14 @@ export function handleAdmin(d: TenantData, ctx: DmsContext, host: Host): boolean
 			chain_entries: ready ? 42 : null,
 			chain_ok: ready ? true : null,
 			error_code: null,
-			report: ready ? { findings: run.findings, truncated: false, chain: { entries: 42, ok: true, problem: null, broken_at_seq: null, head: headOf() } } : null
+			report: ready
+				? {
+						findings: run.findings,
+						truncated: false,
+						chain: { entries: 42, ok: true, problem: null, broken_at_seq: null, head: headOf() },
+						orphans: { blobs_removed: 2, staging_removed: 1, pending: 3 }
+					}
+				: null
 		};
 	};
 	if (resource === 'integrity-runs') {

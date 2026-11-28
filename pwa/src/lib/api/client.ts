@@ -36,6 +36,10 @@ export type DmsRetention = Schemas['DmsRetention'];
 export type DmsPurge = Schemas['DmsPurge'];
 export type DmsDeletionLogEntry = Schemas['DmsDeletionLogEntry'];
 export type DmsIntegrityRun = Schemas['DmsIntegrityRun'];
+export type DmsImport = Schemas['DmsImport'];
+export type DmsImportInput = Schemas['DmsImportInput'];
+export type DmsImportReport = Schemas['DmsImportReport'];
+export type DmsNote = Schemas['DmsNote'];
 export type DmsExport = Schemas['DmsExport'];
 export type DmsExportParams = Schemas['DmsExportParams'];
 export type DmsSource = Schemas['DmsSource'];
@@ -309,7 +313,8 @@ export const dmsApi = {
 	types: (tenant: string) => request<{ items: DmsMaster[] }>('GET', `/tenants/${tenant}/dms/types`),
 	tags: (tenant: string) => request<{ items: DmsMaster[] }>('GET', `/tenants/${tenant}/dms/tags`),
 	customFields: (tenant: string) => request<{ items: DmsMaster[] }>('GET', `/tenants/${tenant}/dms/custom-fields`),
-	upload: uploadFile
+	upload: uploadFile,
+	notes: (tenant: string, id: string) => request<{ items: DmsNote[] }>('GET', `/tenants/${tenant}/dms/documents/${id}/notes`)
 };
 
 export interface Page<T> {
@@ -364,6 +369,15 @@ export const dmsAdminApi = {
 	updateMaster: (tenant: string, resource: MasterResource, id: string, body: Record<string, unknown>) =>
 		request<DmsMaster>('PATCH', `/tenants/${tenant}/dms/${resource}/${id}`, body),
 	deleteMaster: (tenant: string, resource: MasterResource, id: string) => request<void>('DELETE', `/tenants/${tenant}/dms/${resource}/${id}`)
+};
+
+/** WP-D6/PA2 routes: Paperless import runs. The token is only sent with `start`, never returned. */
+export const dmsImportApi = {
+	list: (tenant: string) => request<{ items: DmsImport[] }>('GET', `/tenants/${tenant}/dms/imports`),
+	start: (tenant: string, body: DmsImportInput) => request<DmsImport>('POST', `/tenants/${tenant}/dms/imports`, body),
+	cancel: (tenant: string, id: string) => request<DmsImport>('POST', `/tenants/${tenant}/dms/imports/${id}/cancel`),
+	report: (tenant: string, id: string) => request<DmsImportReport>('GET', `/tenants/${tenant}/dms/imports/${id}/report`),
+	reportUrl: (tenant: string, id: string) => `${BASE}/tenants/${tenant}/dms/imports/${id}/report`
 };
 
 /** Contacts are the correspondents of documents (K5); only listing is needed here. */

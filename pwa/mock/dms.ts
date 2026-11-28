@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { handleAdmin, newAdminState, onUploaded, type AdminState } from './dms-admin.ts';
+import { handleImports, type ImportRun, type MockNote } from './dms-import.ts';
 import { handleSources } from './dms-sources.ts';
 
 /**
@@ -68,6 +69,8 @@ export interface MockDoc {
 	html?: string;
 	/** Core link: this document is an attachment of the mail with this id. */
 	mailId?: string;
+	/** Notes as the Paperless import creates them (WP-D6). */
+	notes?: MockNote[];
 }
 
 export interface MockFact {
@@ -144,6 +147,7 @@ export interface TenantData {
 	groups: { id: string; name: string; exclusive?: boolean }[];
 	paths: { id: string; name: string; template: string }[];
 	admin: AdminState;
+	imports: ImportRun[];
 	uploads: Map<string, { hash: string; body: unknown }>;
 	interrupted: Set<string>;
 	nextAsn: number;
@@ -188,6 +192,7 @@ export function createDmsMock() {
 				groups: [],
 				paths: [],
 				admin: newAdminState(),
+				imports: [],
 				uploads: new Map(),
 				interrupted: new Set(),
 				nextAsn: 1
@@ -512,6 +517,7 @@ export function createDmsMock() {
 		const m = ctx.method;
 		if (handleAdmin(d, ctx, { publicDoc: (doc) => publicDoc(d, doc, true), page })) return true;
 		if (handleSources(d, ctx)) return true;
+		if (handleImports(d, ctx)) return true;
 
 		if (m === 'POST' && resource === 'uploads') return upload(d, ctx), true;
 		if (m === 'GET' && resource === 'stats' && !id) return need(ctx, 'dms.document.read'), ctx.send(200, stats(d, ctx)), true;
@@ -539,6 +545,7 @@ export function createDmsMock() {
 		}
 		if (resource === 'documents' && id) {
 			if (m === 'GET' && !action) return need(ctx, 'dms.document.read'), ctx.send(200, publicDoc(d, find(d, ctx, id), true)), true;
+			if (m === 'GET' && action === 'notes' && !sub) return need(ctx, 'dms.document.read'), ctx.send(200, { items: find(d, ctx, id).notes ?? [] }), true;
 			if (m === 'GET' && action === 'extraction' && !sub) {
 				need(ctx, 'dms.document.read');
 				const out = publicDoc(d, find(d, ctx, id), true).extraction;
@@ -673,7 +680,7 @@ export function createDmsMock() {
 	function seed(
 		tenantId: string,
 		count: number,
-		options: { trashed?: boolean; doc_date?: string; title?: string; tamper?: boolean; extraction?: SeedExtraction; suggest?: boolean; mail?: boolean; type_name?: string; source?: string; suggestions?: number; created_days_ago?: number } = {}
+		options: { trashed?: boolean; doc_date?: string; title?: string; tamper?: boolean; extraction?: SeedExtraction; suggest?: boolean; mail?: boolean; type_name?: string; source?: string; suggestions?: number; created_days_ago?: number; notes?: Omit<MockNote, 'id' | 'created_at'>[] } = {}
 	) {
 		const d = tenantData(tenantId);
 		const base = (i: number, title: string, extra: Partial<MockDoc> = {}): MockDoc => {
@@ -704,6 +711,7 @@ export function createDmsMock() {
 				legal_hold: false,
 				retention_override: null,
 				source: options.source ?? 'upload',
+				notes: options.notes?.map((n) => ({ ...n, id: randomUUID(), created_at: at })),
 				extraction: ex
 					? {
 							kind: ex.kind ?? 'invoice',

@@ -12,6 +12,8 @@ export const P = {
 	tagManage: 'dms.tag.manage',
 	integrityRun: 'dms.integrity.run',
 	exportRun: 'dms.export.run',
+	importRead: 'dms.import.read',
+	importManage: 'dms.import.manage',
 	sourceRead: 'dms.source.read',
 	sourceManage: 'dms.source.manage',
 	documentCreate: 'dms.document.create'

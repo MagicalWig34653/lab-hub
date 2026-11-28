@@ -32,7 +32,7 @@ Einstufung: **B** blockiert die Ablösung, **P** hängt vom Probelauf ab, **S** 
 | ~~Token der REST-Quelle bleibt nach dem Lauf stehen~~ **behoben (PA1, AK-PA1-7):** wird beim Ende des Laufs (fertig, fehlgeschlagen, abgebrochen) und beim Abbruch eines wartenden Laufs gelöscht | Code | erledigt | PA1 |
 | ~~Import fragt keine feste API-Version an~~ **behoben (PA1, AK-PA1-5):** `Accept: application/json; version=10` (paperless-ngx 3.5.1); Antwort 406 -> `source_api_version_unsupported` | Code, Paperless-API-Doku | erledigt | PA1 |
 | ~~Mehrere Dateifassungen je Dokument nicht berücksichtigt~~ **behoben (PA1, AK-PA1-8):** übernommen wird die neueste Fassung (wie Paperless sie anzeigt), ältere zählt der Bericht (`versions_skipped`, Befund `document_versions_skipped`); die älteren Fassungen selbst werden nicht importiert (Entscheidung für PA3/PA6 offen) | Paperless-API-Doku, Code (Annahme) | erledigt, Rest P | PA1, PA6 |
-| Keine Import-Seiten in der PWA (nur API); Notizen nur lesbar | Handoff D6 | B | PA2 |
+| ~~Keine Import-Seiten in der PWA (nur API); Notizen nicht sichtbar~~ **erledigt 28.11.2026 (PA2):** Seite „Import“ (Quelle, Trockenlauf, Fortschritt, Abbruch, Bericht) und Notizen am Dokument; Notizen bleiben nur lesbar (`docs/handoff/WP-PA2.md`) | Handoff D6 | erledigt | PA2 |
 | Export-Manifest wird komplett geladen (Grenze 128 MiB). Messung PA1 (136 KB Manifest, 10 Dokumente und eine Fassung, fast ohne Text): Dokumenteintrag ca. 1,1 KiB, mit Feldwerten, Notizen und Protokolleinträgen (`auditlog.logentry`, ca. 0,9 KiB je Eintrag) ca. 9 KiB je Dokument; mit OCR-Text grob 10 000–14 000 Dokumente bis zur Grenze (Hochrechnung, nicht an einem großen Bestand gemessen) | D6, Code | P | PA6 |
 | ~~REST-Quelle liefert keine Prüfsummen~~ **widerlegt (PA1, AK-PA1-6):** `versions[].checksum` (SHA-256 des Originals je Fassung) und `metadata.archive_checksum`; der Import prüft jede Datei, der Bericht zählt `files_checksum_verified`. Ältere Stände ohne Prüfsummen: `files_without_checksum` | D6 | erledigt | PA1 |
 | Besitzer/Rechte nicht übernommen (F-23), Regeln nur als Vorschläge, `documentlink`-Felder nicht unterstützt, Währung in Geldfeldern geht verloren | MODUL-DMS 10 | P | PA3 Bericht → PA6 |
@@ -55,7 +55,7 @@ Einstufung: **B** blockiert die Ablösung, **P** hängt vom Probelauf ab, **S** 
 | --- | --- | --- | --- |
 | 0 | ST1 CI | Agent | Prüfungen laufen auf GitHub |
 | 1 | PA1 Import gegen **echte paperless-ngx im lokalen Container mit erfundenen Dokumenten** (Export und API) + Sicherheitsprüfung | Agent | Abweichungen behoben; geprüfte Paperless-Version dokumentiert (**erledigt 27.11.2026: paperless-ngx 3.5.1, API-Version 10**, `docs/handoff/WP-PA1.md`) |
-| 2 | PA2 Import in der PWA | Agent | Trockenlauf und Bericht ohne Kommandozeile |
+| 2 | PA2 Import in der PWA | Agent | Trockenlauf und Bericht ohne Kommandozeile (**erledigt 28.11.2026**, `docs/handoff/WP-PA2.md`) |
 | 3 | PA7 Betrieb (Teil Probelauf: Zielrechner, Backup, Speicherbedarf) | Agent bereitet vor, **Nutzer setzt auf** | Hub läuft beim Nutzer, Restore erprobt |
 | 4 | **PA3 Probelauf** (Trockenlauf gegen die echte Instanz per API-Lese-Token, erst nach PA1 und PA2) + Inventur der Eingangswege | **Nutzer** | Bericht mit Anzahlen liegt vor; Lückenliste bewertet |
 | 5 | PA4, PA5, PA6, F3, ST4 | Agent | Lücken der Stufe B/P geschlossen |
@@ -66,7 +66,7 @@ Scan-Bridge (BR1–BR4) und App (APP-M0 ff.) sind **nicht** Voraussetzung, auße
 
 ## 5. Probelauf (PA3)
 
-**Entschieden (Nutzer, 25.11.2026, F-34):** API-Token nur zum Lesen, **vom Nutzer selbst direkt im Hub eingetragen**. Start erst nach PA1 und PA2 (die Eingabeseite entsteht mit PA2; heute gibt es dafür nur die API-Route). Der Export mit `document_exporter` bleibt möglich, etwa zur Gegenprüfung von Prüfsummen, ist aber nicht der gewählte Weg.
+**Entschieden (Nutzer, 25.11.2026, F-34):** API-Token nur zum Lesen, **vom Nutzer selbst direkt im Hub eingetragen**. Start erst nach PA1 und PA2 (beide erledigt; die Eingabeseite ist unter docs → Import). Der Export mit `document_exporter` bleibt möglich, etwa zur Gegenprüfung von Prüfsummen, ist aber nicht der gewählte Weg.
 
 Ablauf (die Anleitung steht in `docs/ANLEITUNG-PA3-PAPERLESS-PROBELAUF.md`, geprüft in PA1/PA1R/PA3V; Netzvoraussetzungen, interne Ziele und Allowlist dort Abschnitt 3):
 

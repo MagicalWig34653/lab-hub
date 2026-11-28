@@ -1,6 +1,7 @@
 import FileText from '@lucide/svelte/icons/file-text';
 import type { ModuleManifest } from '#lib/modules/manifest';
 import { adminDe, adminEn } from './messages-admin';
+import { importDe, importEn } from './messages-import';
 import { overviewDe, overviewEn } from './messages-overview';
 import { sourcesDe, sourcesEn } from './messages-sources';
 import { dmsNavigation } from './navigation';
@@ -108,7 +109,8 @@ export const dmsManifest: ModuleManifest = {
 			'dms.trash.restore': 'Wiederherstellen',
 			...adminDe,
 			...sourcesDe,
-			...overviewDe
+			...overviewDe,
+			...importDe
 		},
 		en: {
 			'nav.dms': 'docs',
@@ -206,7 +208,8 @@ export const dmsManifest: ModuleManifest = {
 			'dms.trash.restore': 'Restore',
 			...adminEn,
 			...sourcesEn,
-			...overviewEn
+			...overviewEn,
+			...importEn
 		}
 	}
 };

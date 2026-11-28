@@ -87,7 +87,7 @@ Ausgangsstand (vorhanden, getestet laut `deploy/README.md`/Tests): `migrate`, `s
 |  | BR3 | PWA: Scanner wählen und Scan starten | BR2, ST4 | M | P BR4 | offen |
 |  | BR4 | Bridge-Betrieb, Lizenzhinweise, optionaler Ordner-Eingang (F-22) | BR2 | M | P BR3 | offen |
 | 9 Ablösung | PA1 | Paperless-Import gegen echte Instanz (lokal, erfundene Daten) und Sicherheitsprüfung | D6 | M | P ST4 | fertig (bac77a2; Übergabe `docs/handoff/WP-PA1.md`; echter E2E gegen paperless-ngx 3.5.1 mit erfundenen Daten) |
-|  | PA2 | PWA: Import anlegen, Trockenlauf, Bericht, Notizen | PA1, F2 | M |  | offen |
+|  | PA2 | PWA: Import anlegen, Trockenlauf, Bericht, Notizen | PA1, F2 | M |  | fertig (Übergabe `docs/handoff/WP-PA2.md`; E2E gegen echtes Backend und lokale paperless-ngx 3.5.1 mit erfundenen Daten) |
 |  | PA3 | Probelauf mit API-Lese-Token gegen die echte Instanz und Inventur der Eingangswege (Nutzer) | PA1, PA2, PA7 (Teil 1) | S |  | offen |
 |  | PA4 | Miniaturen (Worker, Route, Liste) | O2 | M | P PA2 | offen |
 |  | PA5 | Gespeicherte Ansichten, Mehrfachauswahl, Massenbearbeitung | F4c, S1 | L | P PA4 | offen |
@@ -287,6 +287,8 @@ Grundlage und Reihenfolge: `docs/PAPERLESS-ABLOESUNG.md`. Private Bestandsdaten 
 **Stand 27.11.2026:** AK-PA1-1 bis PA1-8 erledigt gegen paperless-ngx 3.5.1 (Übergabe `docs/handoff/WP-PA1.md`, E2E `scripts/e2e-paperless-import.sh`); TLS entschieden (Nutzer, 27.11.2026): öffentlich gültiges Zertifikat verlangt, keine eigene CA einstellbar (die Anleitung in PA3 nennt das als Voraussetzung); offen für PA3: Umgang mit älteren Fassungen. **Unabhängiger Sicherheits-Review 27.11.2026 (`docs/handoff/WP-PA1R.md`):** zwei Befunde (mittel) bestätigt und behoben (SSRF-Zielprüfung: geprüfter und verbundener Host konnten abweichen; Token und Lauf blieben nach Worker-Absturzschleife hängen), E2E zählt 67 Prüfungen (nach den Fixes 70); CI-Lauf 46076225907 grün; PA3 braucht in der Anleitung den Hinweis zu internen Zielen und der Allowlist.
 
 **WP-PA2 Import in der PWA (M).** Akzeptanz: AK-PA2-1 Quelle wählen, Trockenlauf, Fortschritt, Abbruch, Bericht; Adresse und Token trägt der Nutzer hier ein (Passwortfeld, ohne Speichern im Browser), das Token wird nie wieder angezeigt oder protokolliert; PA2-2 Notizen am Dokument sichtbar; PA2-3 E2E gegen echtes Backend, Bilder hell und dunkel.
+
+**Stand 28.11.2026:** AK-PA2-1 bis PA2-3 erledigt (Seite docs → Import, Notizen am Dokument, E2E `scripts/e2e-paperless-pwa.sh`, Bilder `docs/screenshots/pa2/`). Dabei mit erledigt: die Prüfseite zeigt `report.orphans` (WP-D5b). Übergabe `docs/handoff/WP-PA2.md`.
 
 **WP-PA3 Probelauf (S, Nutzer).** Weg entschieden (F-34, 25.11.2026): API-Token nur zum Lesen, vom Nutzer selbst im Hub eingetragen. Start erst nach PA1 und PA2. Akzeptanz: AK-PA3-1 Anleitung (Entwurf liegt vor: `docs/ANLEITUNG-PA3-PAPERLESS-PROBELAUF.md`, mit interner-Ziele-und-Allowlist-Abschnitt; eigener Paperless-Benutzer nur mit Leserechten, Netz- und Zertifikatsvoraussetzungen (Zertifikat öffentlich gültig, keine eigene CA, entschieden 27.11.2026), Token widerrufen) ohne Datenweitergabe; PA3-2 Trockenlauf-Zahlen und Befundcodes liegen vor, Anzahl Dokumente mit Paperless verglichen; PA3-3 genutzte Eingangswege und Funktionen aufgelistet, Lücken eingestuft.
 

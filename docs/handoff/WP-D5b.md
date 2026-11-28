@@ -45,6 +45,6 @@ Zweite Runde beim Selbst-Gegenlesen (28.11. 02:08): die beiden letzten Tests obe
 - Lokal (`scripts/ci.sh`, eigener Postgres-17-Container): am Stand 36f4220 575 Tests, 27 übersprungen (Werkzeuge nur im Worker-Image), 0 Fehler. Im ersten Lauf (85a6f66, Maschinenlast um 260) riss ein 2-s-Zeitlimit in `ExtractionRedosTests`; einzeln wiederholt grün.
 
 ## Offen
-- PWA-Prüfseite zeigt `report.orphans` noch nicht an (eigene Karte, mit Bildern hell/dunkel).
+- ~~PWA-Prüfseite zeigt `report.orphans` noch nicht an~~ erledigt 28.11.2026 mit WP-PA2 (`docs/handoff/WP-PA2.md`).
 - Zeitplaner für `dms.verify` fehlt weiterhin (Auslösung über die Route, wie in WP-D5).
 - S3-Speicher ist noch nicht implementiert; ein künftiger S3-Speicher braucht `OrphanSweepableStore` (sonst fehlt `orphans` im Bericht).

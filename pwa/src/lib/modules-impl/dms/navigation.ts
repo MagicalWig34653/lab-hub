@@ -1,5 +1,6 @@
 import CopyIcon from '@lucide/svelte/icons/copy';
 import FileText from '@lucide/svelte/icons/file-text';
+import HardDriveDownload from '@lucide/svelte/icons/hard-drive-download';
 import InboxIcon from '@lucide/svelte/icons/inbox';
 import KeyRound from '@lucide/svelte/icons/key-round';
 import ListChecks from '@lucide/svelte/icons/list-checks';
@@ -41,7 +42,8 @@ export const dmsNavigation: NavGroupDef[] = [
 			{ id: 'tokens', path: '/dms/tokens', labelKey: 'dms.nav.tokens', icon: KeyRound, permission: P.documentCreate, testId: 'dms-nav-tokens' },
 			{ id: 'scanner', path: '/dms/scanner', labelKey: 'dms.nav.scanner', icon: ScanLine, permission: P.documentCreate, testId: 'dms-nav-scanner' },
 			{ id: 'integrity', path: '/dms/integrity', labelKey: 'dms.nav.integrity', icon: ShieldCheck, permission: P.integrityRun, testId: 'dms-nav-integrity' },
-			{ id: 'exports', path: '/dms/exports', labelKey: 'dms.nav.exports', icon: PackageOpen, permission: P.exportRun, testId: 'dms-nav-exports' }
+			{ id: 'exports', path: '/dms/exports', labelKey: 'dms.nav.exports', icon: PackageOpen, permission: P.exportRun, testId: 'dms-nav-exports' },
+			{ id: 'imports', path: '/dms/imports', labelKey: 'dms.nav.imports', icon: HardDriveDownload, permission: P.importRead, testId: 'dms-nav-imports' }
 		]
 	}
 ];

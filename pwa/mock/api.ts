@@ -80,6 +80,8 @@ const OWNER_PERMISSIONS = [
 	'dms.export.run',
 	'dms.source.read',
 	'dms.source.manage',
+	'dms.import.read',
+	'dms.import.manage',
 	'tenant.tenant.read',
 	'tenant.member.read',
 	'tenant.member.invite',
@@ -154,8 +156,12 @@ export function createMockApi(): MockApi {
 		return tenant;
 	}
 
+	/** Test switch: no role has the import permissions. */
+	let importsDenied = false;
+
 	function permissionsOf(role: string): string[] {
-		return role === 'owner' ? OWNER_PERMISSIONS : role === 'customer_viewer' ? VIEWER_PERMISSIONS : MEMBER_PERMISSIONS;
+		const all = role === 'owner' ? OWNER_PERMISSIONS : role === 'customer_viewer' ? VIEWER_PERMISSIONS : MEMBER_PERMISSIONS;
+		return importsDenied ? all.filter((p) => !p.startsWith('dms.import.')) : all;
 	}
 
 	function require(user: MockUser, tenant: MockTenant, permission: string) {
@@ -593,7 +599,14 @@ export function createMockApi(): MockApi {
 				send(res, 204);
 				return true;
 			}
+			if (path === '/api/__mock/dms/imports/deny' && req.method === 'POST') {
+				// Test helper: take the import permissions away (visibility and 403).
+				importsDenied = true;
+				send(res, 204);
+				return true;
+			}
 			if (path === '/api/__mock/reset' && req.method === 'POST') {
+				importsDenied = false;
 				reset();
 				send(res, 204);
 				return true;

@@ -13,6 +13,7 @@
 	import FactsPanel from './FactsPanel.svelte';
 	import KindBadge from './KindBadge.svelte';
 	import LinksPanel from './LinksPanel.svelte';
+	import NotesPanel from './NotesPanel.svelte';
 	import { loadMasters, type Masters } from './masters';
 	import { P } from './permissions';
 	import { isProcessingOver, isQuarantined } from './upload.svelte';
@@ -393,6 +394,7 @@
 			</dl>
 			<FactsPanel tenant={tenantId} documentId={documentId} canRerun={canUpdate && !trashed} onrerun={() => (suggestionsKey += 1)} />
 			<LinksPanel tenant={tenantId} {documentId} />
+			<NotesPanel tenant={tenantId} {documentId} />
 		</section>
 
 		<section aria-labelledby="dms-edit-title">

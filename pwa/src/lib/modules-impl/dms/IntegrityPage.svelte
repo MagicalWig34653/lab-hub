@@ -183,6 +183,20 @@
 					<dd class="font-mono text-xs break-all">{selected.report.chain.head}</dd>
 				{/if}
 			</dl>
+			{#if selected.report?.orphans}
+				{@const orphans = selected.report.orphans}
+				<div data-testid="integrity-orphans">
+					<h3 class="mt-4 mb-1 text-base font-medium">{tx('dms.integrity.orphans.title')}</h3>
+					<dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
+						<dt class="text-muted-foreground">{tx('dms.integrity.orphans.blobs')}</dt>
+						<dd data-testid="orphans-blobs">{orphans.blobs_removed}</dd>
+						<dt class="text-muted-foreground">{tx('dms.integrity.orphans.staging')}</dt>
+						<dd data-testid="orphans-staging">{orphans.staging_removed}</dd>
+						<dt class="text-muted-foreground">{tx('dms.integrity.orphans.pending')}</dt>
+						<dd data-testid="orphans-pending">{orphans.pending}</dd>
+					</dl>
+				</div>
+			{/if}
 			{#if selected.report?.findings && selected.report.findings.length > 0}
 				<h3 class="mt-4 mb-1 text-base font-medium">{tx('dms.integrity.findings')}</h3>
 				{#if selected.report.truncated}<p class="text-sm" data-testid="integrity-truncated">{tx('dms.integrity.truncated')}</p>{/if}

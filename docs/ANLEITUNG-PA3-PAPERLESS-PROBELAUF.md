@@ -2,7 +2,7 @@
 
 Stand 28.11.2026, geprüft gegen paperless-ngx 3.5.1 (API-Version 10) und den Hub-Stand nach WP-PA1R. Gehört zu WP-PA3 (`docs/ROADMAP.md`, Akzeptanz AK-PA3-1) und zu `docs/PAPERLESS-ABLOESUNG.md`, Abschnitt 5. Der Probelauf läuft auf der Hardware des Nutzers; weder Token noch Dateien, Titel oder Namen gehen an Agents, Board oder Repository. Der Trockenlauf (`dry_run`) schreibt nichts ins DMS; weitergegeben werden nur Zahlen und Befundcodes.
 
-Diese Fassung enthält die Netzvoraussetzungen (öffentlicher Name, Zertifikat, **interne Ziele und Allowlist**) und das Aufräumen. Die Eingabeseite in der PWA entsteht mit WP-PA2; bis dahin gibt es dafür nur die API-Route (`POST /api/v1/tenants/{tenant}/dms/imports`, Recht `dms.import.manage`).
+Diese Fassung enthält die Netzvoraussetzungen (öffentlicher Name, Zertifikat, **interne Ziele und Allowlist**) und das Aufräumen. Die Eingabeseite ist in der PWA unter **docs → Verwaltung → Import** (WP-PA2); sie braucht das Recht `dms.import.manage` (Rollen Besitzer und Buchhaltung).
 
 ## 1. In Paperless: Benutzer nur mit Leserechten
 
@@ -40,10 +40,10 @@ DMS_ALLOW_INTERNAL_TARGETS=true
 
 ## 4. Lauf und Zahlen
 
-1. Adresse und Token trägt der Nutzer selbst im Hub ein (nie in Chat, Board, Repository oder Shell-Verlauf), Modus `dry_run`.
-2. Der Bericht nennt Anzahlen (u. a. Dokumente gesehen, Notizen, Fassungen, Dokumente im Papierkorb) und Befundcodes. Dokumentenzahl mit der Anzeige in Paperless vergleichen; ältere Fassungen eines Dokuments zählt der Bericht (`versions_skipped`), übernommen wird die neueste.
+1. Adresse und Token trägt der Nutzer selbst im Hub ein (nie in Chat, Board, Repository oder Shell-Verlauf): **docs → Import**, Quelle „Paperless-Instanz (REST-API)“, Art „Trockenlauf“ (vorausgewählt). Das Token-Feld ist ein Passwortfeld und ist nach dem Absenden leer; der Browser speichert es nicht. Bietet der Browser oder ein Passwortmanager trotzdem an, es zu speichern, ablehnen. Fortschritt, Abbruch und Bericht stehen auf derselben Seite; für jeden weiteren Lauf das Token neu eintragen.
+2. Der Bericht (auf der Seite und als JSON-Datei zum Herunterladen) nennt Anzahlen (u. a. Dokumente gesehen, Notizen, Fassungen, Dokumente im Papierkorb) und Befundcodes. Dokumentenzahl mit der Anzeige in Paperless vergleichen; ältere Fassungen eines Dokuments zählt der Bericht (`versions_skipped`), übernommen wird die neueste.
 3. Große Dateien: Ein Download wird nicht durch die Anfragefrist abgeschnitten (Messung WP-PA3V, `docs/handoff/WP-PA3V.md`). Der Lauf endet mit `source_unreachable` nur, wenn Paperless 60 Sekunden lang gar keine Daten mehr liefert. Eine Datei über `DMS_MAX_UPLOAD_BYTES` (Standard 100 MiB) wird übersprungen und als Befund `file_too_large` gezählt.
-4. Nur Zahlen und Befundcodes weitergeben, keine Titel, Namen oder Dateien.
+4. Nur Zahlen und Befundcodes weitergeben, keine Titel, Namen oder Dateien. Die heruntergeladene JSON-Datei enthält in den Befunden und Regelvorschlägen auch Namen aus der Quelle: nicht weitergeben.
 
 ## 5. Aufräumen
 

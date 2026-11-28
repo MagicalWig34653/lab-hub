@@ -3,7 +3,8 @@
 Rate bremst (Bytes pro Sekunde): eine langsame Leitung zu einer lokalen Instanz, damit der Download einer großen Datei sicher länger dauert als die Anfragefrist des Hub.
 Die Daten kommen laufend (kein Stillstand), nur langsam. Keine Zugangsdaten, nichts wird protokolliert.
 
-Aufruf:  python3 slowproxy.py <Port> <Ziel-Port> <Bytes pro Sekunde>
+Aufruf:  python3 slowproxy.py <Port> <Ziel-Port> <Bytes pro Sekunde> [Verzögerung je Anfrage in s]
+Rate 0 bremst die Antworten nicht. Die Verzögerung (WP-PA2) hält jede Anfrage kurz zurück, damit ein Lauf über viele kleine Dateien beobachtbar bleibt.
 """
 import asyncio
 import sys
@@ -12,10 +13,12 @@ FAST_BYTES = 1024 * 1024
 CHUNK = 16 * 1024
 
 
-async def pump(reader, writer, rate=None):
+async def pump(reader, writer, rate=None, delay=0.0):
     sent = 0
     try:
         while data := await reader.read(CHUNK):
+            if delay:
+                await asyncio.sleep(delay)
             writer.write(data)
             await writer.drain()
             sent += len(data)
@@ -27,20 +30,20 @@ async def pump(reader, writer, rate=None):
         writer.close()
 
 
-async def handle(client_r, client_w, target, rate):
+async def handle(client_r, client_w, target, rate, delay):
     try:
         up_r, up_w = await asyncio.open_connection("127.0.0.1", target)
     except OSError:
         client_w.close()
         return
-    await asyncio.gather(pump(client_r, up_w), pump(up_r, client_w, rate))
+    await asyncio.gather(pump(client_r, up_w, delay=delay), pump(up_r, client_w, rate))
 
 
-async def main(port, target, rate):
-    server = await asyncio.start_server(lambda r, w: handle(r, w, target, rate), "127.0.0.1", port)
+async def main(port, target, rate, delay):
+    server = await asyncio.start_server(lambda r, w: handle(r, w, target, rate, delay), "127.0.0.1", port)
     async with server:
         await server.serve_forever()
 
 
 if __name__ == "__main__":
-    asyncio.run(main(int(sys.argv[1]), int(sys.argv[2]), int(sys.argv[3])))
+    asyncio.run(main(int(sys.argv[1]), int(sys.argv[2]), int(sys.argv[3]), float(sys.argv[4]) if len(sys.argv) > 4 else 0.0))
