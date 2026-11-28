@@ -6,9 +6,11 @@ import NIOCore
 public struct FilesystemObjectStore: ObjectStore {
     public let kind = ObjectStoreKind.fs
     public let root: URL
+    /// Testnaht: läuft im Aufräumlauf zwischen Altersprüfung und Entfernen (`OrphanSweep.swift`).
+    package var beforeSweepRemoval: (@Sendable () async throws -> Void)?
     public init(root: URL) { self.root = root }
 
-    private var staging: URL { root.appendingPathComponent(".staging", isDirectory: true) }
+    var staging: URL { root.appendingPathComponent(".staging", isDirectory: true) }
     private func url(_ key: ObjectKey) -> URL { root.appendingPathComponent(key.path) }
 
     private func mkdir(_ u: URL) throws {

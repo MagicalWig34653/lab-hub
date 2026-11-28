@@ -19,7 +19,9 @@ Stand 28.11.2026, am Stand `origin/main` 35a4d4f. Befund aus `docs/handoff/WP-PA
 - Laufender Upload schreibt Staging-Teile: jünger als die Schonfrist, bleibt (Staging zählt nach dem jüngsten Teil).
 - `put` fertig, Commit offen: der Blob ist jung, bleibt; die Registrierung prüft die Bytes unter der Blob-Sperre (`verifyBlob` bei Upload, Quelle, Import; Logo prüft `exists`).
 - Upload trifft per Dedup einen alten verwaisten Blob: `put` frischt die Zeit auf, der Aufräumlauf sieht ihn als jung. Läuft das Löschen gerade, wartet das Auffrischen auf die Zeilensperre und legt danach neu ab.
-- Restfenster nur beim Dateisystem-Speicher (keine Zeilensperre zwischen Prüfen und Löschen): ein Dedup im selben Augenblick führt bei Upload/Quelle/Import zu `upload_interrupted` (sichtbar, kein stiller Verlust). Der Dateisystem-Speicher ist ohnehin nur für einen einzelnen Host gedacht.
+- Dateisystem-Speicher ohne Zeilensperre: vor dem Entfernen wird die Datei in den Staging-Ordner umbenannt und ihr Alter erneut geprüft; hat ein Dedup-`put` sie inzwischen aufgefrischt, kommt sie zurück, ein späterer `put` findet keine Datei und legt sie neu ab.
+- `put` hängt länger als die Schonfrist und sein Staging wird weggeräumt: das Hochstufen verlangt den vollständigen Teilesatz, der Upload scheitert sichtbar (kein unvollständiges Objekt unter dem Hash).
+- Rolling Update: ältere Instanzen frischen beim Dedup nicht auf. Bestandszeilen gelten ab der Migration als jung, in den ersten 24 h wird also nichts Altes gelöscht; alte Instanzen innerhalb dieser Zeit ersetzen.
 - Der Staging-Ordner des Dateisystem-Speichers ist mandantenübergreifend; alte Teile entfernt jeder Lauf.
 
 ## Tests
@@ -29,9 +31,13 @@ Stand 28.11.2026, am Stand `origin/main` 35a4d4f. Befund aus `docs/handoff/WP-PA
 - `testOrphanSweep_dedupOnStaleOrphanRefreshesAge`: Dedup auf einen 72 h alten verwaisten Blob über die zweite Instanz frischt die Zeit auf, Blob bleibt.
 - `testOrphanSweep_onlyTouchesOwnTenant`: verwaiste Objekte eines anderen Mandanten bleiben unberührt.
 - `testOrphanSweep_filesystemStore`: dieselben Regeln für den Dateisystem-Speicher (Änderungszeit, Staging-Ordner, Dedup frischt auf).
+- `testOrphanSweep_stalledUploadFailsInsteadOfStoringATruncatedObject`: ein hängender `put`, dessen Staging weggeräumt wurde, scheitert und hinterlässt nichts.
+- `testOrphanSweep_filesystemDedupDuringRemovalKeepsTheObject`: Dedup-`put` zwischen Altersprüfung und Entfernen (Testnaht `beforeSweepRemoval`), Datei bleibt.
 - Migrationslisten ergänzt: `MigrationNamesTests`, `ObjectStoreTests.testFilesTableDedupAndMigrationRevert`.
 
 Rot zuerst (28.11. ca. 01:50, lokal gegen eigenen Postgres-Container, Aufräumlauf noch als leerer Platzhalter): 4 von 5 neuen Tests rot, 11 Fehlschläge (Blobs und Staging blieben, Zähler 0); `testOrphanSweep_onlyTouchesOwnTenant` war erwartungsgemäß schon grün. Nach der Umsetzung grün: `DMSOrphanSweepTests`, `DMSIntegrityTests`, `ObjectStoreTests`, `MigrationNamesTests` (25 Tests).
+
+Zweite Runde beim Selbst-Gegenlesen (28.11. 02:08): die beiden letzten Tests oben rot (4 Fehlschläge; der hängende Upload speicherte tatsächlich ein unvollständiges Objekt), nach der Korrektur grün.
 
 ## Belege
 - Commit und CI-Lauf: siehe Nachtrag unten.

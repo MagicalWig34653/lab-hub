@@ -84,12 +84,22 @@ extension FilesystemObjectStore: OrphanSweepableStore {
         return out
     }
 
-    /// Restfenster: ein Dedup-`put` einer anderen Instanz zwischen Prüfen der Zeit und Löschen kann nicht wie beim DB-Speicher per Zeilensperre warten.
-    /// Die Registrierung prüft die Bytes aber unter derselben Blob-Sperre (`verifyBlob`), der Upload scheitert dann sichtbar (`upload_interrupted`) statt still.
+    /// Ohne Zeilensperre: die Datei wird erst in den Staging-Ordner umbenannt und dort erneut geprüft. Ein Dedup-`put` vor dem Umbenennen hat die Zeit
+    /// aufgefrischt (die Datei kommt zurück), eines danach findet keine Datei und legt die Bytes neu ab. Stirbt der Prozess dazwischen, räumt `sweepStaging` auf.
     package func deleteIfStale(_ key: ObjectKey, graceSeconds: Int, on db: any SQLDatabase) async throws -> Bool {
         let path = root.appendingPathComponent(key.path).path
-        guard let m = modified(path), m < (try await dbNow(db)) - Double(graceSeconds) else { return false }
-        try await delete(key)
+        let cutoff = try await dbNow(db) - Double(graceSeconds)
+        guard let m = modified(path), m < cutoff else { return false }
+        try await beforeSweepRemoval?()
+        try FileManager.default.createDirectory(at: staging, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        let removal = staging.appendingPathComponent("sweep-" + UUID().uuidString).path
+        guard rename(path, removal) == 0 else { return false }
+        if let now = modified(removal), now >= cutoff {
+            // `rename` ersetzt eine inzwischen neu abgelegte Datei durch dieselben Bytes (inhaltsadressiert)
+            guard rename(removal, path) == 0 else { throw ObjectStoreError.io("restore") }
+            return false
+        }
+        try FileManager.default.removeItem(atPath: removal)
         return true
     }
 

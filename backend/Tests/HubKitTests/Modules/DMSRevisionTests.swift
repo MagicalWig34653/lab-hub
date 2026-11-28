@@ -840,6 +840,44 @@ final class DMSOrphanSweepTests: DMSRevisionTestBase {
         try await aEq(try await count("object_chunks", where: "tenant_id = '\(tenant)' AND sha256 LIKE 'tmp:%'"), 0, "Staging des Dedup-Uploads verworfen")
     }
 
+    /// Hängt ein `put` länger als die Schonfrist und wird sein Staging dabei weggeräumt, scheitert er sichtbar: nie ein unvollständiges Objekt unter dem Hash.
+    func testOrphanSweep_stalledUploadFailsInsteadOfStoringATruncatedObject() async throws {
+        let w = try await world()
+        let tenant = UUID(uuidString: w.tenantA)!
+        let payload = bytes("haengt", size: objectStoreChunkSize + 4096)
+        let (stream, input) = ByteStream.makeStream()
+        let upload = Task { try await self.store(self.app1).put(tenant: tenant, stream: stream, expectedSHA256: nil) }
+        var head = ByteBuffer(); head.writeBytes(payload.prefix(objectStoreChunkSize)); input.yield(head)
+        try await waitFor("Staging-Teil geschrieben") { try await self.count("object_chunks", where: "tenant_id = '\(tenant)' AND sha256 LIKE 'tmp:%'") == 1 }
+        try await db.raw("UPDATE object_chunks SET created_at = now() - interval '48 hours' WHERE tenant_id = \(bind: tenant) AND sha256 LIKE 'tmp:%'").run()
+        let run = try await verify(w, worker: app2)
+        XCTAssertEqual(orphans(run)["staging_removed"], 1, "\(run)")
+        var tail = ByteBuffer(); tail.writeBytes(payload.dropFirst(objectStoreChunkSize)); input.yield(tail); input.finish()
+        let result = await upload.result
+        if case .success(let stored) = result { XCTFail("unvollständiges Objekt gemeldet: \(stored.key.sha256)") }
+        try await aEq(try await count("object_chunks", where: "tenant_id = '\(tenant)'"), 0, "kein Rest")
+    }
+
+    /// Dateisystem-Speicher: Trifft ein Dedup-`put` genau zwischen Altersprüfung und Löschen, bleibt die Datei erhalten.
+    func testOrphanSweep_filesystemDedupDuringRemovalKeepsTheObject() async throws {
+        let tenant = UUID()
+        let root = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("labhub-sweep-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let payload = bytes("fs-rennen")
+        var fs = FilesystemObjectStore(root: root)
+        let stored = try await fs.put(tenant: tenant, stream: streamOf(payload), expectedSHA256: nil)
+        let path = root.appendingPathComponent(stored.key.path).path
+        try FileManager.default.setAttributes([.modificationDate: Date().addingTimeInterval(-48 * 3600)], ofItemAtPath: path)
+        let other = FilesystemObjectStore(root: root)
+        fs.beforeSweepRemoval = {
+            let again = try await other.put(tenant: tenant, stream: streamOf(payload), expectedSHA256: nil)
+            XCTAssertTrue(again.deduplicated)
+        }
+        let removed = try await fs.deleteIfStale(stored.key, graceSeconds: DMSOrphanSweep.graceSeconds, on: db)
+        XCTAssertFalse(removed)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: path), "gerade geschriebenes Objekt bleibt")
+    }
+
     /// Mandantentrennung: der Lauf von Mandant A löscht keine verwaisten Objekte eines anderen Mandanten.
     func testOrphanSweep_onlyTouchesOwnTenant() async throws {
         let w = try await world()

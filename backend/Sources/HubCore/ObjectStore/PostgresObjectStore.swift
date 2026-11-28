@@ -43,7 +43,14 @@ public struct PostgresObjectStore: ObjectStore {
                 return StoredObject(key: key, size: hasher.size, deduplicated: true)
             }
             do {
-                try await db.raw("UPDATE object_chunks SET sha256 = \(bind: hash), created_at = now() WHERE tenant_id = \(bind: tenant) AND sha256 = \(bind: staging)").run()
+                // Karte 3: only promote a complete staging set. A `put` stalled beyond the grace period may have lost parts to the orphan sweep;
+                // it must fail instead of publishing a truncated object under the hash.
+                let promoted = try await db.raw("""
+                    UPDATE object_chunks SET sha256 = \(bind: hash), created_at = now() WHERE tenant_id = \(bind: tenant) AND sha256 = \(bind: staging)
+                      AND (SELECT count(*) FROM object_chunks WHERE tenant_id = \(bind: tenant) AND sha256 = \(bind: staging)) = \(bind: seq)
+                    RETURNING seq
+                    """).all()
+                if promoted.isEmpty { throw ObjectStoreError.io("staging incomplete") }
             } catch {
                 // concurrent identical upload won the primary-key race
                 try await discard(tenant, staging)
