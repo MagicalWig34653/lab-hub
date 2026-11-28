@@ -214,7 +214,7 @@ Konfliktregeln (Entwurf):
 - Zähler: serverseitig; Client darf keine Nummer lokal vergeben, sobald Hub-Modus aktiv ist.
 - Löschen: Tombstone; Löschung finalisierter oder aufbewahrungspflichtiger Objekte verboten.
 
-Offene Fragen: Beim ersten Verbinden überträgt die App ihren Bestand samt Nummernkreisen; die Zähler des Hubs steigen auf das Maximum (F-09). Offen: Ob CloudKit parallel weiterläuft (nein, empfohlen: pro Mandant exakt ein Sync-Ziel, F-10)? Auth der Apps (Passkey im System-Browser + Token oder Geräte-Token, F-05)? Format für Anhänge und Layouts (Layout-Designer-Daten gehören zur App)?
+Offene Fragen: Beim ersten Verbinden überträgt die App ihren Bestand samt Nummernkreisen; die Zähler des Hubs steigen auf das Maximum (F-09). Entschieden (F-10, 28.11.2026): Ist ein Hub-Server eingetragen, gleicht nur der Hub ab, iCloud ist für diese Daten aus. Offen: Auth der Apps (Passkey im System-Browser + Token oder Geräte-Token, F-05)? Format für Anhänge und Layouts (Layout-Designer-Daten gehören zur App)?
 
 ## 7. Datenschutz und Sicherheit
 

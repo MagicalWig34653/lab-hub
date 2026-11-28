@@ -52,7 +52,7 @@ Ausgangsstand (vorhanden, getestet laut `deploy/README.md`/Tests): `migrate`, `s
 | | R6b | Typst-Werkzeugkette, Factur-X-Metadatenschritt, Standardlayout | R6a, R2 | M | | fertig (6e6c898, CI-Lauf 46029049038; Übergabe `docs/handoff/WP-R6b.md`) |
 | | R6c | Render-Job `invoice.render`, Speicherung, PDF-Download | R6b | M | | fertig (12188bb, CI-Lauf 46046345610; Übergabe `docs/handoff/WP-R6c.md`) |
 | | R6d | Layoutmodell V1, Parameter, Vorschau | R6c | M | | fertig (88dc278, CI-Lauf 46057812654; Übergabe `docs/handoff/WP-R6d.md`) |
-| | R6e | Übernahme vorhandener Layouts über die Sync-Schnittstelle | R6d, R4-Zuschnitt (F-09, F-31) | M | | offen |
+| | R6e | Vorhandene Layouts über die Sync-Schnittstelle, neue Belege genau wie in der App | R6d, R4-Zuschnitt (F-09, F-31) | L–XL | | offen |
 | | R7 | Ausgaben, EÜR/USt-Berichte | R3 | L | | offen |
 | | F6 | Rechnungs-UI (erstellen, bearbeiten, finalisieren, PDF, Zahlungen, Berichte) | F2, R2, R6 | L | P R3.. | offen |
 | | F7 | Layout-Verwaltung und Designer in der PWA | F6, R6 | L | | offen |

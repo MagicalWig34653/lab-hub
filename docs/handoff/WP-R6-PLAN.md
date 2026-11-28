@@ -77,10 +77,12 @@ Offen in R6d (entschieden): Das API-Image hat kein Typst. Die Vorschau läuft ü
 
 Dokumentiertes Importformat → Layoutmodell, nur synthetische Fixtures, Bericht über nicht übertragbare Elemente. Blockiert, bis das Importformat feststeht (F-09, F-31). Private Kundenlayouts werden nie gelesen.
 
+**Stand 28.11.2026 (Nutzer):** kein Datei-Import, die Layouts kommen über die Sync-Schnittstelle (F-09), und neue Belege aus dem Hub sollen **genau wie in der App** aussehen. Damit ist R6e größer (eher L bis XL) und braucht den Vergleich mit Referenz-PDFs der App, der unten noch als „nicht Teil von R6“ steht. Folgeaufwand und Grenzen: `docs/OFFENE-FRAGEN.md`, „Entschieden“. Zuschnitt als eigener Auftrag.
+
 ## Offener Punkt für den Nutzer
 
 - **F-37 Reihenfolge E-Rechnung:** Ein finales PDF wird nie neu erzeugt. Belege, die nach R6c, aber vor WP-R5 finalisiert werden, bleiben ohne eingebettetes XML. Empfehlung: R5 nach R6c und vor der ersten produktiven Rechnung im Hub. **[Annahme]** Der Hub stellt noch keine produktiven Rechnungen aus.
 
 ## Nicht Teil von R6
 
-E-Rechnungs-XML und Validierung (R5, F-26), grafischer Designer (F7b), Treue-Vergleich mit PDFs der bisherigen App.
+E-Rechnungs-XML und Validierung (R5, F-26), grafischer Designer (F7b). Der Treue-Vergleich mit PDFs der bisherigen App war hier ausgenommen; seit dem 28.11.2026 ist er nötig (Abschnitt R6e).

@@ -63,7 +63,7 @@ Invarianten (als DB-Constraints + Tests):
 
 ## 5. PDF-Rendering und Layouts im Hub (Entscheidung F-08 neu bewertet)
 
-Anforderung: Der Hub rendert selbst, Linux-tauglich, ohne App. Der Renderer der bisherigen App nutzt Apple-Frameworks und läuft nicht unter Linux. Ziel bleibt Treue zu den vorhandenen Layouts.
+Anforderung: Der Hub rendert selbst, Linux-tauglich, ohne App. Der Renderer der bisherigen App nutzt Apple-Frameworks und läuft nicht unter Linux. Ziel bleibt Treue zu den vorhandenen Layouts. **Nutzer 28.11.2026:** Neue Belege aus dem Hub sollen genau wie in der App aussehen (`OFFENE-FRAGEN.md`, „Entschieden“, mit Folgeaufwand und Grenzen).
 
 | Option | Beschreibung | Vorteile | Nachteile |
 | --- | --- | --- | --- |
