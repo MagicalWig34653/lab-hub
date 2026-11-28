@@ -111,5 +111,26 @@ expect 1 "AK-ST1-3 pull_request_target" scripts/check-workflows.sh "$W/target"
 expect 1 "AK-ST1-3 keine Workflow-Datei ist rot" scripts/check-workflows.sh "$W/leer"
 expect 0 "AK-ST1-3 Workflows dieses Repos" scripts/check-workflows.sh
 
+# ---- WP-PA7 (AK-PA7-1): setup.sh nennt für den Probelauf auf localhost den Port in PUBLIC_URL ----
+# Der Passkey ist an die Herkunft (Schema, Name, Port) gebunden; ohne Port in PUBLIC_URL scheitert die Einrichtung im Browser.
+setup_dry() { env LH_MODE=3 LH_IMAGE=lab-hub:test "$@" deploy/setup.sh --dry-run --non-interactive; }
+expect 0 "AK-PA7-1 setup.sh Trockenlauf localhost" setup_dry LH_DOMAIN=localhost LH_BACKEND_PORT=18480
+contains "http://localhost:18480" "AK-PA7-1 localhost: PUBLIC_URL enthält den Port des Backends"
+expect 0 "AK-PA7-1 setup.sh Trockenlauf mit Domain hinter TLS-Proxy" setup_dry LH_DOMAIN=hub.example.org LH_HTTPS=yes LH_BACKEND_PORT=18480
+contains "https://hub.example.org " "AK-PA7-1 Domain hinter Proxy: PUBLIC_URL ohne Backend-Port"
+
+# ---- WP-PA7 (AK-PA7-1): Secret-Dateien der Compose-Betriebsart sind für den Container-Nutzer (UID 10001) lesbar ----
+# Auf Linux bleiben Besitzer und Modus der Host-Datei im Container erhalten; mit 0600 des Host-Nutzers scheitert der Start mit
+# "Secret-Datei für DB_PASSWORD nicht lesbar". Das Verzeichnis bleibt 0700 und schützt die Dateien vor anderen Nutzern des Rechners.
+mkdir -p "$W/setup-copy"
+cp -R deploy "$W/setup-copy/deploy"
+rm -rf "$W/setup-copy/deploy/compose/secrets" "$W/setup-copy/deploy/.env"
+env LH_MODE=3 LH_IMAGE=lab-hub:test LH_DOMAIN=localhost LH_BACKEND_PORT=18480 LH_START=no LH_PROCEED=y "$W/setup-copy/deploy/setup.sh" --non-interactive > "$W/out" 2>&1 || { fail "AK-PA7-1 setup.sh (Kopie) läuft durch"; sed 's/^/     /' "$W/out" >&2; }
+# shellcheck disable=SC2012  # ls reicht für den Modus einer Datei
+mode() { ls -ld "$1" | cut -c1-10; }
+want_mode() { if [ "$(mode "$2")" = "$3" ]; then ok "$1"; else fail "$1 (ist $(mode "$2"), erwartet $3)"; fi; }
+want_mode "AK-PA7-1 Secret-Verzeichnis nur für den Besitzer" "$W/setup-copy/deploy/compose/secrets" "drwx------"
+for f in lh_db_password lh_secret_key; do want_mode "AK-PA7-1 $f für UID 10001 lesbar" "$W/setup-copy/deploy/compose/secrets/$f" "-rw-r--r--"; done
+
 if [ "$fails" != 0 ]; then echo "test-ci-gates: $fails Fehler" >&2; exit 1; fi
 echo "test-ci-gates: ok"

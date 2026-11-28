@@ -14,6 +14,8 @@ deploy/setup.sh --save-generated ~/labhub-secrets   # erzeugte Geheimnisse zusä
 deploy/update.sh --image ghcr.io/ORG/lab-hub:1.2.0
 ```
 
+**Anleitung für einen neuen Rechner (Docker installieren, bauen, einrichten, erste Anmeldung, Sicherung, Platzbedarf): `docs/ANLEITUNG-ZIELRECHNER.md`.** Unter Linux sind die Secret-Dateien in `deploy/compose/secrets/` `0644` in einem `0700`-Verzeichnis (die Container laufen als UID 10001), bei `localhost` steht der Port in `PUBLIC_URL`.
+
 Backend ist stateless: mehrere Repliken, rollierendes Update (start-first), Migration nur im Migrationsjob, `/ready` = 503 bis das Schema passt. Vor jedem Update die Datenbank sichern.
 
 **Status:** Betriebsart 3 (Compose) am 2026-10-30 real mit Docker (colima) getestet: setup.sh non-interaktiv, Stack-Start (db, migrate, backend), `/health` und `/ready` 200, `update.sh` mit Image-Wechsel (Migration, Neuerstellung, `/ready`). Gefunden und behoben: lokales Image ohne Registry ließ `update.sh` am Pull scheitern (jetzt Rückfall auf lokales Image); Port/Adresse des Backends sind per `LH_BACKEND_PORT`/`LH_BACKEND_BIND` setzbar und stehen in `.env`. Swarm (Betriebsarten 1 und 2) ist weiterhin ungetestet (`docker swarm init` auf dem gemeinsam genutzten colima bewusst nicht ausgeführt). Skripte sind mit `shellcheck` geprüft. Das Image baut (`swift:6.2`), und `migrate` (Advisory Lock, Exit-Code 0/1), `DB_*`/`_FILE`, `/ready` sind lokal gegen Postgres 17 getestet (Docker, read-only Root, Secret-Datei). Variablen: DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD(_FILE), DB_TLS (disable|require), SECRET_KEY(_FILE), AUTO_MIGRATE, PUBLIC_URL, WEBAUTHN_RP_ID.
@@ -34,6 +36,7 @@ deploy/restore.sh /srv/backup/labhub-2026-11-17 --db labhub_neu --objects /srv/l
 - `--verify-only` stellt in eine Wegwerf-Datenbank (`--scratch-db`, braucht CREATE DATABASE) und ein temporäres Verzeichnis her, vergleicht und räumt auf. Das ist der Test-Restore; regelmäßig (z. B. wöchentlich) per Cron/Timer ausführen und den Exit-Code überwachen.
 - **Schlüssel getrennt sichern.** `SECRET_KEY` / Master-Key (SecretBox) ist bewusst nicht Teil der Sicherung und darf nie ins Archiv. Ohne ihn sind verschlüsselte Werte (Mail-Passwörter, Import-Tokens) nach dem Restore unlesbar. Eigene, zugriffsbeschränkte Ablage (z. B. `setup.sh --save-generated`), mit Hinweis, welcher Sicherungsstand dazugehört.
 - Sicherungsverzeichnis wie Nutzerdaten behandeln (enthält Dokumente und Datenbank): Rechte 700, verschlüsselter, externer Speicherort.
+- Messung mit großem erfundenem Bestand auf einem laufenden Stack: `scripts/pa7-restore-probe.sh` (Zahlen: `docs/ANLEITUNG-ZIELRECHNER.md`, Abschnitt 8; verlangt `DMS_OCR_ENABLED=false`).
 - Automatischer Test: `scripts/backup-restore-test.sh` (synthetische Daten, Wegwerf-Datenbanken `<TEST_DB_NAME>_src/_restore/_verify`; Teil von `scripts/ci.sh`).
 
 ## OCR-Worker (WP-O2)

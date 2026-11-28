@@ -96,6 +96,9 @@ BACKEND_PORT=8080; BACKEND_BIND=127.0.0.1
 if [ "$MODE" = 3 ]; then
   ask BACKEND_PORT "Lokaler Port des Backends" "$BACKEND_PORT" LH_BACKEND_PORT; [[ "$BACKEND_PORT" =~ ^[0-9]+$ ]] || die "Port: Zahl"
   ask BACKEND_BIND "Lokale Adresse des Backends" "$BACKEND_BIND" LH_BACKEND_BIND; [[ "$BACKEND_BIND" =~ ^[0-9A-Za-z.:-]+$ ]] || die "Adresse ungültig"
+  # WP-PA7: Probelauf auf localhost ohne Proxy (z. B. per SSH-Tunnel): der Browser ruft das Backend selbst auf, die Herkunft des Passkeys
+  # enthält den Port. Hinter einem TLS-Proxy mit echter Domain bleibt PUBLIC_URL ohne Backend-Port.
+  if [ "$DOMAIN" = "localhost" ] && [ "$SCHEME" = http ] && [ "$BACKEND_PORT" != 80 ]; then PUBLIC_URL="$PUBLIC_URL:$BACKEND_PORT"; fi
 fi
 
 DB_PASSWORD_SOURCE="erzeugt"
@@ -127,7 +130,9 @@ fi
 
 if [ "$MODE" = 3 ]; then
   mkdir -p "$HERE/compose/secrets"; chmod 700 "$HERE/compose/secrets"
-  for f in lh_db_password lh_secret_key; do [ ! -e "$HERE/compose/secrets/$f" ] || die "compose/secrets/$f existiert bereits"; cp "$TMP/$f" "$HERE/compose/secrets/$f"; chmod 600 "$HERE/compose/secrets/$f"; done
+  # WP-PA7: Auf Linux bleiben Besitzer und Modus der Host-Datei im Container erhalten; die Container laufen als UID 10001 und könnten 0600-Dateien
+  # des Host-Nutzers nicht lesen ("Secret-Datei … nicht lesbar"). Deshalb 0644 in einem Verzeichnis, das nur der Besitzer betreten darf (0700).
+  for f in lh_db_password lh_secret_key; do [ ! -e "$HERE/compose/secrets/$f" ] || die "compose/secrets/$f existiert bereits"; cp "$TMP/$f" "$HERE/compose/secrets/$f"; chmod 644 "$HERE/compose/secrets/$f"; done
 else
   docker info 2>/dev/null | grep -q 'Swarm: active' || die "Docker Swarm ist nicht aktiv (docker swarm init)"
   for f in lh_db_password lh_secret_key; do

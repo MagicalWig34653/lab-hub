@@ -56,7 +56,7 @@ Einstufung: **B** blockiert die Ablösung, **P** hängt vom Probelauf ab, **S** 
 | 0 | ST1 CI | Agent | Prüfungen laufen auf GitHub |
 | 1 | PA1 Import gegen **echte paperless-ngx im lokalen Container mit erfundenen Dokumenten** (Export und API) + Sicherheitsprüfung | Agent | Abweichungen behoben; geprüfte Paperless-Version dokumentiert (**erledigt 27.11.2026: paperless-ngx 3.5.1, API-Version 10**, `docs/handoff/WP-PA1.md`) |
 | 2 | PA2 Import in der PWA | Agent | Trockenlauf und Bericht ohne Kommandozeile (**erledigt 28.11.2026**, `docs/handoff/WP-PA2.md`) |
-| 3 | PA7 Betrieb (Teil Probelauf: Zielrechner, Backup, Speicherbedarf) | Agent bereitet vor, **Nutzer setzt auf** | Hub läuft beim Nutzer, Restore erprobt |
+| 3 | PA7 Betrieb (Teil Probelauf: Zielrechner, Backup, Speicherbedarf) | Agent bereitet vor (**Anleitung und Messung erledigt 28.11.2026**: `docs/ANLEITUNG-ZIELRECHNER.md`, `docs/handoff/WP-PA7.md`), **Nutzer setzt auf** | Hub läuft beim Nutzer, Restore erprobt |
 | 4 | **PA3 Probelauf** (Trockenlauf gegen die echte Instanz per API-Lese-Token, erst nach PA1 und PA2) + Inventur der Eingangswege | **Nutzer** | Bericht mit Anzahlen liegt vor; Lückenliste bewertet |
 | 5 | PA4, PA5, PA6, F3, ST4 | Agent | Lücken der Stufe B/P geschlossen |
 | 6 | PA7 Rest | Agent/Nutzer | Zeitplan für Prüflauf, Aufräumen, Aktualisierung erprobt |

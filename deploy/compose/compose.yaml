@@ -1,6 +1,6 @@
 # Einzelner Docker-Host ohne Swarm: Postgres + Migration + Backend. Start über deploy/setup.sh oder:
 #   docker compose --env-file deploy/.env -f deploy/compose/compose.yaml up -d
-# Secrets liegen als Dateien (Modus 0600) in deploy/compose/secrets/ (von setup.sh erzeugt, nicht im Git).
+# Secrets liegen als Dateien (Modus 0644 in einem 0700-Verzeichnis, damit der Container-Nutzer UID 10001 sie lesen kann) in deploy/compose/secrets/ (von setup.sh erzeugt, nicht im Git).
 name: ${LABHUB_STACK:-labhub}
 services:
   db:
@@ -59,6 +59,8 @@ services:
       DMS_ALLOW_INTERNAL_TARGETS: ${DMS_ALLOW_INTERNAL_TARGETS:-false}
       DMS_MAIL_HOST_ALLOWLIST: ${DMS_MAIL_HOST_ALLOWLIST:-}
       DMS_MAIL_PORT_ALLOWLIST: ${DMS_MAIL_PORT_ALLOWLIST:-}
+      # WP-PA7: false = Uploads reihen keinen OCR-Job ein (z. B. während eines großen Imports oder einer Messung); Standard an
+      DMS_OCR_ENABLED: ${DMS_OCR_ENABLED:-true}
       SECRET_KEY_FILE: /run/secrets/lh_secret_key
     secrets: [lh_db_password, lh_secret_key]
     read_only: true
@@ -99,6 +101,7 @@ services:
       DMS_MAIL_PORT_ALLOWLIST: ${DMS_MAIL_PORT_ALLOWLIST:-}
       DMS_TENANT_QUOTA_BYTES: ${DMS_TENANT_QUOTA_BYTES:-}
       DMS_DEFAULT_RETENTION_YEARS: ${DMS_DEFAULT_RETENTION_YEARS:-}
+      DMS_OCR_ENABLED: ${DMS_OCR_ENABLED:-true}
       OCR_TMPDIR: /tmp
       # WP-R6c: PDF-Erzeugung der Belege (Typst, qpdf, Schriften liegen im Worker-Image); Arbeitsverzeichnis auf tmpfs
       RENDER_TMPDIR: /tmp
