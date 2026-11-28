@@ -265,4 +265,15 @@ test('WP-D5b the integrity report shows what the orphan sweep removed', async ({
 	await expect(orphans.getByTestId('orphans-staging')).toHaveText('1');
 	await expect(orphans.getByTestId('orphans-pending')).toHaveText('3');
 	await expectNoSeriousA11y(page);
+	// pictures for the handoff: only with SCREENSHOT_DIR set
+	const dir = process.env.SCREENSHOT_DIR;
+	if (!dir) return;
+	for (const [device, width, height] of [['desktop', 1280, 900], ['phone', 390, 844]] as const) {
+		await page.setViewportSize({ width, height });
+		for (const mode of ['light', 'dark'] as const) {
+			await page.emulateMedia({ colorScheme: mode });
+			await page.evaluate(() => window.scrollTo(0, 0));
+			await page.screenshot({ path: `${dir}/9-orphans-${device}-${mode}.png`, fullPage: true, animations: 'disabled' });
+		}
+	}
 });
